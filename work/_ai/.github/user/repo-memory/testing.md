@@ -1,0 +1,4 @@
+- project1 tests live in `project1/tests/{unit,spark,sql}`; commands per tier in project1/docs/ai/project.md. Run from `Work\project1` with `-t .` (tests is a package). Verify counts with a direct terminal run (execution subagent once misreported "0 tests").
+- 2026-10-23: unit 38/38 (dataset 23, BOM 15), spark 12/12, sql 12/12.
+- project1 Docker tests: use `project1/local/test.ps1 -Tier All` from PowerShell; it validates/builds, waits for SQL health, creates a throwaway password, and cleans up with plain `down`. SQL has no persistent volume (data is ephemeral); runner uses a read-only bind mount; never use `down -v` without approval.
+- Maven TLS is intercepted: runner build mounts Debian /etc/ssl/certs as build context `hostca` for the Delta jar download.

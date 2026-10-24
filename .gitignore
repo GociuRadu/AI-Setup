@@ -1,0 +1,12 @@
+# Whitelist: only the AI setup is versioned; projects and personal files never are.
+/*
+!/.gitignore
+!/README.md
+!/CLAUDE.md
+!/HOW-TO-USE.md
+!/.claude/
+!/_ai/
+!/work/
+/work/personal/
+.claude/settings.local.json
+**/.env*

@@ -1,0 +1,5 @@
+- 2026-10-24: one `lead` agent (no model, runs on the picked model, writes logic code); `lead-opus`, `implementer` and skill `run-tests` removed; new agent `tester`; helpers on Haiku or GPT-6 Luna; `scout` has web (public docs only). `ai.config.json` and `sync-config.ps1` must match.
+- 2026-10-23 refactor: 7 skills (analyze, review, bug, run-tests, data, confluence, ponytail); formats inline in global.instructions.md; no templates/common, debt.md, graphify. Backup: ~\Backups\Work-ai-refactor-20261023.zip.
+- Hook command-approval.json: edit with replace_string_in_file (raw). multi_replace decodes JSON escapes and breaks `\\` in the hook. Test by piping {tool_input:{command}} JSON into `pwsh -Command $hook` (script file in $env:TEMP).
+- Obsidian backup: `_ai/scripts/sync-to-vault.ps1` -> ~\ObsidianVault\Me\Code\Setup\work (anonymized: project1=project1, project2=project2; no code; edit its $rules for new names). structure.md in Setup is hand-written. Vault backup zip: ~\Backups\Vault-Setup-20261024.zip.
+- Only project2 is a Git repo; _ai and project1 are not (back up before deleting). `Dockerfile copy` is tracked in project2 Git.
