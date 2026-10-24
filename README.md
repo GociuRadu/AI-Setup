@@ -13,7 +13,7 @@ Claude Code setup for a multi-project workspace (`projects`): global rules, an o
 flowchart LR
   U[Request] --> M[Main session<br/>CLAUDE.md + global rules]
   M -->|small task| D[Do it directly]
-  M -->|logic in 3+ files, schema, risky path| L[lead skill]
+  M -->|plan, risky path, 5+ files| L[lead skill]
   M -->|workflow| S[analyze / review / bug / data / confluence]
   L --> SC[scout] & W[worker] & T[tester] & R[reviewer]
   S & L --> P[project docs/ai: context, memory, reports]

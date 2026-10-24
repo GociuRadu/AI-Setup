@@ -12,8 +12,9 @@ Shared Claude Code setup for `projects`. Rules, agents and skills live in `.clau
 
 | Need | Use | Output |
 |---|---|---|
-| Small question or single-file edit | default chat | chat |
-| Logic changes in 3+ files, shared config/schema, risky path (loads, migrations, auth); not mechanical renames | `lead` (starts on its own, or `/lead`) | changes + `context.md` |
+| Question | default chat | chat |
+| Small change in a few files, renames | default chat (runs tests, updates `context.md`/`memory.md`) | changes |
+| Plan or design, risky path (loads, migrations, auth, shared config/schema), wide work (5+ files, research) | `lead` (starts on its own, or `/lead`) | plan or changes + `context.md` |
 | Explain, document, write up a decision | `/analyze <scope>` | `docs/ai/reports/…-analyze-…md` |
 | Review a change | `/review [files]` | chat |
 | Audit a project or folder | `/review audit` | `docs/ai/reports/…-review-…md` |

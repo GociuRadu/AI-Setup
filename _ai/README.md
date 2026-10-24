@@ -25,7 +25,7 @@ Project module: `<project>/CLAUDE.md` (what to read), `docs/ai/` (`project.md`, 
 |---|---|---|
 | Global rules | every session (imported by root `CLAUDE.md`) | links ponytail for code style |
 | Python/SQL rules | when a `.py`/`.sql` file is in scope (`.claude/rules/`) | global rules |
-| `lead` | logic changes in 3+ files, shared config/schema, risky path | all four agents; global Agents section |
+| `lead` | plan/design, risky path (loads, migrations, auth, shared config/schema), wide work (5+ files) | all four agents; global Agents section |
 | `review` | `/review` or a review request | `project.md` Review focus; its checklist is reused by `reviewer` |
 | `bug` | a failure report | `memory.md` Bugs, `tester` |
 | `data` | data model/pipeline/notebook work | its own `model/`, `pipeline/`, `spark/` files; `project.md` Conventions |

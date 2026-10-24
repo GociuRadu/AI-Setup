@@ -9,6 +9,7 @@ Setup/
 ├── structure.md
 └── work/
     ├── HOW-TO-USE.md
+    ├── apply-from-vault.ps1         # vault -> workspace: agents, instructions, skills, hooks
     ├── Work.code-workspace          # folders: _ai, project1, project2
     ├── _ai/
     │   ├── README.md, SOURCES.md

@@ -79,7 +79,9 @@ Never lose existing content: merge, don't overwrite; on conflicts show a diff ta
 
 `lead` runs on the session model (Opus or Sonnet) and delegates to Haiku helpers: `scout` (read-only search in files and the public web), `worker` (mechanical edits only; `lead` writes logic code itself), `tester` (runs local tests, writes only its report) and `reviewer` (read-only review). Helpers have no Git, MCP or delegation; only `tester` has a terminal. Helper models: `model:` in `.claude/agents/*.md`.
 
-- Before planning or editing a task that changes logic in 3+ files, a shared config/schema/interface or a risky path (including plan-only requests), the main session first invokes the `lead` skill with the Skill tool. Mechanical edits (renames, repeated replacements) stay in the main session, whatever the file count. To verify code, use the `tester` agent.
+- The main session first invokes the `lead` skill (Skill tool) for: plan-only or design requests; risky paths (data loads, migrations, auth, a shared config/schema/interface); and wide work (research across many files, 5+ files, or work worth splitting across helpers). Small logic changes in a few files and mechanical edits stay in the main session.
+- Every code change, with or without `lead`: run the focused check yourself, update `context.md`, and give every fixed bug a `memory.md` Bugs row.
+- "Run the tests" or a full-suite run always goes to the `tester` agent, which saves the report.
 - Delegate only when it saves context or cost (wide search, long files or logs, independent multi-file work). Small tasks stay with the caller: helpers start cold.
 - Parallel: read-only work, edits on disjoint files, independent test suites; at most 4 helpers at once. Sequential: same files, one step needs another's output, or order matters (schema before code).
 - Helpers return condensed results (paths, findings, change summary), never raw dumps. Failed check or review: fix and recheck at most 2 times, then report the blocker.

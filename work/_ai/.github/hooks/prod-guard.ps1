@@ -1,5 +1,5 @@
 # PreToolUse guard: hard-blocks tool calls that target production or destroy data, even when a prompt is approved.
-# Input: hook JSON on stdin (tool_name, tool_input). Block = exit 2 with the reason on stderr plus a deny decision on stdout.
+# Input: hook JSON on stdin. Block = exit 2 with the reason on stderr plus a deny decision on stdout.
 # Extra patterns (real prod hostnames, one regex per line, # comments): prod-markers.txt next to this script.
 $ErrorActionPreference = 'Stop'
 try {
@@ -22,7 +22,13 @@ function Add-Values($node) {
         elseif ($p.Value -is [System.Management.Automation.PSCustomObject]) { Add-Values $p.Value }
     }
 }
-Add-Values $payload.tool_input
+# Copilot preToolUse sends toolName/toolArgs (args may arrive as a JSON string); the PreToolUse alias sends tool_name/tool_input.
+$toolName = if ($payload.toolName) { $payload.toolName } else { $payload.tool_name }
+$toolArgs = if ($null -ne $payload.toolArgs) { $payload.toolArgs } else { $payload.tool_input }
+if ($toolArgs -is [string]) {
+    try { $toolArgs = $toolArgs | ConvertFrom-Json } catch { $values.Add($toolArgs); $toolArgs = $null }
+}
+Add-Values $toolArgs
 if ($values.Count -eq 0) { exit 0 }
 $text = $values -join "`n"
 
@@ -42,8 +48,10 @@ if (Test-Path $markers) {
 
 foreach ($name in $rules.Keys) {
     if ($text -match $rules[$name]) {
-        $reason = "prod-guard blocked $($payload.tool_name): $name. Production and data-loss actions are user-run only (global rules, Hard stops)."
-        @{ hookSpecificOutput = @{ hookEventName = 'PreToolUse'; permissionDecision = 'deny'; permissionDecisionReason = $reason } } |
+        $reason = "prod-guard blocked ${toolName}: $name. Production and data-loss actions are user-run only (global rules, Hard stops)."
+        # Exit 2 denies on its own; the JSON carries the reason (top level for Copilot, hookSpecificOutput for the Claude format).
+        @{ permissionDecision = 'deny'; permissionDecisionReason = $reason
+           hookSpecificOutput = @{ hookEventName = 'PreToolUse'; permissionDecision = 'deny'; permissionDecisionReason = $reason } } |
             ConvertTo-Json -Compress -Depth 3
         [Console]::Error.WriteLine($reason)
         exit 2
