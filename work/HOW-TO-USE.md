@@ -76,6 +76,16 @@ Run these from the listed project directory and shell. Verification states are f
 
 For individual project1 tiers, use `-Tier Unit`, `-Tier Spark`, or `-Tier Sql`. The script creates a throwaway SQL password only in process environment and uses plain `docker compose down`; SQL data is ephemeral, and `Data/excels` is not mounted into the runner. For project2 setup, run `uv sync` from the project2 directory only when dependencies need installation; it was not needed for these verified tests. The project2 API start command above was not run; use only confirmed isolated settings and never call the processing trigger; stop an approved run with `Ctrl+C`.
 
+## Update from the personal setup
+
+Skills, helper agents, `python`/`sql` instructions and hooks are maintained in the personal setup and arrive in the Obsidian vault (`Me\Code\Setup\work`). To install them here:
+
+1. Wait until Obsidian has synced.
+2. Preview: `& "<vault>\Me\Code\Setup\work\apply-from-vault.ps1" -Workspace "<Work folder>" -WhatIf`, then run it without `-WhatIf`. It copies only agents, instructions, skills and hooks, restores `.` names, never deletes, and keeps your `prod-markers.txt`.
+3. First time only: put the real production server names in `_ai\.github\hooks\prod-markers.txt` (one regex per line; never in the vault).
+4. Reload VS Code. Check: ask the agent to run `sqlcmd -S <a prod name>`; it must be refused without a prompt.
+5. Only then run `sync-to-vault.ps1`; running it first overwrites the update in the vault.
+
 ## Troubleshooting
 
 | Symptom | Try |

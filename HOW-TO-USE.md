@@ -69,7 +69,7 @@ Single source: [.claude/instructions/global.instructions.md](.claude/instruction
 
 1. Ask for it explicitly ("change the AI setup: …").
 2. Edit only in `.claude/` (rules, agents, skills) and `_ai/`; record external sources in `_ai/SOURCES.md`.
-3. Run `node _ai/scripts/build-work.mjs` so the work setup (and the Obsidian copy) gets the same skill changes; details in [_ai/README.md](_ai/README.md).
+3. Run `node _ai/scripts/build-work.mjs` so the work setup (and the Obsidian copy) gets the same skill changes; details in [_ai/README.md](_ai/README.md). At work, apply it with [work/apply-from-vault.ps1](work/apply-from-vault.ps1) (see [work/HOW-TO-USE.md](work/HOW-TO-USE.md), "Update from the personal setup").
 4. Start a new Claude Code session in `projects`, then commit and push (`GociuRadu/AI-Setup`).
 
 ## Troubleshooting
