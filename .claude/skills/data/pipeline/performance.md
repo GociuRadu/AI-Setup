@@ -4,7 +4,7 @@ Read when volume is medium or large, when a load is slow, or when the user menti
 
 ## 1. Size first
 
-Ask for or draft a user-run SIZE_CHECK: rows, GB, average row bytes, widest columns, key distribution and skew, partition or file layout, change rate per day.
+Run a SIZE_CHECK on local/DEV: rows, GB, average row bytes, widest columns, key distribution and skew, partition or file layout, change rate per day.
 
 | Tier | Rough size | Consequence |
 |---|---|---|
@@ -36,10 +36,10 @@ Estimate wall time as rows / (rows per second per writer x writers). Take rows p
 - One writer connection per Spark partition. Reduce partitions with coalesce(n) before the write, where possible without a shuffle. n is the connection budget, usually 4 to 16 and capped by the target tier. Raise it only while throughput still scales.
 - Batch size: start at 10,000 to 50,000 rows per batch. For columnstore targets, batches of at least 102,400 rows (ideally about 1M) go straight to compressed rowgroups and skip the delta store.
 - Bulk path: the Microsoft JDBC driver supports `useBulkCopyForBatchInsert=true` (verify driver version and column types on DEV). The Spark SQL connector with `tableLock` and `batchsize` is another option. Verify that it exists on the pool before authoring anything that depends on it. If existing project loaders use the generic jdbc format on purpose (see `project.md`), keep it unless a measured gain is proven on DEV.
-- Azure SQL Database is always fully logged. The usual ceiling is log rate governance. Draft a user-run check of `sys.dm_db_resource_stats` (avg_log_write_percent) and of the `LOG_RATE_GOVERNOR` waits. If log write sits near 100% while the writers wait, more parallelism does not help. Scale up for the load (SCALE_UP), or reduce the transaction size and row width.
+- Azure SQL Database is always fully logged. The usual ceiling is log rate governance. Check `sys.dm_db_resource_stats` (avg_log_write_percent) and the `LOG_RATE_GOVERNOR` waits. If log write sits near 100% while the writers wait, more parallelism does not help. Scale up for the load (SCALE_UP), or reduce the transaction size and row width.
 - Bound transaction size. Never one giant MERGE or one giant INSERT for tens of millions of rows (log growth, lock escalation, long rollback). For atomic publication of a big batch, use staging plus SWITCH or partition SWITCH (metadata-only). Otherwise MERGE or INSERT in key-range slices of about 1M to 5M rows, each slice in its own transaction, with the visible swap at the end.
 - Partitioned targets: chunk i loads its own staging table or partition. Staging must match the target structure, indexes and filegroup, and carry a CHECK on the partition range. Switching is then instant and per partition.
-- After the load: UPDATE STATISTICS on the target (do not rely on auto-update for a freshly loaded big table). Rebuild or reorganize columnstore indexes where rowgroups are small. Draft a user-run rowgroup quality check.
+- After the load: UPDATE STATISTICS on the target (do not rely on auto-update for a freshly loaded big table). Rebuild or reorganize columnstore indexes where rowgroups are small. Check rowgroup quality.
 - Authentication: a token expires during a long write. Fetch it per chunk on the driver, never print it, and keep each chunk short.
 - If the move is plain, with no transform, dedupe or cast, a pipeline Copy activity with parallelCopies and partition options (dynamic range or physical partitions) is often cheaper and faster than Spark. Use Spark when the data is transformed.
 

@@ -5,6 +5,7 @@ Pick the case per table, first match wins. A table can mix cases (an entity with
 | # | Case | Pick when | Grain example | Key | Data |
 |---|---|---|---|---|---|
 | 01 | staging | lands here before any check | one row per source row per run | none (the pipeline validates) | rebuild |
+| 02 | entity | none of the above: a business thing | one row per customer | surrogate + unique natural key | keep |
 | 03 | lookup | a short list of codes | one row per status | the code | keep: create if missing, values applied every deploy |
 | 04 | link | many-to-many between two things | one row per item per warehouse | both ids | keep |
 | 05 | tree | parent-child inside one table | one row per node | surrogate + unique natural + parent_id | keep |
@@ -12,7 +13,6 @@ Pick the case per table, first match wins. A table can mix cases (an entity with
 | 07 | event | something that happened, never updated | one row per event | BIGINT id + the source event id | keep |
 | 08 | fact | numbers summed in reports at a grain | one row per item per site per day | the grain columns | rebuild when rebuilt from core, keep for state snapshots |
 | 09 | flexible | attributes vary row to row | one row per product, attributes in JSON | like an entity | keep |
-| 02 | entity | none of the above: a business thing | one row per customer | surrogate + unique natural key | keep |
 
 Data: rebuild = may be dropped any time and reloaded fully. Keep = must survive, so the guard is on and changes go through migrations ([decisions](./decisions.md) change_with_data).
 

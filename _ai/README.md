@@ -18,6 +18,21 @@ Claude Code setup for the `projects` workspace. User guide: [HOW-TO-USE.md](../H
 
 Project module: `<project>/CLAUDE.md` (what to read), `docs/ai/` (`project.md`, `context.md`, `memory.md`, `reports/`), `code/` (Git checkout).
 
+## How the pieces connect
+
+| Piece | Loaded | Depends on |
+|---|---|---|
+| Global rules | every session (imported by root `CLAUDE.md`) | links ponytail for code style |
+| Python/SQL rules | when a `.py`/`.sql` file is in scope (`.claude/rules/`) | global rules |
+| `lead` | on 3+ files, shared config/schema, risky path | all four agents; global Agents section |
+| `review` | `/review` or a review request | `project.md` Review focus; its checklist is reused by `reviewer` |
+| `bug` | a failure report | `memory.md` Bugs, `tester` |
+| `data` | data model/pipeline/notebook work | its own `model/`, `pipeline/`, `spark/` files; `project.md` Conventions |
+| `analyze`, `confluence`, `ponytail` | on request or by description | global rules |
+| Agents | started by `lead` or the main session | read `project.md` (Commands, Review focus) |
+
+Rule precedence: hard stops > global rules > project `project.md`/repo rules (only stricter) > skill defaults.
+
 ## Maintenance
 
 - Add a skill: `.claude/skills/<name>/SKILL.md`. Record external sources in `SOURCES.md`.

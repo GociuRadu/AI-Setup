@@ -20,4 +20,4 @@
 
 ## Integration guard
 
-Tier 3 harnesses refuse any host or database other than the local test container (the [global rules](../../instructions/global.instructions.md): tests never reach a connected system), and include one test that proves the refusal.
+Integration harnesses (local test container) refuse any host or database other than the local test container (the [Python rules](../../instructions/python.instructions.md): tests never reach a connected system), and include one test that proves the refusal.

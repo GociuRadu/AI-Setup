@@ -16,7 +16,7 @@ Prove the cause before choosing the fix. Local and DEV work runs without asking;
 5. Wrong data: compare counts across stages, key uniqueness, NULL keys, casts, join fan-out. Run the queries yourself on local/DEV; output counts and masked values only. No PROD queries; ask for logs or audit counts instead.
 6. State the best hypothesis, its code path and one cheap discriminating check. After two failed hypotheses, re-check the symptom and input.
 7. Once proven, show Root cause, Evidence, minimal Fix, Data repair (or none), Risk. Apply the fix unless the project marks the item as needing owner confirmation; then propose it and stop.
-8. Run the focused local check. Data repair on local/DEV: run it with a rollback ready; production repair is a hard stop and stays "not run".
+8. Run the focused local check yourself; for the project's test suite use the `tester` agent. Data repair on local/DEV: run it with a rollback ready; production repair is a hard stop and stays "not run".
 9. Add one row to the Bugs table in the project's `docs/ai/memory.md`: date, symptom, cause, fix/status. If the project keeps a known-issues catalog (named in `project.md`), follow its rule instead (e.g. row only when fixed). No code bodies or customer data. If blocked, say so.
 10. Production incident or wrong data sent downstream: also write `docs/ai/reports/YYYY-MM-DD-bug-<topic>.md` from the [incident template](templates/bug.md); reply with path and one-line summary.
 

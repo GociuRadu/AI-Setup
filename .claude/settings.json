@@ -17,16 +17,19 @@
       "Read(**/.env)",
       "Read(**/local.env)",
       "Read(**/.test.env)",
-      "Read(**/.env.development)",
-      "Read(**/.env.staging)",
-      "Read(**/.env.production)",
-      "Read(**/.env.monitoring)",
+      "Read(**/.env.*)",
       "Bash(cat *.env*)",
       "Bash(type *.env*)",
       "Bash(Get-Content *.env*)",
       "Bash(head *.env*)",
       "Bash(tail *.env*)",
       "Bash(less *.env*)",
+      "Bash(more *.env*)",
+      "Bash(grep *.env*)",
+      "Bash(rg *.env*)",
+      "Bash(sed *.env*)",
+      "Bash(awk *.env*)",
+      "Bash(*Select-String*.env*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
       "Bash(git push * --force*)",
@@ -58,7 +61,9 @@
       "mcp__hostinger-wordpress__multi-execute",
       "mcp__hostinger-wordpress-sites__execute_site_tool",
       "mcp__hostinger-billing__execute",
-      "mcp__hostinger-billing__multi-execute"
+      "mcp__hostinger-billing__multi-execute",
+      "mcp__hostinger-reach__execute",
+      "mcp__hostinger-reach__multi-execute"
     ]
   }
 }

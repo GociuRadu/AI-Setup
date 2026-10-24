@@ -70,7 +70,7 @@ Run these from the listed project directory and shell. Verification states are f
 | `Work\project1` | PowerShell | `wsl -d Debian -u root -- docker logs --tail 80 project1-local-sqlserver-1` | Debug SQL Server startup | Used; startup recovered, no explicit error in the inspected tail |
 | `Work\project2` | PowerShell | `uv run --no-sync pytest tests/unit -q -p no:cacheprovider` | Run retained project2 example tests | Passed after test cleanup: 3/3; two Pydantic deprecation warnings |
 | `Work\project2` | PowerShell | `uv run --no-sync ruff check --select E4,E7,E9,F backend_app/app_functions/app_utils.py` | Check changed module syntax/imports/names | Passed |
-| `Work\project2` | PowerShell | `uv sync` | Install project2 dependencies | Not run; existing environment was ready and install may contact Artifactory |
+| `Work\project2` | PowerShell | `uv sync` | Install project2 dependencies | Not run; existing environment was ready and install may contact the internal package index |
 | `Work\project2` | PowerShell | `uv run python -m backend_app.app` | Start the project2 API with confirmed isolated settings | Not run; app startup can initialize external clients; never call the processing trigger; stop an approved foreground run with `Ctrl+C` |
 | `Work` | PowerShell | `& '.\_ai\scripts\sync-config.ps1' -WhatIf` | Check AI model/ponytail sync targets | Passed: all four agents and global instructions unchanged |
 

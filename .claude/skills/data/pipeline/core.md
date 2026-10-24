@@ -2,7 +2,7 @@
 
 Shared by every case. Read the sections the case needs, not the whole file.
 
-## Recurring frame (02, 03, 05, 06)
+## Recurring frame (02, 05; 03 and 06 reuse its blocks)
 
 START -> CHECK -> SKIP? -> READ -> CLEAN_CAST -> STAGE -> VALIDATE -> PUBLISH -> FINISH. Any failure -> ERROR.
 
@@ -77,7 +77,7 @@ Rename to snake_case. Trim. Empty text -> NULL. Drop fully empty rows and count 
 - Fixed times for daily or a few times a day. Every N minutes for 5-60 minutes, with a start time of now (never in the past, or the scheduler replays missed intervals).
 - File lands: read a file only when complete (done marker or stable size). Each run takes every unprocessed file. A scheduled backstop catches missed triggers. Success -> processed/. Bad file (parse, cast, validate) -> failed/. A passing failure (DB down) leaves the file for the next run.
 
-## Prerequisites checklist (draft checks for the user, per case)
+## Prerequisites checklist (checks per case)
 
 All cases: a network path to each source, layers, a service identity with only the needed rights, parameters per environment. Recurring cases: run log, failed-run alert, freshness or staleness check. 04: chunk list in the run log. 05 and 03 at 5-60 minutes: compute that starts in seconds. 06: always-on compute, heartbeat. API sources: secret store. File triggers: trigger, backstop schedule, processed/ and failed/. Privileged operations (truncate, swap, build key) are wrapped once by an admin. The identity only gets the right to run them. Missing items: show the script. The user creates it.
 

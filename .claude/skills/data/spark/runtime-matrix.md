@@ -7,7 +7,7 @@
 
 Local runner: `pyspark==3.5.*`, `delta-spark==3.2.*`, Java 17, Python 3.11. Local tests do not cover `mssparkutils`, linked services, Entra tokens, pipeline orchestration, Azure SQL limits or performance.
 
-Read the pool values in one read-only DEV cell (user-run) and record them:
+Read the pool values in one read-only DEV cell and record them:
 
 ```python
 import sys

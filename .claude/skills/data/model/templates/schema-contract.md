@@ -10,7 +10,7 @@ One contract per table, kept next to its DDL (comment header) and enforced by th
 | Cardinality | per relationship: 1:1, 1:N, N:1; allowed fan-out after joins | supplier -> path: N:1 |
 | Duplicates | rule for identical rows and same-key/different-content rows | identical: drop and count; same key: fail |
 
-Check SQL (user-run on DEV, or in the local test container; bound reads):
+Check SQL (run on DEV or in the local test container; bound reads):
 
 ```sql
 -- Key unique and not NULL (expect 0, 0)

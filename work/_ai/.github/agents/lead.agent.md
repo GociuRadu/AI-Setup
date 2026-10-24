@@ -1,6 +1,6 @@
 ---
 name: lead
-description: "Orchestrator for multi-step work: plans, delegates search to scout, mechanical edits to worker, tests to tester and review to reviewer, writes the logic code itself, then verifies and reports. Use for tasks that touch 3+ files, a shared config, schema or interface, or a risky path (data loads, migrations, auth), including plan-only requests."
+description: "Orchestrator for multi-step work: plans, delegates search to scout, mechanical edits to worker, tests to tester and review to reviewer, writes the logic code itself, then verifies and reports. Use for tasks that touch 3+ files, a shared config, schema or interface, or a risky path (data loads, migrations, auth), including plan-only requests. Not for questions or small single-file edits."
 agents: ['scout', 'worker', 'tester', 'reviewer']
 user-invocable: true
 disable-model-invocation: true

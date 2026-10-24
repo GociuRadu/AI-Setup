@@ -13,7 +13,7 @@ Review like the senior developer who will be paged when it breaks. Order: correc
 ## 1. Scope
 
 - **Change review:** files or a diff the user names. Nothing named: if `project.md` names a Git root, run `git -C <root> --no-pager diff`; else ask which files changed.
-- **Audit:** a folder or the whole active project (never `projects` root, `.claude` or `_ai`). Big repo: go deep where a mistake costs most and list what you did not read.
+- **Audit:** a folder or the whole active project (the AI setup `.claude`/`_ai` only when the user asks for a setup audit; findings then go to chat). Big repo: go deep where a mistake costs most and list what you did not read.
 - Read the change, then connected code: callers of every changed function, what it calls, tests, and the project's **Review focus** in `project.md`. Skip `.venv`, data files, secrets and the project's never-open list.
 - Find the expected load (one user running a script vs many processes) and say which you assumed.
 
@@ -36,7 +36,7 @@ Very simple English. Start with `What this change does:` (or `What this repo doe
 
 Each finding: **title** (`path:Lx-Ly`), then What this is / Problem / Fix / If we skip it, one or two sentences each.
 
-End with `Verdict:` (`Ship.` or `fix 1 and 3 first.`), `Lean: -<N> lines possible.` if relevant, `Not checked:` if something mattered.
+End with `Verdict:` (`ready` or `fix first: 1, 3`, same words as the reviewer agent), `Lean: -<N> lines possible.` if relevant, `Not checked:` if something mattered.
 
 - Change review: findings in chat.
 - Audit: save to `<project>/docs/ai/reports/YYYY-MM-DD-review-<topic>.md` (update an existing report on the same scope instead of duplicating); in chat give only path, verdict and counts per group.

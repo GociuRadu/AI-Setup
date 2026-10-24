@@ -12,7 +12,7 @@ Estimate before choosing structures: bytes per row (sum of column widths + about
 | medium | 1M-100M rows, ~1-50 GB | narrow clustered key, indexes only for named queries, columnstore for read-mostly facts and events, partitioning only for a retention or switch need |
 | large | over 100M rows or over ~50 GB | columnstore plus partitioning by load/retention window, SWITCH-compatible staging, no row-by-row work. Over ~100 GB in Azure SQL Database: ask whether it belongs in the lake/lakehouse instead and only serve aggregates from SQL |
 
-Check the tier limits: max database size, log-rate limit and tempdb for the service tier (user-run check, `sys.dm_user_db_resource_governance`). The log rate caps load speed, so a bigger table does not load faster by adding workers.
+Check the tier limits: max database size, log-rate limit and tempdb for the service tier (local/DEV check, `sys.dm_user_db_resource_governance`). The log rate caps load speed, so a bigger table does not load faster by adding workers.
 
 ## 2. Load-friendly structures
 
@@ -35,7 +35,7 @@ A key over 900 bytes (clustered) or 1700 bytes (nonclustered) cannot be indexed,
 - Clustered columnstore gives 5-10× compression and fast scans/aggregates; it is poor for point lookups and frequent single-row updates.
 - Bulk loads compress straight into rowgroups only when a batch is at least 102,400 rows. Smaller batches land in delta stores and need the tuple mover (`REORGANIZE`). So a columnstore target takes fewer, larger batches (102,400 to 1,048,576 rows); a rowstore target takes 10k-50k.
 - Keep the PK as NONCLUSTERED when the table is clustered columnstore. Add nonclustered rowstore indexes only for proven point lookups.
-- Rebuild/reorganize rowgroups after heavy deletes or many small loads (user-run, after check of `sys.dm_db_column_store_row_group_physical_stats`: deleted rows share and trimmed rowgroups).
+- Rebuild/reorganize rowgroups after heavy deletes or many small loads (on local/DEV, after check of `sys.dm_db_column_store_row_group_physical_stats`: deleted rows share and trimmed rowgroups).
 - Order the load by the filter column (date) so rowgroups carry tight min/max and elimination works.
 
 ## 5. Partitioning (for switch-in and retention, not for speed)
@@ -63,4 +63,4 @@ Part of the pipeline's publish step, written down by the model so it is not forg
 - Partitioning has a stated switch/retention reason and a boundary-maintenance owner, or is absent.
 - Columnstore tables: batch size ≥ 102,400 noted for the pipeline.
 - Post-load statistics and index steps named for the pipeline.
-- Log rate and size limits checked for the tier (user-run).
+- Log rate and size limits checked for the tier (local/DEV).

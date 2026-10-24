@@ -11,8 +11,8 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 
 ## Safety (on top of the global rules)
 
-- Run loaders, notebooks, pipelines and queries yourself on local or DEV; production and deploys are hard stops (global rules). Where the files below say "user-run" or "draft", run it yourself when the target is local/DEV and reachable; otherwise hand it to the user.
-- No TRUNCATE or DROP unless the user names it. A repair is a scoping read, then a narrow write with expected count and rollback.
+- Run loaders, notebooks, pipelines and queries yourself on local or DEV; production and deploys are hard stops (global rules). Checks in the files below run on local/DEV; when only production has the data, draft them for the user.
+- No TRUNCATE or DROP unless the user names it. Exempt by design, and only for tables whose DDL header says `Data: rebuild`: emptying staging inside the load path, the approved publish step, and drop-and-create in their DDL file. Never on `keep` tables. A repair is a scoping read, then a narrow write with expected count and rollback.
 - Platform, engine, DDL folder, naming and audit table come from the active project's `project.md`. Project conventions override the defaults here. Mark any platform fact not verified as unverified. No preview features in production.
 
 ## Defaults
@@ -32,7 +32,7 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 | R3 | Every run, chunk and publish is rerunnable: twice = once, no duplicates, no gaps. |
 | R4 | A failed exact check fails the run (unique key, no empty key, casts, counts). No row-count bands against history. |
 | R5 | Newer wins by an explicit version field; the watermark comes from the source marker and moves only at finish. |
-| R6 | Target tables are designed by the user (real types, a key, audit columns last); never guessed, never dropped. |
+| R6 | Target tables are designed by the user (real types, a key, audit columns last); never guessed, never dropped (except the `rebuild` exemption under Safety). |
 | R7 | Read the source once; take counts and totals in that pass. |
 | R8 | Everything is bounded (parallelism, transactions, retries, timeouts) and sized from one measured chunk, never a constant copied from another job. |
 | R9 | Never invent names, keys, lengths, owners or schedules. Ask only a consequential gap, one question with a recommendation; mark harmless assumptions. |
@@ -43,7 +43,7 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 ## Workflow
 
 1. **Frame.** Read existing code, DDL, design record and runbook. Infer source, target, grain, volume, frequency, readers; mark each inferred or unknown. Volumes come from a size-check query, not from asking.
-2. **Pick the case** and the size tier (small, medium, large). Medium and large need measured size evidence before chunk, batch or parallelism values.
+2. **Pick the case** and the size tier (small, medium, large): table design tiers in [model/scale](model/scale.md), load tiers in [pipeline/performance](pipeline/performance.md); they measure different things. Medium and large need measured size evidence before chunk, batch or parallelism values.
 3. **Decide** only the choices the case needs.
 4. **Build** the case flow from `pipeline/cases.md` or `model/cases.md` in the existing artifact paths (DDL: one setup file per subject as in `project.md`).
 5. **Review** with the mode file below; fix S1 and S2 before showing. Review findings go to chat; save them only on request (`docs/ai/reports/YYYY-MM-DD-data-<topic>.md`). Run the local tests.

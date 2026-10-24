@@ -61,7 +61,7 @@ Keep history only when someone asks "as it was on date X". Options: a version ta
 
 ## change_with_data
 
-A table with data is changed by a migration, not DROP/CREATE: a user-run, idempotent script (checks the current state before each step), each step with a rollback. Draft the check that shows the table is in the expected state first.
+A table with data is changed by a migration, not DROP/CREATE: an idempotent script (run on local/DEV; production by the user) (checks the current state before each step), each step with a rollback. Draft the check that shows the table is in the expected state first.
 
 | Change | Risk | Approach |
 |---|---|---|

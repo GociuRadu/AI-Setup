@@ -4,11 +4,11 @@ Load only the section for the mode in use.
 
 ## Adapt
 
-1. Read what exists: notebook, pipeline JSON, DDL, design record, last runs (as a query the user runs). Trace them as one chain: pipeline activity -> notebook -> target/staging/audit/procedure names in it -> their DDL and validation SQL -> tests -> runbook. Ask for what is missing.
+1. Read what exists: notebook, pipeline JSON, DDL, design record, last runs (query DEV yourself). Trace them as one chain: pipeline activity -> notebook -> target/staging/audit/procedure names in it -> their DDL and validation SQL -> tests -> runbook. Ask for what is missing.
 2. Map it to a case. Unclear -> ask.
 3. Review (below) and show the report.
 4. Agree which findings to fix. Change only those parts and keep existing names and conforming behavior.
-5. Before replacing a running pipeline, the user runs old and new on DEV over the same window. Draft compare queries (row count, keys, totals of one measure).
+5. Before replacing a running pipeline, run old and new on DEV over the same window. Compare with queries (row count, keys, totals of one measure).
 6. Update the design record: case, current values, decisions found, add-ons present.
 
 ## Review (changes nothing)

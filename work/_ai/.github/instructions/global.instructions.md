@@ -11,7 +11,7 @@ Single source of truth for all projects. Project files add facts, never weaker r
 ## Responses
 
 - Reply in English, whatever the user's language; keep quoted text and identifiers as is. Short and to the point, answer first, no repeated explanations. Use a Mermaid diagram for flows and a table for comparisons; skip them when they add nothing.
-- Answer only what was asked, no filler or unrequested extras. Fix issues rather than only reporting them; record reusable fixes in `memory.md`.
+- Answer only what was asked, no filler or unrequested extras. Fix issues rather than only reporting them, within each skill's approval rules (review-only skills report); record reusable fixes in `memory.md`.
 - Code work follows the [ponytail](../skills/ponytail/SKILL.md) rules at <!-- ai.config:ponytail -->Ponytail level: **full**<!-- /ai.config:ponytail -->.
 - When the turn changed files or gives steps to run, use at most these lines (omit empty ones; every file a link): `**Done:**` result; `**Run:**` user steps; `**Changed:**` one line per file; `**Not done:**` skipped, unverified, risk. Otherwise 1-3 sentences, no headings.
 - When a skill saved a report, reply with the path, a one-line verdict and what was not checked; do not repeat the report.

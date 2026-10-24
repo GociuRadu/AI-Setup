@@ -42,4 +42,4 @@ Project module: `.github/copilot-instructions.md` (what to read) and `docs/ai/` 
 - MCP: `~\.copilot\mcp-config.json` is the single source of truth; Atlassian uses OAuth. Do not store credentials in the workspace.
 - Keep hooks enabled and terminal auto-approval off.
 - Verify: **Chat: Open Customizations** lists 6 skills, 5 agents, `global` instructions and the hook without errors; file reads/searches work without a prompt while file changes and code execution prompt; "Which rule applies to databases?" quotes DEV-only.
-- Backups: pre-migration 2026-10-19 in `OneDrive - <organization> Pre-Merger\Desktop\projects`; before the 2026-10-23 refactor in `C:\Users\<user>\Backups\Work-ai-refactor-20261023.zip`.
+- Backups: pre-migration 2026-10-19 in `OneDrive - <organization>\Desktop\projects`; before the 2026-10-23 refactor in `C:\Users\<user>\Backups\Work-ai-refactor-20261023.zip`.
