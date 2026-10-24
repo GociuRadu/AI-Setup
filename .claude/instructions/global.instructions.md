@@ -28,7 +28,7 @@ Single source of truth for all projects. Project files add facts, never weaker r
 
 - All AI-generated files go to the active project's `docs/ai/reports/` (the only subfolder of `docs/ai/`), named `YYYY-MM-DD-<skill>-<topic>.md` (topic 1-2 words); pipelines use `<name>.design.yaml` and `<name>.runbook.md`, table designs `<name>.model.yaml`. Tests go to the project's test folder in `code/` (for example `code/tests/`).
 - `docs/` outside `docs/ai/` only when the user asks for a project-facing document. Never write into the `projects` root, `.claude` or `_ai` unless the user asks to change the AI setup.
-- Work on the AI setup itself has no project: findings go to chat, no report file; then update `README.md`, `HOW-TO-USE.md` and `_ai/README.md`/`SOURCES.md` where the change touches them.
+- Work on the AI setup itself has no project: findings go to chat, no report file; then update `README.md`, `HOW-TO-USE.md` and `_ai/README.md`/`SOURCES.md` where the change touches them, and run `node _ai/scripts/build-work.mjs` when skills, agents or language rules changed.
 
 ## Interaction
 
@@ -79,7 +79,7 @@ Never lose existing content: merge, don't overwrite; on conflicts show a diff ta
 
 `lead` runs on the session model (Opus or Sonnet) and delegates to Haiku helpers: `scout` (read-only search in files and the public web), `worker` (mechanical edits only; `lead` writes logic code itself), `tester` (runs local tests, writes only its report) and `reviewer` (read-only review). Helpers have no Git, MCP or delegation; only `tester` has a terminal. Helper models: `model:` in `.claude/agents/*.md`.
 
-- Before planning or editing a task that touches 3+ files, a shared config/schema/interface or a risky path (including plan-only requests), the main session first invokes the `lead` skill with the Skill tool. To verify code, use the `tester` agent.
+- Before planning or editing a task that changes logic in 3+ files, a shared config/schema/interface or a risky path (including plan-only requests), the main session first invokes the `lead` skill with the Skill tool. Mechanical edits (renames, repeated replacements) stay in the main session, whatever the file count. To verify code, use the `tester` agent.
 - Delegate only when it saves context or cost (wide search, long files or logs, independent multi-file work). Small tasks stay with the caller: helpers start cold.
 - Parallel: read-only work, edits on disjoint files, independent test suites; at most 4 helpers at once. Sequential: same files, one step needs another's output, or order matters (schema before code).
 - Helpers return condensed results (paths, findings, change summary), never raw dumps. Failed check or review: fix and recheck at most 2 times, then report the blocker.

@@ -36,7 +36,7 @@ Very simple English. Start with `What this change does:` (or `What this repo doe
 
 Each finding: **title** (`path:Lx-Ly`), then What this is / Problem / Fix / If we skip it, one or two sentences each.
 
-End with `Verdict:` (`Ship.` or `fix 1 and 3 first.`), `Lean: -<N> lines possible.` if relevant, `Not checked:` if something mattered.
+End with `Verdict:` (`ready` or `fix first: 1, 3`, same words as the reviewer agent), `Lean: -<N> lines possible.` if relevant, `Not checked:` if something mattered.
 
 - Change review: findings in chat.
 - Audit: save to `<project>/docs/ai/reports/YYYY-MM-DD-review-<topic>.md` (update an existing report on the same scope instead of duplicating); in chat give only path, verdict and counts per group.

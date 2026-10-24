@@ -13,7 +13,7 @@ Shared Claude Code setup for `projects`. Rules, agents and skills live in `.clau
 | Need | Use | Output |
 |---|---|---|
 | Small question or single-file edit | default chat | chat |
-| Multi-file work, shared config/schema, risky path (loads, migrations, auth) | `lead` (starts on its own, or `/lead`) | changes + `context.md` |
+| Logic changes in 3+ files, shared config/schema, risky path (loads, migrations, auth); not mechanical renames | `lead` (starts on its own, or `/lead`) | changes + `context.md` |
 | Explain, document, write up a decision | `/analyze <scope>` | `docs/ai/reports/…-analyze-…md` |
 | Review a change | `/review [files]` | chat |
 | Audit a project or folder | `/review audit` | `docs/ai/reports/…-review-…md` |
@@ -68,7 +68,8 @@ Single source: [.claude/instructions/global.instructions.md](.claude/instruction
 
 1. Ask for it explicitly ("change the AI setup: …").
 2. Edit only in `.claude/` (rules, agents, skills) and `_ai/`; record external sources in `_ai/SOURCES.md`.
-3. Start a new Claude Code session in `projects`, then commit and push (`GociuRadu/AI-Setup`).
+3. Run `node _ai/scripts/build-work.mjs` so the work setup (and the Obsidian copy) gets the same skill changes; details in [_ai/README.md](_ai/README.md).
+4. Start a new Claude Code session in `projects`, then commit and push (`GociuRadu/AI-Setup`).
 
 ## Troubleshooting
 

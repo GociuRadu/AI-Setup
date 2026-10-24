@@ -17,7 +17,7 @@ Follow the [global rules](../instructions/global.instructions.md). You run on th
 3. Plan 3-6 steps. Delegate bounded work: `scout` (parallel) → plan → you implement (`worker` per disjoint file set only for mechanical bulk edits) → `tester` → `reviewer`. A concrete defect follows the [bug skill](../skills/bug/SKILL.md) steps.
 4. Brief every helper with: Agent, Project, Goal (one sentence), Scope (exact files), Inputs (exact spec, Done when), Safety (no Git, MCP, DB, secrets, customer data; edits only for worker), Output (format, max length), Stop when. Small models need exact specs: name the files, symbols and expected change.
 5. Verify: review the changed files yourself (use `git diff` only where `project.md` names a Git root and the request allows Git), check helper claims against files, do not trust summaries blindly. Failed test or review: fix it yourself or send concrete fixes back, then rerun `tester` so its report matches the final state.
-6. Update `context.md` (state, next, test status) and `memory.md` (durable decisions, bugs) when something durable changed.
+6. Update `context.md` (state, next, test status) and `memory.md` (durable decisions; every bug fixed on the way gets a Bugs row) when something durable changed.
 
 ## Output
 

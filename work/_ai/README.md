@@ -16,6 +16,7 @@ flowchart LR
 | `.github/instructions/global.instructions.md` | All hard rules and formats (the only place to edit them) |
 | `.github/instructions/python.instructions.md`, `sql.instructions.md` | Language rules (`**/*.py`, `**/*.sql`) |
 | `.github/hooks/command-approval.json` | Auto-allows standalone and piped read-only file inspection across paths/types; asks for writes, deletes, redirects, chaining, and code execution |
+| `.github/hooks/prod-guard.json`, `prod-guard.ps1`, `prod-markers.txt` | Hard-blocks (even after approval) tool calls whose command, query, host or URL targets production (prod/prd endpoints, servers, CLI contexts, the names in `prod-markers.txt`), `DROP DATABASE`, force-push and volume deletion |
 | `.github/agents/` | `lead` (user-invocable, runs on the picked model), helpers `scout`, `worker`, `tester`, `reviewer` (Haiku or GPT-6 Luna) |
 | `.github/skills/` | `analyze`, `review`, `bug`, `data`, `confluence`, `ponytail` |
 | `config/ai.config.json` | Agent models and ponytail level |
@@ -40,6 +41,7 @@ Project module: `.github/copilot-instructions.md` (what to read) and `docs/ai/` 
 
 - In Copilot **Configure Tools**, turn off the **mssql** tools (user settings contain a PROD connection).
 - MCP: `~\.copilot\mcp-config.json` is the single source of truth; Atlassian uses OAuth. Do not store credentials in the workspace.
-- Keep hooks enabled and terminal auto-approval off.
+- Keep hooks enabled and terminal auto-approval off. Add the real production server names to `.github/hooks/prod-markers.txt` here only (never in the vault). Check the guard: ask the agent to run `sqlcmd -S <a prod marker>`; it must be refused without a prompt.
+- Skills, helper agents and `python`/`sql` instructions are generated from the personal setup (`projects/_ai/scripts/build-work.mjs` + `work-overrides.json`) into the vault. Copy the vault's `dot-github` into `.github` (restoring `.` names) before the next `sync-to-vault.ps1`, or the sync overwrites the update. Work-only files (`lead.agent.md`, `global.instructions.md`, `copilot-instructions.md`, hooks) are edited here.
 - Verify: **Chat: Open Customizations** lists 6 skills, 5 agents, `global` instructions and the hook without errors; file reads/searches work without a prompt while file changes and code execution prompt; "Which rule applies to databases?" quotes DEV-only.
 - Backups: pre-migration 2026-10-19 in `OneDrive - <organization>\Desktop\projects`; before the 2026-10-23 refactor in `C:\Users\<user>\Backups\Work-ai-refactor-20261023.zip`.

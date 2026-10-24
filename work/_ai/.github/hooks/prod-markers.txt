@@ -1,0 +1,5 @@
+# One regex per line, matched case-insensitively against commands, queries, hosts and URLs a tool call would use.
+# Add the real production and staging server names here in the work workspace only (never in the vault copy).
+# Examples:
+# <prod-sql-server>\.database\.windows\.net
+# <prod-synapse-workspace>

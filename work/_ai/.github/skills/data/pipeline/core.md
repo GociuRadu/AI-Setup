@@ -2,7 +2,7 @@
 
 Shared by every case. Read the sections the case needs, not the whole file.
 
-## Recurring frame (02, 03, 05, 06)
+## Recurring frame (02, 05; 03 and 06 reuse its blocks)
 
 START -> CHECK -> SKIP? -> READ -> CLEAN_CAST -> STAGE -> VALIDATE -> PUBLISH -> FINISH. Any failure -> ERROR.
 

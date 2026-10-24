@@ -37,7 +37,7 @@ Use `/analyze` to explain or document; use `/review` for defect-focused review; 
 
 ## Safety rules
 
-Shared privacy, terminal, database, external-system and Confluence boundaries have one source of truth in [_ai/.github/instructions/global.instructions.md](_ai/.github/instructions/global.instructions.md). Read-only file inspection is prompt-free; file changes and command execution still require approval. Private and secret files remain off-limits under the shared rules.
+Shared privacy, terminal, database, external-system and Confluence boundaries have one source of truth in [_ai/.github/instructions/global.instructions.md](_ai/.github/instructions/global.instructions.md). Read-only file inspection is prompt-free; file changes and command execution still require approval. The `prod-guard` hook refuses production targets, `DROP DATABASE`, force-push and volume deletion outright, even if a prompt is approved. Private and secret files remain off-limits under the shared rules.
 
 ## Where results go
 

@@ -1,6 +1,6 @@
 ---
 name: bug
-description: "Prove and fix code or data defects: exceptions, wrong counts, duplicates, NULL keys, failed loads, wrong downstream documents. Use /bug, a concrete failure report, or a request to investigate broken behavior."
+description: "Use proactively, before reading code, whenever the user reports that something is wrong: a wrong result or number, \"shows X but should be Y\", an exception, a failing test or load, duplicates, NULL keys, wrong downstream documents. Proves the cause, proposes or applies the fix as the steps allow, adds a regression test and records the bug in memory.md. Not for test runs without a reported symptom."
 argument-hint: "<symptom, error, or affected artifact>"
 user-invocable: true
 ---
@@ -16,7 +16,7 @@ Prove the cause before choosing the fix. Never authorizes connected writes, writ
 5. Wrong data: compare counts across stages, key uniqueness, NULL keys, casts, join fan-out. Queries go to the user (SQL request format, global rules) with placeholders for customer values. No PROD queries; ask for logs or audit counts instead.
 6. State the best hypothesis, its code path and one cheap discriminating check. After two failed hypotheses, re-check the symptom and input.
 7. Once proven, show Root cause, Evidence, minimal Fix, Data repair (or none), Risk. Apply the fix only if the user asked for a fix and the project does not mark the item as needing owner confirmation; otherwise propose it and stop.
-8. Run the focused local check. Data repair is a separate user-run handoff; real-run evidence is "not run" until the user returns it.
+8. Add one regression test that fails without the fix (code bugs). Run the focused local check. Data repair is a separate user-run handoff; real-run evidence is "not run" until the user returns it.
 9. Add one row to the Bugs table in the project's `docs/ai/memory.md`: date, symptom, cause, fix/status. If the project keeps a known-issues catalog (named in `project.md`), follow its rule instead (e.g. row only when fixed). No code bodies or customer data. If blocked, say so.
 10. Production incident or wrong data sent downstream: also write `docs/ai/reports/YYYY-MM-DD-bug-<topic>.md` from the [incident template](templates/bug.md); reply with path and one-line summary.
 

@@ -43,7 +43,7 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 ## Workflow
 
 1. **Frame.** Read existing code, DDL, design record and runbook. Infer source, target, grain, volume, frequency, readers; mark each inferred or unknown. Volumes come from a drafted size-check query, not from asking.
-2. **Pick the case** and the size tier (small, medium, large). Medium and large need user-run size evidence before chunk, batch or parallelism values.
+2. **Pick the case** and the size tier (small, medium, large): table design tiers in [model/scale](model/scale.md), load tiers in [pipeline/performance](pipeline/performance.md); they measure different things. Medium and large need user-run size evidence before chunk, batch or parallelism values.
 3. **Decide** only the choices the case needs.
 4. **Build** the case flow from `pipeline/cases.md` or `model/cases.md` in the existing artifact paths (DDL: one setup file per subject as in `project.md`).
 5. **Review** with the mode file below; fix S1 and S2 before showing. Review findings go to chat; save them only on request (`docs/ai/reports/YYYY-MM-DD-data-<topic>.md`). Run side-effect-free local tests.

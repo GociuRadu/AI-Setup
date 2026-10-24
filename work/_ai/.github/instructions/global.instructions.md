@@ -75,7 +75,7 @@ Never lose existing content: merge, don't overwrite; on conflicts show a diff ta
 
 `lead` runs on the model picked in the chat (Opus, Sonnet or GPT) and writes all logic code itself. It delegates to small-model helpers (Haiku or GPT-6 Luna): `scout` (read-only search in files and public web docs), `worker` (mechanical edits only), `tester` (runs local tests under the command hook, edits only its report) and `reviewer` (read-only review). Helpers have no Git, MCP or delegation; only `tester` has a terminal. Helper models: `_ai/config/ai.config.json` + `_ai/scripts/sync-config.ps1`.
 
-- Multi-file or risky work (3+ files, a shared config/schema/interface, data loads, migrations, auth): pick the `lead` agent. To verify code, use `tester`.
+- Multi-file or risky work (logic changes in 3+ files, a shared config/schema/interface, data loads, migrations, auth): pick the `lead` agent. Mechanical renames and repeated edits stay in the default chat. To verify code, use `tester`.
 - Delegate only when it saves context or cost (wide search, long files or logs, independent multi-file work). Small tasks stay with the caller: helpers start cold.
 - Parallel: read-only work, edits on disjoint files, independent test suites; at most 4 helpers at once. Sequential: same files, one step needs another's output, or order matters (schema before code).
 - Helpers return condensed results (paths, findings, change summary), never raw dumps. Failed check or review: fix and recheck at most 2 times, then report the blocker.
