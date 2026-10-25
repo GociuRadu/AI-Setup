@@ -25,7 +25,7 @@ Shared Claude Code setup for `projects`. Rules, agents and skills live in `.clau
 | Run tests | "run the tests" (agent `tester`) | `docs/ai/reports/…-tester-…md` |
 | Design, architecture, hard debugging | `/model opus` first, then `lead` | plan, then changes |
 
-Skills combine: `lead` can use `/data` rules for a pipeline, `/bug` uses `tester` to verify a fix, `/review` is what the `reviewer` agent checks against.
+Skills combine: `lead` can use `/data` rules for a pipeline, `/bug` proves, fixes and records a defect (`tester` when you ask for a test run), `/review` is what the `reviewer` agent checks against.
 
 ## Agents (Haiku, started by `lead` or the main session)
 

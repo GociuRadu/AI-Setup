@@ -1,6 +1,6 @@
 # AI Setup
 
-Claude Code setup for a multi-project workspace (`projects`): global rules, an orchestrator skill (`lead`), four Haiku helper agents and domain skills. Project folders are not versioned here.
+Claude Code setup for a multi-project workspace (`projects`): global rules, an orchestrator skill (`lead`), four Haiku helper agents and domain skills. Real project folders are not versioned here; `work/` holds anonymized copies of the work setup.
 
 | Read | For |
 |---|---|

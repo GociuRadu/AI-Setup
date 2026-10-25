@@ -1,6 +1,6 @@
 ---
 name: data
-description: "Data engineering: table/schema design (grain, keys, history, indexes, large tables), ingestion and load pipelines (staging, atomic publish, rerun, chunked parallel loads), and Synapse PySpark notebooks (parameters, runtime, JDBC limits, Spark performance). Use for data model, DDL, schema, pipeline, notebook, load, migration, Spark, JDBC or slow-load/slow-table requests."
+description: "Data engineering: table/schema design (grain, keys, history, indexes, large tables), ingestion and load pipelines (staging, atomic publish, rerun, chunked parallel loads), and Synapse PySpark notebooks (parameters, runtime, JDBC limits, Spark performance). Use for every data model, DDL, schema, pipeline, notebook, load, migration, Spark, JDBC or slow-load/slow-table request, also small loads into a local database; invoke before writing the DDL or loader."
 argument-hint: "<table, pipeline, notebook, design question or review>"
 user-invocable: true
 ---
@@ -32,7 +32,7 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 | R3 | Every run, chunk and publish is rerunnable: twice = once, no duplicates, no gaps. |
 | R4 | A failed exact check fails the run (unique key, no empty key, casts, counts). No row-count bands against history. |
 | R5 | Newer wins by an explicit version field; the watermark comes from the source marker and moves only at finish. |
-| R6 | Target tables are designed by the user (real types, a key, audit columns last); never guessed, never dropped (except the `rebuild` exemption under Safety). |
+| R6 | Existing target tables are the user's design: never guessed, never changed without a request, never dropped (except the `rebuild` exemption under Safety). A new table the user asks for: derive it from the source (real types, a key, audit columns last) and mark assumed types. |
 | R7 | Read the source once; take counts and totals in that pass. |
 | R8 | Everything is bounded (parallelism, transactions, retries, timeouts) and sized from one measured chunk, never a constant copied from another job. |
 | R9 | Never invent names, keys, lengths, owners or schedules. Ask only a consequential gap, one question with a recommendation; mark harmless assumptions. |
@@ -42,11 +42,11 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 
 ## Workflow
 
-1. **Frame.** Read existing code, DDL, design record and runbook. Infer source, target, grain, volume, frequency, readers; mark each inferred or unknown. Volumes come from a size-check query, not from asking.
+1. **Frame.** Read existing code, DDL, design record and runbook. Infer source, target, grain, volume, frequency, readers; mark each inferred or unknown. Volumes come from a size-check query on local/DEV, not from asking; when only production has the data, mark the volume unknown and draft the query.
 2. **Pick the case** and the size tier (small, medium, large): table design tiers in [model/scale](model/scale.md), load tiers in [pipeline/performance](pipeline/performance.md); they measure different things. Medium and large need measured size evidence before chunk, batch or parallelism values.
 3. **Decide** only the choices the case needs.
 4. **Build** the case flow from `pipeline/cases.md` or `model/cases.md` in the existing artifact paths (DDL: one setup file per subject as in `project.md`).
-5. **Review** with the mode file below; fix S1 and S2 before showing. Review findings go to chat; save them only on request (`docs/ai/reports/YYYY-MM-DD-data-<topic>.md`). Run the local tests.
+5. **Review** with the mode file below; fix S1 and S2 before showing. Review findings go to chat; save them only on request (`docs/ai/reports/YYYY-MM-DD-data-<topic>.md`). Run the focused tests; a full-suite run goes to `tester`.
 6. **Handoff:** steps you could not run (production, deploy) in order; runbook and design record only for new or changed pipelines (`docs/ai/reports/<name>.runbook.md`, `<name>.design.yaml`; table designs `<name>.model.yaml`).
 
 ## Spark on Synapse (notebook exports)

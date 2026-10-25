@@ -32,4 +32,4 @@ Apply the spec exactly, file by file. Follow the [global rules](../instructions/
 
 ## Output
 
-At most 20 lines: one line per file (`path: done` or `path: skipped - reason`), then the counts from the self-check. Never claim tests passed; the parent owns validation.
+At most 20 lines: the done count (list the files when 10 or fewer), one line per skipped file with the reason, then the counts from the self-check. Never claim tests passed; the parent owns validation.

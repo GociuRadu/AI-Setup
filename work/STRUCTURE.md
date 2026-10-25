@@ -2,7 +2,7 @@
 
 Structure-only copy of a multi-project VS Code workspace and its AI (Copilot) setup. `project1` (data/Synapse project) and `project2` (Python API service) are neutral names. It contains setup files and empty project folders, no application source, customer data, credentials, environment values or private notes.
 
-Refresh with `_ai/scripts/sync-to-vault.ps1` in the real workspace. Files listed below but absent here (workspace file, `_ai/config/`, `_ai/scripts/`, `hooks/command-approval.json`, project code, `project2/docs/DOCUMENTATION.md`) exist only in the real workspace; links to them are expected to break in this copy.
+Refresh with `_ai/scripts/sync-to-vault.ps1` in the real workspace. Files listed below but absent here (workspace file, `_ai/config/`, `_ai/scripts/`, `hooks/command-approval.json`, `user/mcp-config.template.json`, project code, `project2/docs/DOCUMENTATION.md`) exist only in the real workspace; links to them are expected to break in this copy.
 
 ```text
 Setup/

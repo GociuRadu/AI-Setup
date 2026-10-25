@@ -1,6 +1,6 @@
 ---
 name: data
-description: "Data engineering: table/schema design (grain, keys, history, indexes, large tables), ingestion and load pipelines (staging, atomic publish, rerun, chunked parallel loads), and Synapse PySpark notebooks (parameters, runtime, JDBC limits, Spark performance). Use for data model, DDL, schema, pipeline, notebook, load, migration, Spark, JDBC or slow-load/slow-table requests."
+description: "Data engineering: table/schema design (grain, keys, history, indexes, large tables), ingestion and load pipelines (staging, atomic publish, rerun, chunked parallel loads), and Synapse PySpark notebooks (parameters, runtime, JDBC limits, Spark performance). Use for every data model, DDL, schema, pipeline, notebook, load, migration, Spark, JDBC or slow-load/slow-table request, also small loads into a local database; invoke before writing the DDL or loader."
 argument-hint: "<table, pipeline, notebook, design question or review>"
 user-invocable: true
 ---

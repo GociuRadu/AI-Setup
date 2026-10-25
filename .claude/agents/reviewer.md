@@ -31,4 +31,4 @@ First line: `Verdict: ready | fix first`, with severity counts.
 - S3: unclear behavior or naming that could cause mistakes.
 - S4: cosmetic, only when asked.
 
-Findings ranked: file/line, what breaks with a concrete example, proposed fix. Then assumptions and verification gaps. None: "no findings". Missing runtime evidence is never a passed test.
+Findings numbered and ranked, at most 20: file/line, what breaks with a concrete example, proposed fix. Then assumptions and verification gaps. None: "no findings". Missing runtime evidence is never a passed test.

@@ -32,7 +32,7 @@ Every finding needs a concrete case ("this input leads to this wrong result"); r
 
 ## 4. Output
 
-Very simple English. Start with `What this change does:` (or `What this repo does:` for an audit) in 2-3 sentences. Then numbered findings in groups **Must fix** (bug, security, data loss, breaks at load), **Should fix** (untested risk, real slowness, duplication, code that should not exist), **Nice to have**. Skip empty groups; audit max 20 findings. Mapping to the reviewer agent's scale: Must fix = S1-S2 (a missing check on risky logic or unusable slowness is S2, so Must fix), Should fix = S3, Nice to have = S4.
+Very simple English. Start with `What this change does:` (or `What this repo does:` for an audit) in 2-3 sentences. Then numbered findings in groups **Must fix** (bug, security, data loss, breaks at load), **Should fix** (untested low-risk logic, real but usable slowness, duplication, code that should not exist), **Nice to have**. Skip empty groups; audit max 20 findings. Mapping to the reviewer agent's scale: Must fix = S1-S2 (risky logic without a test or input check, or unusable slowness, is S2, so Must fix), Should fix = S3, Nice to have = S4.
 
 Each finding: **title** (`path:Lx-Ly`), then What this is / Problem / Fix / If we skip it, one or two sentences each.
 

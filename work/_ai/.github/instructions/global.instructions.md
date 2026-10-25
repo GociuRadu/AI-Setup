@@ -14,7 +14,9 @@ Single source of truth for all projects. Project files add facts, never weaker r
 - Answer only what was asked, no filler or unrequested extras. Fix issues rather than only reporting them, within each skill's approval rules (review-only skills report); record reusable fixes in `memory.md`.
 - Code work follows the [ponytail](../skills/ponytail/SKILL.md) rules at <!-- ai.config:ponytail -->Ponytail level: **full**<!-- /ai.config:ponytail -->.
 - When the turn changed files or gives steps to run, use at most these lines (omit empty ones; every file a link): `**Done:**` result; `**Run:**` user steps; `**Changed:**` one line per file; `**Not done:**` skipped, unverified, risk. Otherwise 1-3 sentences, no headings.
-- When a skill saved a report, reply with the path, a one-line verdict and what was not checked; do not repeat the report.
+- When a skill or agent saved a report, that replaces the Done/Changed lines: reply with the path, a one-line verdict and what was not checked; do not repeat the report.
+- Items a skill requires in its reply (for example bug: Root cause, Evidence, Fix, Risk) go under **Done:** and **Not done:**.
+- A plan-only reply: goal, Done when, risks, numbered steps (Mermaid if it is a flow); in chat, no report file unless asked.
 
 ## Projects and context
 
@@ -26,6 +28,7 @@ Single source of truth for all projects. Project files add facts, never weaker r
 ## Output locations
 
 - All AI-generated files go to the active project's `docs/ai/reports/` (the only subfolder of `docs/ai/`), named `YYYY-MM-DD-<skill>-<topic>.md` (topic 1-2 words); pipelines use `<name>.design.yaml` and `<name>.runbook.md`. Tests go to the project's `tests/`.
+- Documentation and reports go to `docs/ai/reports/` even when a docs connector is available; use a connector only when the user names it.
 - `docs/` outside `docs/ai/` only when the user asks for a project-facing document. Never write into the `Work` root or `_ai` unless the user asks to change the AI setup.
 
 ## Interaction
