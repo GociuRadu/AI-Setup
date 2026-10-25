@@ -32,13 +32,13 @@ Skills combine: `lead` can use `/data` rules for a pipeline, `/bug` uses `tester
 | Agent | Does | Never (by tools or rule) |
 |---|---|---|
 | `scout` | read-only search in files and the public web | edit, run commands |
-| `worker` | exact mechanical edits from a full spec | logic, design, terminal |
+| `worker` | bulk mechanical work from a spec: same change in many files, files from an example, tests from a case table; up to 4 in parallel on disjoint files | logic the spec does not give, design, terminal, deleting files |
 | `tester` | runs the project's test/lint commands, saves a report | edit code, Git, installs |
 | `reviewer` | read-only review against the plan's Done when | edit, run commands |
 
 ```mermaid
 flowchart LR
-  L[lead: plan + Done when] --> S[scout x parallel] --> I[lead implements<br/>worker for bulk edits] --> T[tester] --> R[reviewer] --> V[lead verifies diff<br/>updates context/memory]
+  L[lead: plan + Done when] --> S[scout x parallel] --> I[lead writes logic<br/>workers x4 in parallel: bulk] --> T[tester] --> R[reviewer] --> V[lead verifies diff<br/>updates context/memory]
   T -- fail --> I
   R -- fix first --> I
 ```

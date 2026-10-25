@@ -16,8 +16,8 @@
 ### Tests
 <What tests cover, what is missing, results of checks actually run.>
 
-### Findings
-<Evidence-backed findings with file:line. Severity (Critical, High, Medium, Low, Info) only when supported. Omit irrelevant categories.>
+### Risks noticed
+<One line each with file:line, facts only. No severity or verdict; a defect hunt is `/review`. Omit when none.>
 
 ## Conclusions / Recommendations
 
