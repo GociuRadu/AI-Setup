@@ -1,15 +1,16 @@
 # Anonymized Work Setup
 
-Structure-only copy of a multi-project VS Code workspace and its AI (Copilot) setup. `project1` (data/Synapse project) and `project2` (Python API service) are neutral names. It contains setup files and empty project folders, no application source, customer data, credentials, environment values or private notes.
+Structure-only copy of a multi-project VS Code workspace and its AI (Copilot) setup. `project1` (data/Synapse project) and `project2` (Python API service) are neutral names. It contains setup files and project docs only (folder layout below), no application source, customer data, credentials, environment values or private notes.
 
 Refresh with `_ai/scripts/sync-to-vault.ps1` in the real workspace. Files listed below but absent here (workspace file, `_ai/config/`, `_ai/scripts/`, `hooks/command-approval.json`, `user/mcp-config.template.json`, project code, `project2/docs/DOCUMENTATION.md`) exist only in the real workspace; links to them are expected to break in this copy.
 
 ```text
 Setup/
 ├── structure.md
+├── dot-claude/, _ai/, CLAUDE.md, AGENTS.md, README.md, HOW-TO-USE.md   # personal Claude setup, same layout as the Git repo; templates in _ai/templates/{basic,data-eng}
 └── work/
     ├── HOW-TO-USE.md
-    ├── apply-from-vault.ps1         # vault -> workspace: agents, instructions, skills, hooks
+    ├── apply-from-vault.ps1         # vault -> workspace: work (agents, instructions, skills, hooks) or -Setup personal (vault root)
     ├── Work.code-workspace          # folders: _ai, project1, project2
     ├── _ai/
     │   ├── README.md, SOURCES.md

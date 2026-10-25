@@ -86,6 +86,8 @@ Skills, helper agents, `python`/`sql` instructions and hooks are maintained in t
 4. Reload VS Code. Check: ask the agent to run `sqlcmd -S <a prod name>`; it must be refused without a prompt.
 5. Only then run `sync-to-vault.ps1`; running it first overwrites the update in the vault.
 
+The vault root `Setup` also holds the personal Claude setup, same layout as the Git repo (restore with `-Setup personal -Workspace <projects folder>`), with the project templates `basic` and `data-eng` in `_ai\templates` (data-eng = the project1 skeleton with `CLAUDE.md`, `AGENTS.md` and `.github/copilot-instructions.md`). A new project: `node _ai/scripts/new-project.mjs <Name> --template data-eng --setup work --dest <Work folder>` from a checkout of the core.
+
 ## Troubleshooting
 
 | Symptom | Try |

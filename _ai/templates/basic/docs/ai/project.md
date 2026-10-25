@@ -12,7 +12,7 @@ Stable facts only. Created {{DATE}}. Mark unverified items.
 
 ## Guardrails
 
-- Environments: DEV <server/db> (queries run by Claude); PROD never, not even reads.
+- Environments: DEV <server/db> ({{DB_ACCESS}}); PROD never, not even reads.
 - Never open: <secret files, e.g. local.env, .test.env>
 - Never run: <writers, services, endpoints>
 

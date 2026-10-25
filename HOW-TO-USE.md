@@ -61,15 +61,17 @@ Single source: [.claude/instructions/global.instructions.md](.claude/instruction
 
 ## Add a project
 
-1. Copy `_ai/templates/project/` to `projects/<Name>/` and replace `{{PROJECT}}` and `{{DATE}}`.
-2. Clone the repo into `projects/<Name>/code`.
+1. `node _ai/scripts/new-project.mjs <Name> [--template basic|data-eng] [--setup personal|work] [--dest <dir>]`. Never overwrites. `data-eng` = the project1 skeleton (Notebooks, pipelines, TablesDataBase, Data, local runner, test tiers) under `code/`; `--setup work` flattens `code/` and sends database queries to the user.
+2. `basic`: clone the repo into `projects/<Name>/code`. `data-eng`: `git init` in `code/` (or move the skeleton into your clone).
 3. Fill `docs/ai/project.md` (at least At a glance, Guardrails, Commands). If the repo has its own `CLAUDE.md`/`AGENTS.md`, link it from `<Name>/CLAUDE.md`; the stricter rule wins.
+
+Every project gets three identical entrypoints, so any agent finds `docs/ai/`: `CLAUDE.md` (Claude Code), `AGENTS.md` (Codex and others) and `.github/copilot-instructions.md` (Copilot). The workspace root has `AGENTS.md` for agents that do not read `.claude/`.
 
 ## Change the setup
 
 1. Ask for it explicitly ("change the AI setup: …").
 2. Edit only in `.claude/` (rules, agents, skills) and `_ai/`; record external sources in `_ai/SOURCES.md`.
-3. Run `node _ai/scripts/build-work.mjs` so the work setup (and the Obsidian copy) gets the same skill changes; details in [_ai/README.md](_ai/README.md). At work, apply it with [work/apply-from-vault.ps1](work/apply-from-vault.ps1) (see [work/HOW-TO-USE.md](work/HOW-TO-USE.md), "Update from the personal setup").
+3. Run `node _ai/scripts/build-work.mjs` so the work setup and the Obsidian copy (`Setup` = this repo, same layout) get the changes; `--check` must say ok; details in [_ai/README.md](_ai/README.md). At work, apply it with [work/apply-from-vault.ps1](work/apply-from-vault.ps1) (see [work/HOW-TO-USE.md](work/HOW-TO-USE.md), "Update from the personal setup").
 4. Start a new Claude Code session in `projects`, then commit and push (`GociuRadu/AI-Setup`).
 
 ## Troubleshooting

@@ -110,9 +110,26 @@ const drift = Object.keys(built).filter(t => {
   return !fs.existsSync(w) || read(w) !== built[t];
 });
 
+// Vault mirror: the vault root gets the same layout as git (dot-* names, CRLF, never deletes).
+// <vault>/work is only compared: work-owned files arrive there from the work workspace (sync-to-vault.ps1).
+const rel = f => path.relative(root, f).split(path.sep).join('/');
+const dotted = r => r.split('/').map(s => s.startsWith('.') ? 'dot-' + s.slice(1) : s).join('/');
+const coreFiles = ['.claude', '_ai', 'CLAUDE.md', 'AGENTS.md', 'README.md', 'HOW-TO-USE.md']
+  .map(p => path.join(root, p)).filter(p => fs.existsSync(p))
+  .flatMap(p => fs.statSync(p).isDirectory() ? walk(p) : [p])
+  .map(rel).filter(r => r !== '.claude/settings.local.json');
+const differs = (a, b) => !fs.existsSync(b) || read(a) !== read(b);
+const coreDrift = fs.existsSync(vault) ? coreFiles.filter(r => differs(path.join(root, r), path.join(vault, dotted(r)))) : [];
+const workDrift = () => fs.existsSync(vault) ? walk(path.join(root, 'work')).map(rel)
+  .filter(r => !r.startsWith('work/personal/'))
+  .filter(r => differs(path.join(root, r), path.join(vault, r === 'work/STRUCTURE.md' ? 'structure.md' : dotted(r)))) : [];
+
 if (mode === 'check') {
   console.log(drift.length ? `drift in ${drift.length} files:\n` + drift.join('\n') : `ok: ${Object.keys(built).length} files match`);
-  process.exit(drift.length ? 1 : 0);
+  if (coreDrift.length) console.log(`vault differs in ${coreDrift.length} files (run without --check):\n` + coreDrift.join('\n'));
+  const wd = workDrift();
+  if (wd.length) console.log(`vault work differs in ${wd.length} files (copy the newer side by hand):\n` + wd.join('\n'));
+  process.exit(drift.length || coreDrift.length || wd.length ? 1 : 0);
 }
 
 for (const [t, txt] of Object.entries(built)) {
@@ -125,4 +142,11 @@ for (const [t, txt] of Object.entries(built)) {
     fs.writeFileSync(v, txt.replace(/\n/g, '\r\n'));
   }
 }
-console.log(`built ${Object.keys(built).length} files (${drift.length} changed)${fs.existsSync(vault) ? ' + vault' : ''}`);
+for (const r of coreDrift) {
+  const v = path.join(vault, dotted(r));
+  fs.mkdirSync(path.dirname(v), { recursive: true });
+  fs.writeFileSync(v, read(path.join(root, r)).replace(/\n/g, '\r\n'));
+}
+console.log(`built ${Object.keys(built).length} files (${drift.length} changed)${fs.existsSync(vault) ? ` + vault (${coreDrift.length} updated)` : ''}`);
+const wd = workDrift();
+if (wd.length) console.log(`vault work differs in ${wd.length} files (copy the newer side by hand):\n` + wd.join('\n'));

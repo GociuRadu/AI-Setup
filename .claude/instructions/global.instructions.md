@@ -22,7 +22,7 @@ Single source of truth for all projects. Project files add facts, never weaker r
 - Workspace root `projects`: `.claude/` and `_ai/` (core) plus one folder per project; a project's Git checkout is its `code/` subfolder. Active project = the root containing the files in scope; if unclear, ask once.
 - `work/` at the workspace root is a stored copy of the Copilot work setup, not a project: never treat it as the active project or apply its rules here; change it only when asked.
 - `personal/` at the workspace root is private: never list, read, search, reference or modify it.
-- Each project has `CLAUDE.md` (what to read) and `docs/ai/`: `project.md` (stable facts, commands, review focus), `context.md` (current state, open work), `memory.md` (decisions, lessons, Bugs table). Read what the entrypoint says; open `context.md`/`memory.md` only when current work or a past decision matters.
+- Each project has `CLAUDE.md` (what to read; `AGENTS.md` and `.github/copilot-instructions.md` say the same for other agents; keep the three in step) and `docs/ai/`: `project.md` (stable facts, commands, review focus), `context.md` (current state, open work), `memory.md` (decisions, lessons, Bugs table). Read what the entrypoint says; open `context.md`/`memory.md` only when current work or a past decision matters.
 - Keep them current and short: state changes go to `context.md` (replace, don't append history), durable decisions and proven bugs to `memory.md`, new stable facts to `project.md`. Never store the same fact in two files.
 - Claude Code's own auto-memory holds only user preferences and feedback; project facts, decisions and bugs go to the project's `docs/ai/` files.
 
