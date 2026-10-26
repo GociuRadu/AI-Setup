@@ -2,10 +2,12 @@
 // tool-specific headers differ.
 //   node _ai/scripts/build.mjs --home <dir>   Claude Code workspace: dot-claude -> .claude
 //   node _ai/scripts/build.mjs --work <dir>   Copilot workspace: .github/{instructions,agents,skills,hooks}
+//   node _ai/scripts/build.mjs --vault <dir>  the work build for the Obsidian vault, `.x` names stored as `dot-x`
 // Clears and rewrites only the generated folders (home: .claude/{agents,skills,instructions,rules,hooks};
 // work: .github/{agents,skills,instructions}); everything else in the target is only added or overwritten.
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, rmSync, renameSync, mkdtempSync, cpSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -73,10 +75,29 @@ function work(out) {
     writeFileSync(f, w(text(f)).replaceAll('[CLAUDE.md](CLAUDE.md)', '[copilot-instructions.md](.github/copilot-instructions.md)'));
 }
 
+// Obsidian never syncs names that start with a dot, so the vault copy stores `.x` as `dot-x`
+function dotNames(dir) {
+  for (const n of readdirSync(dir)) {
+    let p = join(dir, n);
+    if (n.startsWith('.')) { const q = join(dir, `dot-${n.slice(1)}`); renameSync(p, q); p = q; }
+    if (statSync(p).isDirectory()) dotNames(p);
+  }
+}
+
+// Vault: the work build with dot names; replaces only the build's own top-level entries
+function vault(out) {
+  const tmp = mkdtempSync(join(tmpdir(), 'ai-vault-'));
+  work(tmp);
+  dotNames(tmp);
+  for (const n of readdirSync(tmp)) { rmSync(join(out, n), { recursive: true, force: true }); cpSync(join(tmp, n), join(out, n), { recursive: true }); }
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 const args = process.argv.slice(2);
 const target = (flag) => { const i = args.indexOf(flag); return i >= 0 && args[i + 1] ? resolve(args[i + 1]) : null; };
-const [h, wk] = [target('--home'), target('--work')];
+const [h, wk, v] = [target('--home'), target('--work'), target('--vault')];
 if (!existsSync(SRC)) { console.error('run build.mjs from the AI-Setup source repo (dot-claude/ not found)'); process.exit(1); }
-if (!h && !wk) { console.error('usage: node _ai/scripts/build.mjs [--home <dir>] [--work <dir>]'); process.exit(1); }
+if (!h && !wk && !v) { console.error('usage: node _ai/scripts/build.mjs [--home <dir>] [--work <dir>] [--vault <dir>]'); process.exit(1); }
 if (h) { written = 0; home(h); console.log(`home: ${written} files -> ${h}`); }
 if (wk) { written = 0; work(wk); console.log(`work: ${written} files -> ${wk}`); }
+if (v) { written = 0; vault(v); console.log(`vault: ${written} files -> ${v} (dot names stored as dot-*)`); }

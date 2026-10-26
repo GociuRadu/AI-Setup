@@ -47,4 +47,14 @@ Open the workspace root (not a project or `code/` folder) so the rules, skills a
 
 ## Change the setup
 
-Edit the AI-Setup source repo (`dot-claude/`, `_ai/`; never a built workspace), then `node _ai/scripts/build.mjs --home <home workspace> --work <work workspace>`, start a new session and commit. The Obsidian vault (`Me/Code/Setup`) holds only the built work setup, with `.github` stored as `dot-github`: at work, copy it into the workspace and rename `dot-github` to `.github`. Refresh it with `--work` into the vault, then rename `.github` to `dot-github`.
+Edit the AI-Setup source repo (`dot-claude/`, `_ai/`; never a built workspace), then `node _ai/scripts/build.mjs --home <home workspace> --work <work workspace>`, start a new session and commit.
+
+## Obsidian vault (work copy)
+
+`Me/Code/Setup` holds only the built work setup: `node _ai/scripts/build.mjs --vault <vault>/Me/Code/Setup`. Obsidian never syncs names starting with a dot, so every `.x` (`.github`, `.gitignore`, `.gitkeep`) is stored as `dot-x`. In Obsidian turn on Settings → Sync → **Sync all other types** (and Files and links → **Detect all file extensions** to see them), otherwise `.mjs`, `.json`, `.py`, `.ps1` and `.yml` files are not synced.
+
+At work, copy `Setup` into the workspace, then in it run once:
+
+```powershell
+Get-ChildItem -Recurse -Force | Where-Object Name -like 'dot-*' | Sort-Object { $_.FullName.Length } -Descending | Rename-Item -NewName { '.' + $_.Name.Substring(4) }
+```
