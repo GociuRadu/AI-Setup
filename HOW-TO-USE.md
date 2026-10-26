@@ -47,4 +47,4 @@ Open the workspace root (not a project or `code/` folder) so the rules, skills a
 
 ## Change the setup
 
-Edit the AI-Setup source repo (`dot-claude/`, `_ai/`; never a built workspace), then `node _ai/scripts/build.mjs --home <home workspace> --work <work workspace>`, start a new session and commit.
+Edit the AI-Setup source repo (`dot-claude/`, `_ai/`; never a built workspace), then `node _ai/scripts/build.mjs --home <home workspace> --work <work workspace>`, start a new session and commit. The Obsidian vault (`Me/Code/Setup`) holds the source plus the built work setup in `work/`, with `.github` stored as `dot-github`: at work, copy `work/` into the workspace and rename `dot-github` to `.github`.
