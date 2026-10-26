@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = join(ROOT, 'dot-claude');
-const SHARED = ['CLAUDE.md', 'AGENTS.md', 'README.md', 'HOW-TO-USE.md', '_ai/README.md', '_ai/SOURCES.md', '_ai/templates', '_ai/scripts/new-project.mjs'];
+// README.md and _ai/README.md describe this source repo and its build, so they stay here
+const SHARED = ['CLAUDE.md', 'AGENTS.md', 'HOW-TO-USE.md', '_ai/SOURCES.md', '_ai/templates', '_ai/scripts/new-project.mjs'];
 
 const TOOLS = { Read: 'read', Grep: 'search', Glob: 'search', Edit: 'edit', Write: 'edit', Bash: 'execute', WebSearch: 'web', WebFetch: 'web' };
 const MODELS = {
