@@ -1,20 +1,16 @@
 # AI Setup
 
-Claude Code setup for a multi-project workspace (`projects`): global rules, an orchestrator skill (`lead`), four Haiku helper agents and domain skills. Real project folders are not versioned here; `work/` holds anonymized copies of the work setup.
+One AI setup for a multi-project workspace, the same at home (Claude Code) and at work (GitHub Copilot). Only the permissions differ: at home the agent acts without asking, at work it asks first. Database rules are the same everywhere: the agent only reads.
 
 | Read | For |
 |---|---|
-| [HOW-TO-USE.md](HOW-TO-USE.md) | Daily use: start, which skill/agent, where results go, troubleshooting |
-| [_ai/README.md](_ai/README.md) | Layout, how the pieces connect, maintenance |
+| [HOW-TO-USE.md](HOW-TO-USE.md) | Daily use: which skill or agent, where results go |
+| [_ai/README.md](_ai/README.md) | Layout, build script, maintenance |
 | [_ai/SOURCES.md](_ai/SOURCES.md) | External sources and licenses |
-| [work/HOW-TO-USE.md](work/HOW-TO-USE.md), [work/STRUCTURE.md](work/STRUCTURE.md) | Work setup (GitHub Copilot, strict permissions, anonymized) |
 
 ```mermaid
 flowchart LR
-  U[Request] --> M[Main session<br/>CLAUDE.md + global rules]
-  M -->|small task| D[Do it directly]
-  M -->|plan, risky path, 5+ files| L[lead skill]
-  M -->|workflow| S[analyze / review / bug / data / confluence]
-  L --> SC[scout] & W[worker] & T[tester] & R[reviewer]
-  S & L --> P[project docs/ai: context, memory, reports]
+  S[This repo<br/>dot-claude + _ai] -->|build.mjs --home| H[Home workspace<br/>.claude, Claude Code]
+  S -->|build.mjs --work| W[Work workspace<br/>.github, Copilot]
+  H & W --> P[projects: docs/ai + code/]
 ```

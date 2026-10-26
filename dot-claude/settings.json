@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "Bash",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "deny": [
+      "Read(**/*.env)",
+      "Read(**/.env.*)",
+      "Bash(cat *.env*)",
+      "Bash(head *.env*)",
+      "Bash(tail *.env*)",
+      "PowerShell(gc *.env*)",
+      "PowerShell(cat *.env*)",
+      "Bash(grep * .env*)",
+      "Bash(grep */.env*)",
+      "Bash(grep * *.env)",
+      "Bash(rg * .env*)",
+      "Bash(rg */.env*)",
+      "Bash(awk * *.env*)",
+      "Bash(less *.env*)",
+      "Bash(more *.env*)",
+      "Bash(type *.env*)",
+      "Bash(cp *.env*)",
+      "Bash(*Get-Content* *.env*)",
+      "Bash(*Select-String* *.env*)",
+      "PowerShell(Get-Content *.env*)",
+      "PowerShell(Select-String * *.env*)",
+      "PowerShell(Copy-Item *.env*)",
+
+      "Bash(git push *--force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * -f*)",
+      "Bash(git push *+*)",
+      "PowerShell(git push *--force*)",
+      "PowerShell(git push -f*)",
+      "PowerShell(git push * -f*)",
+      "PowerShell(git push *+*)",
+
+      "Bash(*down -v*)",
+      "Bash(*down --volumes*)",
+      "Bash(docker volume rm *)",
+      "Bash(docker volume prune*)",
+      "Bash(docker system prune*)",
+      "PowerShell(*down -v*)",
+      "PowerShell(*down --volumes*)",
+      "PowerShell(docker volume rm *)",
+      "PowerShell(docker volume prune*)",
+      "PowerShell(docker system prune*)",
+
+      "Bash(*compose*prod*)",
+      "Bash(*compose*staging*)",
+      "Bash(*compose*hostinger*)",
+      "Bash(*compose*monitoring*)",
+      "Bash(*scripts/release.sh*)",
+      "Bash(*scripts/rollback.sh*)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(sftp *)",
+      "PowerShell(*compose*prod*)",
+      "PowerShell(*compose*staging*)",
+      "PowerShell(*compose*hostinger*)",
+      "PowerShell(*compose*monitoring*)",
+      "PowerShell(*release.sh*)",
+      "PowerShell(*rollback.sh*)",
+      "PowerShell(ssh *)",
+      "PowerShell(scp *)",
+      "PowerShell(sftp *)",
+
+      "mcp__hostinger-vps__execute",
+      "mcp__hostinger-vps__multi-execute",
+      "mcp__hostinger-hosting__execute",
+      "mcp__hostinger-hosting__multi-execute",
+      "mcp__hostinger-agency-hosting__execute",
+      "mcp__hostinger-agency-hosting__multi-execute",
+      "mcp__hostinger-dns__execute",
+      "mcp__hostinger-dns__multi-execute",
+      "mcp__hostinger-domains__execute",
+      "mcp__hostinger-domains__multi-execute",
+      "mcp__hostinger-wordpress__execute",
+      "mcp__hostinger-wordpress__multi-execute",
+      "mcp__hostinger-wordpress-sites__execute_site_tool",
+      "mcp__hostinger-billing__execute",
+      "mcp__hostinger-billing__multi-execute",
+      "mcp__hostinger-reach__execute",
+      "mcp__hostinger-reach__multi-execute",
+      "mcp__claude_ai_Atlassian_MCP__executeDestructive"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-db-writes.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

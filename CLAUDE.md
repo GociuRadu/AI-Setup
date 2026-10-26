@@ -1,5 +1,6 @@
-# Core instructions (_ai)
+# Core instructions
 
-Always follow the [global rules](.claude/instructions/global.instructions.md). `.claude/` and `_ai/` are the core: change them only when the user explicitly asks to change the AI setup.
+Always follow the global rules and the permissions of this setup.
 
 @.claude/instructions/global.instructions.md
+@.claude/instructions/permissions.instructions.md

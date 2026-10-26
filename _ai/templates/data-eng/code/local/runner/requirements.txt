@@ -1,0 +1,7 @@
+pyspark==3.5.*
+delta-spark==3.2.*
+# pyspark.testing needs pandas; pyspark 3.5 breaks on pandas 3 and numpy 2
+pandas>=1.0.5,<3
+numpy<2
+pyarrow>=4,<18
+mssql-python==1.16.0

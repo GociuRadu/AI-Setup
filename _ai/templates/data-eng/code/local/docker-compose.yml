@@ -1,0 +1,39 @@
+# Disposable local test environment; run through local/test.ps1. Not a Synapse emulator.
+name: {{project}}-local
+
+services:
+  sqlserver:
+    # Closest local engine to Azure SQL; pin a CU tag (e.g. 2025-CU<n>-ubuntu-22.04) once chosen
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-}
+      MSSQL_MEMORY_LIMIT_MB: "3072"
+    mem_limit: 4g
+    # No ports and no volume: only the runner reaches it, data dies with the container
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  runner:
+    build:
+      context: ./runner
+      additional_contexts:
+        hostca: ./runner/hostca
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-}
+      SQL_HOST: sqlserver
+      SQL_DATABASE: {{project}}_test
+      SPARK_DRIVER_MEMORY: 3g
+      PYTHONDONTWRITEBYTECODE: "1"
+    mem_limit: 5g
+    working_dir: /workspace
+    volumes:
+      - ../tests:/workspace/tests:ro
+      - ../Notebooks:/workspace/Notebooks:ro
+      - ../TablesDataBase:/workspace/TablesDataBase:ro
+      - ../pipelines:/workspace/pipelines:ro

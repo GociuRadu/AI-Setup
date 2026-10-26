@@ -1,0 +1,14 @@
+# Copy to %UserProfile%\.wslconfig, adjust, then run: wsl --shutdown
+# Values below are for a 16 GB / 16-thread machine; see SETUP-WSL.md for other sizes.
+[wsl2]
+memory=10GB
+processors=8
+swap=4GB
+# Maximum size of the virtual disk for newly created distros (existing: wsl --manage <distro> --resize)
+# defaultVhdSize=512GB
+
+[experimental]
+# Return idle Linux page cache to Windows
+autoMemoryReclaim=gradual
+# New distro disks give freed space back to Windows (existing: wsl --manage <distro> --set-sparse true)
+sparseVhd=true
