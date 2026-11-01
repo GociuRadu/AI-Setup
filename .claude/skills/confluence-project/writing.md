@@ -8,7 +8,7 @@ The reader finds the answer in 30 seconds, and every claim can be checked. For H
 - Top: the page-info table and a **TL;DR** of 2-3 sentences (what, for whom, the key outcome). Headings are reader questions ("How do I rerun a load?"), at most 3 levels.
 - Short sentences, active voice, paragraphs of at most about 5 lines. Real names, paths, commands and example values.
 - Unknown: `Unknown, to verify with <role>`. Never invent owners, dates, links, numbers or account IDs; a mention without a real ID is plain text (`[@owner]`).
-- Dates as `<time>`, status as a status lozenge, links to pages as inline smart links. Mark what is verified, with the date of the evidence. No secrets or customer data.
+- Dates as `<time datetime="YYYY-MM-DD">YYYY-MM-DD</time>` (never empty), status as a status lozenge, links to pages as inline smart links. Mark what is verified, with the date of the evidence. No secrets or customer data.
 
 ## Tables
 
@@ -25,7 +25,7 @@ Table schema: heading `schema.table`, one line of purpose, the grain ("one row p
 | `order_id` | `INT` | PK | no | One order |
 | `customer_id` | `INT` | FK -> `dbo.customer` | no | Who placed it |
 
-Type as in the DDL; Key is PK, FK -> target, UK or empty; Meaning includes the unit or allowed values. After it: indexes, the load (source, schedule, rerun behavior), a link to the DDL file.
+Type as in the DDL; Key is PK, FK -> target, UK or N/A; Meaning includes the unit or allowed values. After it: indexes, the load (source, schedule, rerun behavior), a link to the DDL file.
 
 API endpoint: heading `METHOD /path`, one line of purpose and the auth scheme (never a token), a `Field | In | Type | Required | Meaning` table (In: path, query, header, body, response), a `Status | When | Body` table, then one short request and response in `language-json` code blocks with fake values.
 
