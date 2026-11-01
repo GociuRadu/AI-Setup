@@ -75,6 +75,8 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
     if (/\$\(|`/.test(cmd)) return 'command substitution into a database client';
     if (/\bsource\b|\.read\b|\\i\b/i.test(cmd)) return 'a script run from inside the client';
     if (/\bbcp\b[^|;&]*\s(in|format)\s/i.test(cmd)) return 'bcp in writes to a database';
+    // query or script from a variable ($q, %Q%, @file): its text is set elsewhere and cannot be checked
+    if (/\s(-Q|-q|-Query|-c|--command|-e|--execute|-i|-f|-InputFile|--file)[=\s]*["']?[$%@]/i.test(cmd)) return 'query text in a variable cannot be checked';
     // only the query text, so server names, paths and flags do not count
     const query = cmd.replace(/\s-(o|OutputFile)\s+("[^"]*"|'[^']*')/gi, ''); // output paths are not SQL
     const quoted = [...query.matchAll(/"([^"]*)"|'([^']*)'/g)].map((m) => m[1] ?? m[2]).join('\n');

@@ -33,7 +33,7 @@ Read the skill before the task it covers: `review` (review or audit), `bug` (som
 
 ## Interaction
 
-- Finish in one turn. When asked to fix, change, convert or make something work: diagnose, edit and verify in the same turn. Never end a turn with only a finding, a plan, a todo list or "I can't because of rule X"; do not wait for a second or third "do it". If a command needs approval, propose it through the tool's approval prompt: that prompt is the ask, not a reason to stop the turn. Only a hard stop, a denied permission or a missing fact (below) may stop the work, named as the one specific blocker. Convention and location rules are not blockers: apply the change where you can and list the follow-up under **Not done**.
+- Finish in one turn. When asked to fix, change, convert or make something work: diagnose, edit and verify in the same turn. Never end a turn with only a finding, a plan, a todo list or "I can't because of rule X"; do not wait for a second or third "do it". Wait for every helper you started (including a recheck) before the final reply; never end a turn on a pending helper or a scheduled wake-up. If a command needs approval, propose it through the tool's approval prompt: that prompt is the ask, not a reason to stop the turn. Only a hard stop, a denied permission or a missing fact (below) may stop the work, named as the one specific blocker. Convention and location rules are not blockers: apply the change where you can and list the follow-up under **Not done**.
 - A diagnosis is not completion when the user asked for a fix: continue to the smallest in-scope fix and its focused check. If an earlier response stopped short and the user says to proceed, resume that work without making them restate it.
 - If a fix fails its check, keep going (a different approach after two failures) until it works or a real blocker remains; report once at the end.
 - The request plus supplied files and logs are the spec; inspect the repo instead of asking. Make and state low-risk assumptions.
@@ -54,7 +54,7 @@ You orchestrate yourself; a separate orchestrator agent would be one more cold h
 |---|---|
 | `scout` | a read across 5+ files, a long log or a web lookup; one per independent question, in parallel |
 | `worker` | bulk mechanical edits: one command if one can do it; under about 40 files, batched edits yourself; 40+ files or 1,500+ changed lines, parallel workers on disjoint file sets, each with one spec kind from the [worker agent](.claude/agents/worker.md) and a search check |
-| `tester` | "run the tests", any full suite, or a risky change; never run a full suite yourself; the focused check on what you changed stays yours |
+| `tester` | "run the tests", any full suite, or a risky change; never run a full suite yourself, also not as evidence for `reviewer` (pass it the `tester` counts); the focused check on what you changed stays yours |
 | `reviewer` | a risky change (every new or changed DDL, load or publish step counts) or logic changes in 5+ files, before handoff and after `tester`; fix Must fix findings. Not needed for a purely mechanical edit proven by search counts and passing tests; `docs/ai/` files do not count |
 
 3. Parallel: read-only work, disjoint files, independent test suites; at most 4 helpers, started together. Sequential: same files, one step needs another's output, or order matters (schema before code).

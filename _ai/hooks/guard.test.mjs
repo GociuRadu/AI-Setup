@@ -25,6 +25,7 @@ const allowed = [
   'grep -i sqlcmd README.md',
   'git commit -m "Create psql helper"',
   'mysql -f -e "SELECT 1"',
+  'Invoke-Sqlcmd -ServerInstance $srv -Query "SELECT 1"',
   'sqlcmd -S dev -Q "SELECT item_id FROM dbo.item" -o "C:/out/into.txt"',
   'git push origin feature/x',
   'git commit -m "docs: explain docker compose down -v and ssh"',
@@ -68,6 +69,10 @@ const blocked = [
   'psql -c "select 1; drop table x"',
   'python -c "import pyodbc; c=pyodbc.connect(cs); c.execute(\'DELETE FROM t\')"',
   'sqlcmd -Q "SELECT 1\nGO\nDELETE FROM t"',
+  '$q = "DELETE FROM dbo.t"; Invoke-Sqlcmd -Query $q',
+  'sqlcmd -S dev -Q %Q%',
+  'psql -c "$SQL"',
+  'Invoke-Sqlcmd -InputFile $f',
   // hard stops
   'git push --force origin main',
   'git push -f',
