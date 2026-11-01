@@ -88,7 +88,7 @@ The main agent works on Sonnet (Claude Code default in `.claude/settings.json`; 
 | `.kiro/skills/`, `.kiro/agents/`, rule copies in `.kiro/steering/` and `.github/instructions/` | Generated from the `.claude/` files | Kiro, Copilot |
 | `.claude/settings.json`, `.github/hooks/guard.json`, `.kiro/hooks/guard.json` | Wire the guard hook (and Claude's deny rules, Sonnet default, earlier auto-compact, Haiku for unpinned subagents) | one tool each |
 | `_ai/orchestration.md` | Helper triggers, briefs, parallel rules, verification | main agent, only for bigger work |
-| `_ai/hooks/guard.mjs` | Blocks writing SQL, hard stops and secret reads in every tool | all |
+| `_ai/hooks/guard.mjs` | Blocks writing SQL, hard stops and secret reads in every tool; fails closed (if it cannot load or errors, the tool call is blocked) | all |
 | `_ai/profiles/` | `home` and `work` permission profiles | through `_ai/setup.mjs` |
 | `_ai/templates/` | Project skeletons `app` and `data-eng` | `_ai/new-project.mjs` |
 | `_ai/check.mjs` | Self-check of the setup; `--fix` regenerates the Kiro wrappers | you |

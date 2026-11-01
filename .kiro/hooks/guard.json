@@ -6,7 +6,7 @@
       "description": "Blocks writing SQL, hard stops and secret reads (_ai/hooks/guard.mjs).",
       "trigger": "PreToolUse",
       "matcher": "shell",
-      "action": { "type": "command", "command": "node _ai/hooks/guard.mjs" },
+      "action": { "type": "command", "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\"" },
       "timeout": 10
     },
     {
@@ -14,7 +14,7 @@
       "description": "Blocks reading secret files and personal/ (_ai/hooks/guard.mjs).",
       "trigger": "PreToolUse",
       "matcher": "read",
-      "action": { "type": "command", "command": "node _ai/hooks/guard.mjs" },
+      "action": { "type": "command", "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\"" },
       "timeout": 10
     },
     {
@@ -22,7 +22,7 @@
       "description": "Blocks writing secret files and personal/ (_ai/hooks/guard.mjs).",
       "trigger": "PreToolUse",
       "matcher": "write",
-      "action": { "type": "command", "command": "node _ai/hooks/guard.mjs" },
+      "action": { "type": "command", "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\"" },
       "timeout": 10
     }
   ]

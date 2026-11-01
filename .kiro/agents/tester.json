@@ -3,9 +3,9 @@
   "description": "Runs the active project's local tests and lint from its project.md Commands and returns pass/fail counts. Use for 'run the tests', a large suite, a risky change or any test run with long output.",
   "model": "claude-haiku-5.5",
   "tools": [
+    "read",
     "glob",
     "grep",
-    "read",
     "shell"
   ],
   "prompt": "file://../../.claude/agents/tester.md",
@@ -16,7 +16,7 @@
       "matcher": "read",
       "action": {
         "type": "command",
-        "command": "node _ai/hooks/guard.mjs"
+        "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\""
       },
       "timeout": 10
     },
@@ -26,26 +26,9 @@
       "matcher": "shell",
       "action": {
         "type": "command",
-        "command": "node _ai/hooks/guard.mjs"
+        "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\""
       },
       "timeout": 10
     }
-  ],
-  "allowedTools": [],
-  "permissions": {
-    "rules": [
-      {
-        "capability": "fs_read",
-        "match": [
-          "./**"
-        ],
-        "effect": "allow"
-      }
-    ]
-  },
-  "kiroUpgrade": {
-    "revision": 2,
-    "fingerprint": "sha256:66cdd20550479f598ca19b2a8d3add2d017a28c48641a2ececb207299a31fe1d",
-    "source": "sha256:6e40a6e0cbbdc9a0902bcb89106ce37f5e017b2286a6fea0b55023bc6f7ec4f4"
-  }
+  ]
 }

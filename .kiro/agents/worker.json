@@ -3,9 +3,9 @@
   "description": "Cheap executor for bulk mechanical edits from a complete spec: the same change across many files, new files from an example, tests from a case table. Several run in parallel on disjoint file sets. Not for design or logic the spec does not give.",
   "model": "claude-haiku-5.5",
   "tools": [
+    "read",
     "glob",
     "grep",
-    "read",
     "write"
   ],
   "prompt": "file://../../.claude/agents/worker.md",
@@ -16,7 +16,7 @@
       "matcher": "read",
       "action": {
         "type": "command",
-        "command": "node _ai/hooks/guard.mjs"
+        "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\""
       },
       "timeout": 10
     },
@@ -26,26 +26,9 @@
       "matcher": "write",
       "action": {
         "type": "command",
-        "command": "node _ai/hooks/guard.mjs"
+        "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\""
       },
       "timeout": 10
     }
-  ],
-  "allowedTools": [],
-  "permissions": {
-    "rules": [
-      {
-        "capability": "fs_read",
-        "match": [
-          "./**"
-        ],
-        "effect": "allow"
-      }
-    ]
-  },
-  "kiroUpgrade": {
-    "revision": 2,
-    "fingerprint": "sha256:fda4e229278954aadc232af59d34ba0e151955f6a5579fed4beeff43cd083eca",
-    "source": "sha256:394a39594650bb6affcb314ac7d2619d474a5d0c278724a12f25a536d240781d"
-  }
+  ]
 }

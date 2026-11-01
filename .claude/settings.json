@@ -13,7 +13,6 @@
     ],
     "deny": [
       "Read(**/.env)",
-      "Read(**/.env.*)",
       "Read(**/*.env)",
       "Edit(**/.env)",
       "Edit(**/*.env)",
@@ -30,6 +29,10 @@
       "PowerShell(docker volume rm *)",
       "PowerShell(docker volume prune*)",
       "PowerShell(docker system prune*)",
+      "Bash(docker*compose*down*-v*)",
+      "PowerShell(docker*compose*down*-v*)",
+      "Bash(docker*compose*prod*)",
+      "PowerShell(docker*compose*prod*)",
       "Bash(ssh *)",
       "Bash(scp *)",
       "Bash(sftp *)",
@@ -64,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/_ai/hooks/guard.mjs\""
+            "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})\""
           }
         ]
       }

@@ -54,6 +54,10 @@ for (const s of skills) {
 }
 orphans(p('.kiro/skills'), skills, true);
 
+// The one guard command for every hook wiring. It fails closed: a missing or broken guard.mjs blocks (exit 2).
+// Only double quotes outside, so cmd, PowerShell and bash pass it unchanged; Claude Code sets CLAUDE_PROJECT_DIR, the others run from the root.
+export const GUARD_CMD = `node -e "import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})"`;
+
 // 2. agents: .claude/agents/<name>.md is the source; .kiro/agents/<name>.json uses it as the prompt
 const MODELS = { haiku: 'claude-haiku-5.5', sonnet: 'claude-sonnet-5.5', opus: 'claude-opus-5.5' };
 const TOOLS = { Read: 'read', Grep: 'read', Glob: 'read', Edit: 'write', Write: 'write', Bash: 'shell', PowerShell: 'shell', WebSearch: 'web', WebFetch: 'web' };
@@ -71,7 +75,7 @@ for (const a of agents) {
   if (unknown.length) errors.push(`.claude/agents/${a}.md: unknown tools ${unknown.join(', ')}`);
   const tags = [...new Set(tools.map((t) => TOOLS[t]).filter(Boolean))];
   // inline hooks guard the helper even where workspace hook files are not loaded (Kiro CLI before V3)
-  const hooks = tags.filter((t) => t !== 'web').map((t) => ({ name: `guard ${t}`, trigger: 'PreToolUse', matcher: t, action: { type: 'command', command: 'node _ai/hooks/guard.mjs' }, timeout: 10 }));
+  const hooks = tags.filter((t) => t !== 'web').map((t) => ({ name: `guard ${t}`, trigger: 'PreToolUse', matcher: t, action: { type: 'command', command: GUARD_CMD }, timeout: 10 }));
   const kiro = { name: a, description: h.get('description'), model, tools: tags.flatMap((t) => KIRO_TOOLS[t]), prompt: `file://../../.claude/agents/${a}.md`, hooks };
   // Kiro CLI V3 rewrites these files on first run (tool order, extra keys, a .bak copy): compare only the keys written here
   const file = p('.kiro/agents', `${a}.json`);
@@ -124,8 +128,14 @@ for (const f of docs) {
 
 // 4. JSON files and hook wiring
 for (const f of [p('.claude/settings.json'), ...walk(p('.github/hooks')), ...walk(p('.kiro/hooks')), ...walk(p('.kiro/agents'))].filter((x) => x.endsWith('.json'))) {
-  try { const t = read(f); JSON.parse(t); if (/hooks/.test(f) || f.endsWith('settings.json')) { if (!t.includes('_ai/hooks/guard.mjs')) errors.push(`${rel(f)}: does not run _ai/hooks/guard.mjs`); } }
-  catch (e) { errors.push(`${rel(f)}: invalid JSON (${e.message})`); }
+  let j;
+  try { j = JSON.parse(read(f)); } catch (e) { errors.push(`${rel(f)}: invalid JSON (${e.message})`); continue; }
+  // every hook command must be the fail-closed guard command; hook files must have at least one
+  const cmds = [];
+  const collect = (v, k) => { if (typeof v === 'string' && ['command', 'powershell', 'bash'].includes(k) && /guard\.mjs/.test(v)) cmds.push(v); else if (v && typeof v === 'object') for (const [kk, vv] of Object.entries(v)) collect(vv, kk); };
+  collect(j?.hooks);
+  if (/hooks/.test(f) || f.endsWith('settings.json')) { if (!cmds.length) errors.push(`${rel(f)}: does not run _ai/hooks/guard.mjs`); }
+  for (const c of cmds) if (c !== GUARD_CMD) errors.push(`${rel(f)}: guard hook command must be the fail-closed GUARD_CMD from _ai/check.mjs`);
 }
 
 // 5. template placeholders

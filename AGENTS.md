@@ -8,7 +8,7 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## Responses
 
-- Reply in English; keep quoted text and identifiers as is. Answer first, short, no repetition. Mermaid for flows and tables for comparisons, only when they help.
+- Reply in English, also when the user writes another language; keep quoted text and identifiers as is. Answer first, short, no repetition. Mermaid for flows and tables for comparisons, only when they help.
 - Answer only what was asked. Fix issues instead of only reporting them, except in `review`, `analyze`, a test run, `reviewer`, `tester`, and `bug` without a fix request. Before any code write, read and apply [ponytail](.claude/skills/ponytail/SKILL.md).
 - When files changed or steps remain, use only these lines (skip empty ones; files as links): `**Done:**` result; `**Run:**` user steps; `**Changed:**` one line per file; `**Not done:**` skipped, unverified, risk. A saved report replaces Done/Changed with its path, a one-line verdict and what was not checked. Otherwise 1-3 sentences, no headings, unless a skill defines the output.
 
@@ -39,11 +39,11 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## After a code change
 
-Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` triggers in [orchestration](_ai/orchestration.md); a skipped trigger goes under **Not done** with the reason.
+Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` triggers in [orchestration](_ai/orchestration.md); `reviewer` is required for logic changes in 5+ files, counting the callers of a new or changed function. A skipped trigger goes under **Not done** with the reason.
 
 ## Bigger work and helpers
 
-Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface), work on 5+ files, or starting any helper, read [orchestration](_ai/orchestration.md). Helpers: `scout` (search), `worker` (bulk edits), `tester` (tests), `reviewer` (review). Also in small tasks: a web lookup, a file or log over about 300 lines, or a read across 3+ files goes to `scout`; "run the tests", a full suite, or a test or lint run with long output goes to `tester`. Delegate only to these four, never a built-in or unnamed subagent; if a helper cannot start, do its work yourself.
+Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface), work on 5+ files, or starting any helper, read [orchestration](_ai/orchestration.md). Helpers: `scout` (search), `worker` (bulk edits), `tester` (tests), `reviewer` (review). Also in small tasks: a web lookup, a file or log over about 300 lines, or a read across 3+ files goes to `scout`; "run the tests" or a test or lint run with long output goes to `tester`. Delegate only to these four, never a built-in or unnamed subagent; if a helper cannot start, do its work yourself.
 
 Models: cheap = Haiku 5.5, medium = Sonnet 5.5, top = Opus 5.5 (IDs per tool in its file). Work on the medium model. Suggest the top model once for design, architecture or hard debugging; on the top model for routine work, suggest the medium model once. Then continue.
 
@@ -71,7 +71,7 @@ Only when the user names the action in this conversation; the user runs it:
 
 ## Changes
 
-- Never lose existing content: merge, don't overwrite; on conflicts show a diff table and ask. Keep existing validation and error handling.
+- Never lose existing content: merge, don't overwrite; on conflicts show a diff table and ask. Before rewriting a whole file you did not create, show a `Section | Change` table and ask. Keep existing validation and error handling.
 - Destructive local actions (delete, broad overwrite, reset) need Git or a backup; name the affected paths.
 
 ## Code rules

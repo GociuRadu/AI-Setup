@@ -109,7 +109,17 @@ export function checkPaths(args, cwd = process.cwd(), root = ROOT) {
   return null;
 }
 
-if (process.argv[1]?.endsWith('guard.mjs')) {
+// Hook entry. The hook wiring calls run() through a loader that blocks (exit 2) when this file cannot load,
+// and any error inside the check blocks too: the guard fails closed. Unreadable stdin (no tool call) is allowed.
+export function run() {
+  try { decide(); } catch (e) {
+    process.stderr.write(`Blocked: the guard hook failed (${e?.message ?? e}). Fix _ai/hooks/guard.mjs, then retry.`);
+    process.exit(2);
+  }
+}
+if (process.argv[1]?.endsWith('guard.mjs')) run();
+
+function decide() {
   let input;
   try { input = JSON.parse(readFileSync(0, 'utf8')); } catch { process.exit(0); }
   // Claude Code and Kiro send tool_input; Copilot sends toolArgs, sometimes as a JSON string

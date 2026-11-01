@@ -1,6 +1,6 @@
 // Self-check: node _ai/hooks/guard.test.mjs (also run by node _ai/check.mjs)
 import assert from 'node:assert/strict';
-import { writeFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -134,5 +134,13 @@ for (const [tool, payload, code] of payloads) {
   assert.equal(r.status, code, `${tool} payload ${JSON.stringify(payload.tool_input ?? payload.toolArgs)} exit ${r.status}`);
   if (code === 2) assert.match(r.stdout.toString(), /"permissionDecision":"deny"/);
 }
+
+// fail-closed: the exact wired command blocks, allows, and blocks when guard.mjs cannot be loaded
+const wired = JSON.parse(readFileSync(new URL('../../.kiro/hooks/guard.json', import.meta.url), 'utf8')).hooks[0].action.command;
+const root = fileURLToPath(new URL('../..', import.meta.url));
+const runWired = (payload, projectDir) => spawnSync(wired, { shell: true, cwd: root, input: JSON.stringify(payload), env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir ?? '' } }).status;
+assert.equal(runWired({ tool_name: 'Bash', tool_input: { command: 'git push --force' }, cwd: dir }), 2, 'wired command should block');
+assert.equal(runWired({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }), 0, 'wired command should allow');
+assert.equal(runWired({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }, dir), 2, 'a missing guard.mjs should block');
 
 console.log(`guard ok: ${payloads.length} tool payloads, ${allowed.length + pathsAllowed.length} allowed, ${blocked.length + pathsBlocked.length} blocked`);
