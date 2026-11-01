@@ -1,0 +1,29 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Guard shell commands",
+      "description": "Blocks writing SQL, hard stops and secret reads (_ai/hooks/guard.mjs).",
+      "trigger": "PreToolUse",
+      "matcher": "shell",
+      "action": { "type": "command", "command": "node _ai/hooks/guard.mjs" },
+      "timeout": 10
+    },
+    {
+      "name": "Guard file reads",
+      "description": "Blocks reading secret files and personal/ (_ai/hooks/guard.mjs).",
+      "trigger": "PreToolUse",
+      "matcher": "read",
+      "action": { "type": "command", "command": "node _ai/hooks/guard.mjs" },
+      "timeout": 10
+    },
+    {
+      "name": "Guard file writes",
+      "description": "Blocks writing secret files and personal/ (_ai/hooks/guard.mjs).",
+      "trigger": "PreToolUse",
+      "matcher": "write",
+      "action": { "type": "command", "command": "node _ai/hooks/guard.mjs" },
+      "timeout": 10
+    }
+  ]
+}

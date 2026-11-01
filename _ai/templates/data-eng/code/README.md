@@ -11,4 +11,4 @@ Data-engineering project created from the `data-eng` template.
 - `local/`: disposable local test environment and runner; machine setup in `local/SETUP-WSL.md`.
 - `tests/`: unit, Spark and SQL tests with synthetic fixtures.
 
-AI entrypoints: `CLAUDE.md` (Claude Code), `AGENTS.md` (Codex and other agents), `.github/copilot-instructions.md` (Copilot); facts in `docs/ai/`.
+AI: project facts in `../docs/ai/`; the AI setup's `AGENTS.md` at the workspace root holds the rules.

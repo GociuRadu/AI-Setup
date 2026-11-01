@@ -1,0 +1,34 @@
+# Only the AI setup is versioned. Project folders, device files and tool caches stay local.
+/*
+!/.gitignore
+!/.gitattributes
+!/AGENTS.md
+!/CLAUDE.md
+!/README.md
+!/.claude/
+!/.github/
+!/.kiro/
+!/_ai/
+
+# Device profile and local settings, written by `node _ai/setup.mjs`
+/.claude/settings.local.json
+/.github/instructions/profile.instructions.md
+/.kiro/steering/profile.md
+
+# Tool state that is not setup
+/.claude/worktrees/
+/.claude/todos/
+/.kiro/settings/
+/.kiro/specs/
+/.github/hooks/*.log
+
+# Never commit secrets or caches anywhere
+.env
+.env.*
+!.env.example
+*.env
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

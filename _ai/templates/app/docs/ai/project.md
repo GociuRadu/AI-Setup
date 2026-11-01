@@ -3,6 +3,7 @@
 Application/service project. Stable facts only. Created {{DATE}}. Mark unverified items.
 
 ## At a glance
+- Type: `app`
 
 - Purpose: <one line>
 - Platform: <language, framework, runtime, hosting>
@@ -13,7 +14,7 @@ Application/service project. Stable facts only. Created {{DATE}}. Mark unverifie
 
 ## Guardrails
 
-- Databases: the global rules (Databases section). DEV: <server/db>.
+- Databases: the core rules in `AGENTS.md` (Databases section). DEV: <server/db>.
 - PRODUCTION <servers, databases, hosting>: never, not even reads.
 - Tests: isolated settings <required local services>; they write only to their disposable local container, database name ending in `_test`.
 - Never open: <secret files, private data>

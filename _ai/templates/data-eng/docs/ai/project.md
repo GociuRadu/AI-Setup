@@ -3,6 +3,7 @@
 Data-engineering project. Stable facts only. Created {{DATE}}. Mark unverified items.
 
 ## At a glance
+- Type: `data-eng`
 
 - Purpose: <one line>
 - Platform: Azure SQL Database + Synapse Spark 3.5 (Spark 3.5, Delta 3.2, Java 17, Python 3.11; *verify on the pool*); local: SQL Server 2025 container + Spark runner in Docker Engine on WSL2 Debian. Rows that apply in the data skill `platforms.md`: Azure SQL Database, SQL Server 2025 in Docker, Synapse Spark pool, local PySpark.
@@ -13,7 +14,7 @@ Data-engineering project. Stable facts only. Created {{DATE}}. Mark unverified i
 
 ## Guardrails
 
-- Databases: the global rules (Databases section). DEV: <server/db>.
+- Databases: the core rules in `AGENTS.md` (Databases section). DEV: <server/db>.
 - PRODUCTION <server/db>: never, not even reads.
 - Tests: synthetic data only; they write only to their disposable local container, database name ending in `_test`.
 - Never open: <secret files, e.g. local.env, .test.env>; input workbooks in `code/Data/`.

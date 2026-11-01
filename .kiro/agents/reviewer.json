@@ -1,0 +1,23 @@
+{
+  "name": "reviewer",
+  "description": "Read-only fresh-eyes review of a plan, supplied diff or named files against Done when. Use before handoff to catch wrong results, unsafe actions, regressions and missing checks.",
+  "model": "claude-sonnet-5.5",
+  "tools": [
+    "read",
+    "glob",
+    "grep"
+  ],
+  "prompt": "file://../../.claude/agents/reviewer.md",
+  "hooks": [
+    {
+      "name": "guard read",
+      "trigger": "PreToolUse",
+      "matcher": "read",
+      "action": {
+        "type": "command",
+        "command": "node _ai/hooks/guard.mjs"
+      },
+      "timeout": 10
+    }
+  ]
+}
