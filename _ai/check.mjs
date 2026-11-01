@@ -134,7 +134,8 @@ for (const f of [p('.claude/settings.json'), ...walk(p('.github/hooks')), ...wal
   const cmds = [];
   const collect = (v, k) => { if (typeof v === 'string' && ['command', 'powershell', 'bash'].includes(k) && /guard\.mjs/.test(v)) cmds.push(v); else if (v && typeof v === 'object') for (const [kk, vv] of Object.entries(v)) collect(vv, kk); };
   collect(j?.hooks);
-  if (/hooks/.test(f) || f.endsWith('settings.json')) { if (!cmds.length) errors.push(`${rel(f)}: does not run _ai/hooks/guard.mjs`); }
+  if (/[\\/]guard\.json$/.test(f) || f.endsWith('settings.json')) { if (!cmds.length) errors.push(`${rel(f)}: does not run _ai/hooks/guard.mjs`); }
+  if (/[\\/]lang\.json$/.test(f) || f.endsWith('settings.json')) { if (!JSON.stringify(j).includes('_ai/hooks/lang.mjs')) errors.push(`${rel(f)}: does not run _ai/hooks/lang.mjs`); }
   for (const c of cmds) if (c !== GUARD_CMD) errors.push(`${rel(f)}: guard hook command must be the fail-closed GUARD_CMD from _ai/check.mjs`);
 }
 

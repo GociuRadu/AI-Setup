@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "powershell": "node _ai/hooks/lang.mjs",
+        "bash": "node _ai/hooks/lang.mjs",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

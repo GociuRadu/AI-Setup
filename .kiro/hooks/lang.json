@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Reply in English",
+      "description": "Adds a one-line reminder to reply in English to every prompt (_ai/hooks/lang.mjs).",
+      "trigger": "UserPromptSubmit",
+      "action": { "type": "command", "command": "node _ai/hooks/lang.mjs" },
+      "timeout": 10
+    }
+  ]
+}

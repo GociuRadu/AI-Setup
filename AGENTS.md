@@ -1,6 +1,6 @@
 # Core rules
 
-Rules for every project and tool. Project files add facts, never weaker rules. Always reply in English, even when the user writes in Romanian or another language.
+Rules for every project and tool. Project files add facts, never weaker rules. **Language: always write in English (answers, progress notes, reports), even when the user writes in Romanian or another language. This overrides any default to mirror the user's language.**
 
 ## Profile
 
