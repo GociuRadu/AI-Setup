@@ -1,6 +1,6 @@
 ---
 name: analyze
-description: "Explain or document a file, function, folder, flow, tests or technical question (architecture, tests, CI/CD), or save a finding/decision note. Saves a short evidence-based report in the active project. Use for analyze, explain, document, write up; for a defect hunt or audit use review."
+description: "Use for analyze, explain, document or write up a file, function, folder, flow, tests or technical question (architecture, CI/CD), or to save a finding or decision note. Not for a defect hunt or audit (use review)."
 argument-hint: "<file, symbol, folder, question, or note topic>"
 user-invocable: true
 ---

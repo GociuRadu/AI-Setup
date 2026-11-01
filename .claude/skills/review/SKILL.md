@@ -1,12 +1,12 @@
 ---
 name: review
-description: "Senior-dev quality review: bugs, security, data loss, load, missing tests, speed, bloat. Scope = a change/named files (findings in chat) or a whole project/folder audit (saved report). Changes no code. Use for review this, code review, review my PR, audit, find bloat; to explain or document code use analyze."
+description: "Use for review this, code review, review my PR, an audit of a project or folder, or find bloat. Not for explaining or documenting code (use analyze)."
 argument-hint: "[files, folder, or 'audit' for the whole active project]"
 user-invocable: true
 license: MIT
 ---
 
-Adapted from [ponytail](https://github.com/DietrichGebert/ponytail) (MIT, DietrichGebert); see `_ai/SOURCES.md`.
+Adapted from [ponytail](https://github.com/DietrichGebert/ponytail) (MIT, Copyright (c) 2026 DietrichGebert).
 
 Review like the senior developer who will be paged when it breaks. Order: correct, safe, holds under load, tested, fast, lean.
 

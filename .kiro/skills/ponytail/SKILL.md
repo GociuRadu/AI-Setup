@@ -1,6 +1,6 @@
 ---
 name: ponytail
-description: "Lazy senior dev mode: the smallest complete change and a short reply. Use on any coding task, or when the user says ponytail, yagni, simplest solution, or complains about bloat. Levels: lite, full, ultra."
+description: "Use on any coding task, or when the user says ponytail, yagni, simplest solution, or complains about bloat. Levels: lite, full, ultra."
 ---
 # ponytail
 

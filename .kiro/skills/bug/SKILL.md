@@ -1,6 +1,6 @@
 ---
 name: bug
-description: "Use proactively, before reading code, whenever the user reports that something is wrong: a wrong result or number, \"shows X but should be Y\", an exception, a failing test or load, duplicates, NULL keys, wrong downstream documents. Proves the cause and saves a bug report; implements the fix only when requested. Not for test runs without a reported symptom."
+description: "Use proactively, before reading code, whenever the user reports that something is wrong: a wrong result or number, \"shows X but should be Y\", an exception, a failing test or load, duplicates, NULL keys, wrong downstream documents. Not for test runs without a reported symptom."
 ---
 # bug
 

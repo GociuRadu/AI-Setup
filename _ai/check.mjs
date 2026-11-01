@@ -80,7 +80,7 @@ orphans(p('.kiro/agents'), agents, false);
 // 3. relative links and anchors in the setup's Markdown
 const slug = (h) => h.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s/g, '-');
 const anchors = (f) => [...read(f).matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => slug(m[1]));
-const docs = [p('AGENTS.md'), p('CLAUDE.md'), p('README.md'), p('_ai/SOURCES.md'), ...['.claude', '.github', '.kiro', '_ai/profiles'].flatMap((d) => walk(p(d)))]
+const docs = [p('AGENTS.md'), p('CLAUDE.md'), p('README.md'), p('_ai/orchestration.md'), ...['.claude', '.github', '.kiro', '_ai/profiles'].flatMap((d) => walk(p(d)))]
   .filter((f) => f.endsWith('.md') && existsSync(f));
 for (const f of docs) {
   const text = read(f).replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
@@ -123,9 +123,11 @@ for (const a of agents) {
   if (!new RegExp(`\\| \`${a}\` \\| ${model} `).test(readme)) errors.push(`README.md: helper table row for \`${a}\` must say ${model}`);
 }
 
-// 7. size of the always-loaded rules
-const lines = read(p('AGENTS.md')).split('\n').length;
-if (lines > 200) errors.push(`AGENTS.md: ${lines} lines; keep the always-loaded rules under 200`);
+// 7. word limits: the setup must not grow quietly; a new rule replaces or merges an old one
+const words = (f) => read(f).split(/\s+/).filter(Boolean).length;
+const LIMITS = [[p('AGENTS.md'), 1400], [p('_ai/orchestration.md'), 600],
+  ...skills.map((s) => [p('.claude/skills', s, 'SKILL.md'), 1400]), ...agents.map((a) => [p('.claude/agents', `${a}.md`), 300])];
+for (const [f, max] of LIMITS) if (existsSync(f) && words(f) > max) errors.push(`${rel(f)}: ${words(f)} words, limit ${max}; shorten or merge rules`);
 
 // 8. guard hook tests, including one stdin payload per tool through the real script
 try { await import(pathToFileURL(p('_ai/hooks/guard.test.mjs')).href); } catch (e) { errors.push(`guard tests: ${e.message.split('\n')[0]}`); }

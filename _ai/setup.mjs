@@ -38,7 +38,31 @@ else { delete settings.permissions.defaultMode; settings.permissions.allow = all
 if (!settings.permissions.allow.length) delete settings.permissions.allow;
 writeFileSync(local, JSON.stringify(settings, null, 2) + '\n');
 
+// MCP cleanup report: every enabled server adds its tool list to every chat. Names only, nothing is changed.
+function mcpReport() {
+  const HOME = process.env.USERPROFILE ?? process.env.HOME ?? '';
+  const json = (f) => { try { return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { return null; } };
+  const rows = [];
+  const add = (tool, where, servers, off = []) => {
+    for (const [name, cfg] of Object.entries(servers ?? {})) rows.push(`  ${tool} (${where}): ${name}${cfg?.disabled || off.includes(name) ? ' [off]' : ''}`);
+  };
+  const claude = json(join(HOME, '.claude.json'));
+  const here = Object.entries(claude?.projects ?? {}).find(([p]) => resolve(p).toLowerCase() === ROOT.toLowerCase())?.[1] ?? {};
+  const claudeOff = [...(here.disabledMcpServers ?? []), ...(here.disabledMcpjsonServers ?? [])];
+  add('Claude Code', 'user', claude?.mcpServers, claudeOff);
+  add('Claude Code', 'this workspace', here.mcpServers, claudeOff);
+  add('Claude Code', '.mcp.json', json(join(ROOT, '.mcp.json'))?.mcpServers, claudeOff);
+  add('Kiro', 'user', json(join(HOME, '.kiro/settings/mcp.json'))?.mcpServers);
+  add('Kiro', 'workspace', json(join(ROOT, '.kiro/settings/mcp.json'))?.mcpServers);
+  add('VS Code', 'user', json(join(process.env.APPDATA ?? '', 'Code/User/mcp.json'))?.servers);
+  add('VS Code', 'workspace', json(join(ROOT, '.vscode/mcp.json'))?.servers);
+  if (!rows.length) return console.log('MCP servers: none found.');
+  console.log(`MCP servers (${rows.length}); turn off the ones you don't use, each one costs tokens in every chat:\n${rows.join('\n')}`);
+  console.log('  Turn off: Claude Code `/mcp` (per workspace) or `claude mcp remove <name> -s user`; Kiro: MCP panel or "disabled": true; VS Code: "MCP: List Servers".');
+}
+
 console.log(`profile ${profile}: ${[...Object.keys(files), '.claude/settings.local.json'].join(', ')}`);
+mcpReport();
 console.log(profile === 'home'
   ? 'Kiro: use Autopilot. Copilot: enable auto-approve for this workspace if you want no prompts.'
   : 'Kiro: use Supervised. Copilot and Claude Code: keep approvals on.');

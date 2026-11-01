@@ -1,6 +1,6 @@
 ---
 name: confluence-project
-description: "Read, answer questions about, write or update a Confluence page via the Atlassian MCP, only for page links the user gave on the project's Confluence site. Cheap outline reads for questions; granular, dry-run-checked edits that keep macros; clear senior-quality pages with tables and diagrams. Use for a Confluence link or page request inside a project of this workspace."
+description: "Use when the user gives a page link on the project's Confluence site and asks to read it, answer questions about it, write or update it, inside a project of this workspace."
 argument-hint: "<page link> <question, or what to write/change>"
 user-invocable: true
 ---

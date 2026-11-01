@@ -1,6 +1,6 @@
 {
   "name": "scout",
-  "description": "Cheap read-only search in files, long logs or the public web. Returns evidence with paths or URLs. No edits, no design decisions.",
+  "description": "Cheap search in files, long logs or the public web. Returns evidence with paths or URLs, or writes it to the one report path the brief names. No code edits, no design decisions.",
   "model": "claude-haiku-5.5",
   "tools": [
     "read",
@@ -8,7 +8,8 @@
     "grep",
     "web",
     "web_search",
-    "web_fetch"
+    "web_fetch",
+    "write"
   ],
   "prompt": "file://../../.claude/agents/scout.md",
   "hooks": [
@@ -16,6 +17,16 @@
       "name": "guard read",
       "trigger": "PreToolUse",
       "matcher": "read",
+      "action": {
+        "type": "command",
+        "command": "node _ai/hooks/guard.mjs"
+      },
+      "timeout": 10
+    },
+    {
+      "name": "guard write",
+      "trigger": "PreToolUse",
+      "matcher": "write",
       "action": {
         "type": "command",
         "command": "node _ai/hooks/guard.mjs"

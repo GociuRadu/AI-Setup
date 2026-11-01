@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Senior-dev quality review: bugs, security, data loss, load, missing tests, speed, bloat. Scope = a change/named files (findings in chat) or a whole project/folder audit (saved report). Changes no code. Use for review this, code review, review my PR, audit, find bloat; to explain or document code use analyze."
+description: "Use for review this, code review, review my PR, an audit of a project or folder, or find bloat. Not for explaining or documenting code (use analyze)."
 ---
 # review
 

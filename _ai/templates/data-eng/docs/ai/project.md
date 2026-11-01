@@ -31,6 +31,10 @@ Run from `{{PROJECT}}/code`. Local runner: [local/README.md](../../code/local/RE
 | SQL tests | `powershell -NoProfile -File local/test.ps1 -Tier Sql` | disposable `{{project}}_test` database in the local container |
 | All tiers | `powershell -NoProfile -File local/test.ps1 -Tier All` | as above |
 
+## Glossary
+
+- <term>: <one-line meaning in this project>
+
 ## Conventions
 
 - `Notebooks/`: exported notebook definitions (cell banners kept; `%pip`/`%run` in own cells).

@@ -31,6 +31,10 @@ Run from `{{PROJECT}}/code`.
 | Lint / type check | `<command>` | none |
 | Build | `<command>` | <local only> |
 
+## Glossary
+
+- <term>: <one-line meaning in this project>
+
 ## Conventions
 
 - <project-specific coding rule>

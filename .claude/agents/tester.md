@@ -1,6 +1,6 @@
 ---
 name: tester
-description: "Runs the active project's local tests and lint from its project.md Commands and returns pass/fail counts. Use for 'run the tests', a large suite or a risky change."
+description: "Runs the active project's local tests and lint from its project.md Commands and returns pass/fail counts. Use for 'run the tests', a large suite, a risky change or any test run with long output."
 tools: Read, Grep, Glob, Bash, PowerShell
 model: haiku
 ---

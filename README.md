@@ -20,7 +20,7 @@ cd work
 node _ai/setup.mjs home    # or: work
 ```
 
-Then open the `work` folder (the workspace root, not a project or `code/` folder) in VS Code, Kiro or Claude Code. Requires Node.js 18 or newer for the guard hook and scripts.
+`setup.mjs` also lists every MCP server configured for Claude Code, Kiro and VS Code, and how to turn each one off; it changes none of them. Then open the `work` folder (the workspace root, not a project or `code/` folder) in VS Code, Kiro or Claude Code. Requires Node.js 18 or newer for the guard hook and scripts.
 
 | Profile | Behavior |
 |---|---|
@@ -54,11 +54,11 @@ Name the project or path in the request and say the goal, the scope and the expe
 | Smaller or larger code changes | `/ponytail lite\|full\|ultra\|off` | this chat only |
 | Run the tests | "run the tests" | counts in chat (`tester`) |
 
-Helpers the main agent starts on its own:
+The main agent works on Sonnet (Claude Code default in `.claude/settings.json`; pick it in Kiro and Copilot) and suggests Opus for design or hard debugging. Its helper rules are in `_ai/orchestration.md`, read only for bigger work. Helpers it starts on its own:
 
 | Agent | Model | Does |
 |---|---|---|
-| `scout` | Haiku 5.5 | read-only search in files, logs and the public web |
+| `scout` | Haiku 5.5 | search in files, logs and the public web; long findings go to a report file |
 | `worker` | Haiku 5.5 | bulk mechanical edits from an exact spec, several in parallel |
 | `tester` | Haiku 5.5 | runs the project's tests and lint, reports counts |
 | `reviewer` | Sonnet 5.5 | read-only review before handoff |
@@ -82,12 +82,12 @@ Helpers the main agent starts on its own:
 | `.claude/skills/` | Skills, the single source | Claude, Copilot; Kiro through `.kiro/skills/` |
 | `.claude/agents/` | Helpers `scout`, `worker`, `tester`, `reviewer` | Claude, Copilot; Kiro through `.kiro/agents/` |
 | `.kiro/skills/`, `.kiro/agents/` | Generated wrappers that load the `.claude/` files | Kiro |
-| `.claude/settings.json`, `.github/hooks/guard.json`, `.kiro/hooks/guard.json` | Wire the guard hook (and Claude's deny rules) | one tool each |
+| `.claude/settings.json`, `.github/hooks/guard.json`, `.kiro/hooks/guard.json` | Wire the guard hook (and Claude's deny rules, Sonnet default, earlier auto-compact, Haiku for unpinned subagents) | one tool each |
+| `_ai/orchestration.md` | Helper triggers, briefs, parallel rules, verification | main agent, only for bigger work |
 | `_ai/hooks/guard.mjs` | Blocks writing SQL, hard stops and secret reads in every tool | all |
 | `_ai/profiles/` | `home` and `work` permission profiles | through `_ai/setup.mjs` |
 | `_ai/templates/` | Project skeletons `app` and `data-eng` | `_ai/new-project.mjs` |
 | `_ai/check.mjs` | Self-check of the setup; `--fix` regenerates the Kiro wrappers | you |
-| `_ai/SOURCES.md` | External sources and licenses | you |
 
 ## Tool notes
 
@@ -102,4 +102,4 @@ Helpers the main agent starts on its own:
 2. Run `node _ai/check.mjs --fix` (regenerates the Kiro wrappers, checks links, headers, JSON and the guard tests), then `node _ai/check.mjs`.
 3. After a profile change, run `node _ai/setup.mjs <profile>` again. Start a new chat session, then commit.
 
-Adding a skill: create `.claude/skills/<name>/SKILL.md` with `name` and `description`, list it in the Skills section of `AGENTS.md`, run the check, and record any external source in `_ai/SOURCES.md`.
+Adding a skill: create `.claude/skills/<name>/SKILL.md` with `name` and `description`, list it in the Skills section of `AGENTS.md` and run the check. If you copy text from an external repo, keep its license line at the top of the skill.

@@ -1,6 +1,6 @@
 ---
 name: data
-description: "Data engineering on Azure SQL Database, Synapse Spark and local SQL Server/PySpark: tables and DDL (grain, keys, history, indexes, large tables), ingestion and load pipelines (staging, atomic publish, rerun, chunked parallel loads) and Spark notebooks (parameters, runtime, JDBC limits, Spark performance). Use for every data model, DDL, schema, pipeline, notebook, load, migration, Spark, JDBC or slow-load/slow-table request, also small loads into a local database; invoke before writing the DDL or loader."
+description: "Use for every data model, table, DDL, schema, ingestion or load pipeline, Spark notebook, migration, JDBC or slow-load/slow-table request on Azure SQL Database, Synapse Spark or local SQL Server/PySpark, also small loads into a local database; invoke before writing the DDL or loader."
 ---
 # data
 
