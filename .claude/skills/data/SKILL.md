@@ -12,13 +12,13 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 ## Safety (on top of the core rules)
 
 - Databases: the [core rules](../../../AGENTS.md#databases-every-profile) Databases section; the checks in the files below follow it. When only production has the data, draft the check for the user.
-- No TRUNCATE or DROP unless the user names it. Exempt by design, and only for tables whose DDL header says `Data: rebuild`: emptying staging inside the load path, the approved publish step, the target of an approved full-snapshot publish, and drop-and-create in their DDL file; for `keep` tables only drop-and-create of an empty table behind the has-data guard. Never otherwise on `keep` tables. The agent writes these steps; the user runs them. Repairs follow the [SQL rules](../../../AGENTS.md#sql).
+- No TRUNCATE or DROP unless the user names it. Exempt by design, and only for tables whose DDL header says `Data: rebuild`: emptying staging inside the load path, the approved publish step, the target of an approved full-snapshot publish, and drop-and-create in their DDL file; for `keep` tables only drop-and-create of an empty table behind the has-data guard. Never otherwise on `keep` tables. A new table is `rebuild` only when the user asked for a full reload of it; otherwise `keep`. The agent writes these steps; the user runs them. Repairs follow the [SQL rules](../../../AGENTS.md#sql).
 - Platform, engine, DDL folder, naming and audit table come from the active project's `project.md`; read only the matching rows of [platforms](platforms.md). Project conventions override the defaults here. Mark any platform fact not verified as unverified. No preview features in production.
 
 ## Defaults
 
 - Smallest complete change per the [ponytail](../ponytail/SKILL.md) skill (read it before any code change); reuse the nearest existing notebook, DDL, test and pattern. Keep existing names and behavior unless a change is approved.
-- Routine full-snapshot load: one main table + one reusable staging table per dataset, one publish path, the existing audit table. No previous copy, fallback mode, extra layer or helper framework without a concrete need and approval; state the post-commit recovery limit. Keep setup and run instructions short. Do not force this layout on history, append-only or streaming workflows.
+- Routine full-snapshot load: one main table + one reusable staging table per dataset, one publish path, the existing audit table (none in `project.md`: propose a minimal one as a separate, optional DDL marked assumed). No previous copy, fallback mode, extra layer or helper framework without a concrete need and approval; state the post-commit recovery limit. Keep setup and run instructions short. Do not force this layout on history, append-only or streaming workflows.
 - Validation (schema, types, keys, duplicates, counts, version guards) lives in the loader/publish path. A failed load never publishes partial data.
 - Tests: a few behavior tests (success, failure protection, rerun) plus a contract check. What each test tier must contain: [test tiers](test-tiers.md).
 - Small change (one column, one parameter, one fix) = steps Frame, Build, Review only. No design record.
@@ -58,6 +58,8 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 5. **Performance:** evidence first, never invented Spark UI metrics: [performance review](spark.md#performance-review).
 
 ## Resources (read only what the task needs)
+
+Read only the files in the rows that match, one at a time: at most three before the first draft; `modes`, `test-tiers` and `performance` only at Review or when sizing. Never read the whole folder.
 
 Case numbers are per file: pipeline cases (01-06) and table cases (01-09) are different lists; write them as `pipeline 02` or `table 02`.
 

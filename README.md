@@ -93,6 +93,7 @@ Helpers the main agent starts on its own:
 ## Tool notes
 
 - Always open the workspace root: the hooks run `node _ai/hooks/guard.mjs` from there, and a tool started in a subfolder may not load the rules.
+- Claude Code: open the workspace interactively once and accept the trust dialog; until then it ignores the `allow` rules in `.claude/settings.json`. Deny rules and the guard hook apply either way.
 - Copilot (VS Code) reads `AGENTS.md`, `.claude/skills/` and `.claude/agents/` natively; the guard runs from `.github/hooks/guard.json`. If `AGENTS.md` is not loaded, turn on the `chat.useAgentsMdFile` setting.
 - Kiro loads `.kiro/hooks/guard.json` in the IDE (1.0+) and CLI V3; the helpers also carry the guard as inline hooks, which Kiro CLI 2.x runs too.
 
