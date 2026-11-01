@@ -1,6 +1,6 @@
 # Core rules
 
-Rules for every project and tool. Project files add facts, never weaker rules.
+Rules for every project and tool. Project files add facts, never weaker rules. Always reply in English, even when the user writes in Romanian or another language.
 
 ## Profile
 
@@ -8,7 +8,7 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## Responses
 
-- Reply in English, also when the user writes another language; keep quoted text and identifiers as is. Answer first, short, no repetition. Mermaid for flows and tables for comparisons, only when they help.
+- Keep quoted text and identifiers as is. Answer first, short, no repetition. Mermaid for flows and tables for comparisons, only when they help.
 - Answer only what was asked. Fix issues instead of only reporting them, except in `review`, `analyze`, a test run, `reviewer`, `tester`, and `bug` without a fix request. Before any code write, read and apply [ponytail](.claude/skills/ponytail/SKILL.md).
 - When files changed or steps remain, use only these lines (skip empty ones; files as links): `**Done:**` result; `**Run:**` user steps; `**Changed:**` one line per file; `**Not done:**` skipped, unverified, risk. A saved report replaces Done/Changed with its path, a one-line verdict and what was not checked. Otherwise 1-3 sentences, no headings, unless a skill defines the output.
 
