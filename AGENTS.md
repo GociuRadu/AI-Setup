@@ -45,7 +45,7 @@ Run the focused check (as the profile allows), update `context.md` (what is true
 
 Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface) or work on 3+ files: state the goal and an observable **Done when**, risks first. Plan only: numbered steps, then stop.
 
-You decide and write all logic. A helper start costs 20 s or more plus its own context: start one only for a "Use for" cell, and then always. Only these four, never a built-in or unnamed subagent; if one cannot start, do its work yourself. Before starting one, read [orchestration](_ai/orchestration.md).
+You decide and write all logic. A helper start costs 20 s or more plus its own context: start one only for a "Use for" cell, and then always. Only these four, never a built-in or unnamed subagent; if one cannot start, do its work yourself. Before starting one, read [orchestration](_ai/orchestration.md): its brief and checks are mandatory.
 
 | Helper | Use for | Not for |
 |---|---|---|

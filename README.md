@@ -1,36 +1,36 @@
 # AI Setup
 
-One AI setup for a workspace with many projects, software engineering (`app`) and data engineering (`data-eng`) side by side. It works the same in Claude Code, GitHub Copilot (VS Code), Kiro and Codex. This repository is the workspace root: clone it, pick the device profile, open the folder.
+One AI setup for a workspace with many projects, software engineering (`app`) and data engineering (`data-eng`) side by side. It behaves the same in Claude Code, GitHub Copilot (VS Code), Kiro and Codex. This repository is the workspace root: clone it, pick the device profile, open the folder.
 
 ```mermaid
 flowchart LR
-  A[AGENTS.md<br/>core rules] --> C[Claude Code<br/>CLAUDE.md imports it]
+  A[AGENTS.md<br/>core rules] --> C[Claude Code<br/>CLAUDE.local.md imports it]
   A --> G[Copilot<br/>reads AGENTS.md]
   A --> K[Kiro<br/>reads AGENTS.md]
-  S[.claude/skills + .claude/agents<br/>single source] --> C & G
-  S -->|wrappers in .kiro/| K
+  S[.claude/skills, agents, rules<br/>single source] --> C & G
+  S -->|generated copies in .github/agents, .kiro/| G & K
   A & S --> P[project folders<br/>docs/ai + code/]
 ```
 
 ## Install on a device
 
-Requires Git and Node.js 18 or newer (the guard hook and scripts run on Node).
+Requires Git and Node.js 18 or newer (the guard hook and the scripts run on Node).
 
 ```powershell
 git clone https://github.com/GociuRadu/AI-Setup work
 cd work
 node _ai/setup.mjs home    # or: work
-node _ai/check.mjs         # confirms the setup: ends with "setup ok"
+node _ai/check.mjs         # ends with "setup ok"
 ```
 
-`setup.mjs` also lists every MCP server configured for Claude Code, Kiro and VS Code, and how to turn each one off; it changes none of them. Then open the `work` folder (the workspace root, not a project or `code/` folder) in VS Code, Kiro or Claude Code.
+`setup.mjs` writes the profile files and lists every MCP server configured for Claude Code, Kiro and VS Code with how to turn it off; it changes none of them. Then open the `work` folder (the workspace root, not a project or `code/` folder).
 
 | Profile | Behavior |
 |---|---|
-| `home` | Full autonomy: runs commands, tests, Docker and Git (feature branches) without asking. Kiro: Autopilot. |
+| `home` | Full autonomy: commands, tests, Docker and Git (feature branches) without asking. Kiro: Autopilot. |
 | `work` | Asks before anything that is not a file read; Git writes only on request, never push. Kiro: Supervised. Also the default when no profile is set. |
 
-Databases, secrets and hard stops are the same in both profiles: the agent only reads databases, never opens `.env` files, and never runs production, force-push or volume-deleting commands.
+In both profiles the agent only reads databases, never opens `.env` files, and never runs production, force-push or volume-deleting commands.
 
 ## Add a project
 
@@ -39,16 +39,16 @@ node _ai/new-project.mjs Billing --template app        # then: git clone <url> B
 node _ai/new-project.mjs SalesLoad --template data-eng # then: git init SalesLoad/code
 ```
 
-Fill `<project>/docs/ai/project.md` (at least At a glance, Guardrails, Commands). Project folders are ignored by this repository; each project's code keeps its own Git repository in `code/`. `data-eng` includes a local Docker test environment: see `code/local/SETUP-WSL.md` and `code/local/README.md`.
+Fill `<project>/docs/ai/project.md` (at least At a glance, Guardrails, Commands). Project folders are not part of this repository; each keeps its own Git repository in `code/`. `data-eng` includes a local Docker test environment (`code/local/SETUP-WSL.md`, `code/local/README.md`).
 
 ## Daily use
 
-Name the project or path in the request and say the goal, the scope and the expected result. No credentials or customer rows.
+Name the project or path, the goal, the scope and the expected result. No credentials or customer rows.
 
 | Need | Use | Output |
 |---|---|---|
-| Question, small change in a few files | normal chat | answer or changes |
-| Plan or design, risky path, 5+ files, research | just ask: the main agent plans and starts the helpers | plan or changes |
+| Question, small change | normal chat | answer or changes |
+| Plan, design, risky path, research | just ask; the main agent starts helpers when its table says so | plan or changes |
 | Explain, document, write up a decision | `/analyze <scope>` | `docs/ai/reports/…-analyze-….md` |
 | Review a change / audit a project | `/review [files]` / `/review audit` | chat / `docs/ai/reports/…-review-….md` |
 | Something is wrong | `/bug <symptom>` | report with cause and proposed fix |
@@ -57,54 +57,43 @@ Name the project or path in the request and say the goal, the scope and the expe
 | Smaller or larger code changes | `/ponytail lite\|full\|ultra\|off` | this chat only |
 | Run the tests | "run the tests" | counts in chat (`tester`) |
 
-The main agent works on Sonnet (Claude Code default in `.claude/settings.json`; pick it in Kiro and Copilot) and suggests Opus for design or hard debugging. Its helper rules are in `_ai/orchestration.md`, read only for bigger work. Helpers it starts on its own:
+The main agent works on Sonnet and suggests Opus for design or hard debugging. When to start a helper is a table in `AGENTS.md`; the brief and checks are in `_ai/orchestration.md`.
 
 | Agent | Model | Does |
 |---|---|---|
 | `scout` | Haiku 5.5 | search in files, logs and the public web; long findings go to a report file |
-| `worker` | Haiku 5.5 | bulk mechanical edits from an exact spec, several in parallel |
+| `worker` | Haiku 5.5 | bulk edits from an exact spec that no single command can apply |
 | `tester` | Haiku 5.5 | runs the project's tests and lint, reports counts |
-| `reviewer` | Sonnet 5.5 | read-only review before handoff |
+| `reviewer` | Sonnet 5.5 | read-only review of risky or shared-logic changes |
 
-## Where results go
-
-| Result | Location |
-|---|---|
-| Stable facts, commands, guardrails | `<project>/docs/ai/project.md` |
-| Current state, open work | `<project>/docs/ai/context.md` |
-| Decisions, lessons, bugs | `<project>/docs/ai/memory.md` |
-| Reports, runbooks, design records | `<project>/docs/ai/reports/` |
-| Code and tests | `<project>/code/` (the project's Git checkout) |
+Results: stable facts in `<project>/docs/ai/project.md`, state in `context.md`, decisions and bugs in `memory.md`, reports in `docs/ai/reports/`, code and tests in `code/`.
 
 ## Layout
 
-| Path | Purpose | Read by |
-|---|---|---|
-| `AGENTS.md` | Core rules: responses, projects, helpers, databases, hard stops, secrets | Copilot, Kiro, Codex; Claude through `CLAUDE.md` |
-| `.claude/rules/` | SQL and Python rules, loaded only with matching files (single source) | Claude, Copilot; Kiro through `.kiro/steering/`, the Copilot harness through `.github/instructions/` |
-| `CLAUDE.md`, `.github/copilot-instructions.md`, `.kiro/steering/kiro.md` | Tool adapters: tool and model names only | one tool each |
-| `.claude/skills/` | Skills, the single source | Claude, Copilot; Kiro through `.kiro/skills/` |
-| `.claude/agents/` | Helpers `scout`, `worker`, `tester`, `reviewer` | Claude, Copilot; Kiro through `.kiro/agents/` |
-| `.kiro/skills/`, `.kiro/agents/`, rule copies in `.kiro/steering/` and `.github/instructions/` | Generated from the `.claude/` files | Kiro, Copilot |
-| `.claude/settings.json`, `.github/hooks/guard.json`, `.kiro/hooks/guard.json` | Wire the guard hook (and Claude's deny rules, Sonnet default, earlier auto-compact, Haiku for unpinned subagents) | one tool each |
-| `_ai/orchestration.md` | Helper triggers, briefs, parallel rules, verification | main agent, only for bigger work |
-| `_ai/hooks/guard.mjs` | Blocks writing SQL, hard stops and secret reads in every tool; fails closed (if it cannot load or errors, the tool call is blocked) | all |
-| `_ai/hooks/lang.mjs` | Adds "reply in English" to every prompt (Claude Code, Kiro) or session (Copilot); wired in `.claude/settings.json`, `.kiro/hooks/lang.json`, `.github/hooks/lang.json` | all |
-| `_ai/profiles/` | `home` and `work` permission profiles | through `_ai/setup.mjs` |
-| `_ai/templates/` | Project skeletons `app` and `data-eng` | `_ai/new-project.mjs` |
-| `_ai/check.mjs` | Self-check of the setup; `--fix` regenerates the Kiro wrappers | you |
+| Path | Purpose |
+|---|---|
+| `AGENTS.md` | Core rules, read by every tool (Claude Code through the `@AGENTS.md` import in `CLAUDE.local.md`) |
+| `.claude/skills/`, `.claude/agents/`, `.claude/rules/` | Skills, helpers, SQL and Python rules: the single source. Claude Code and Copilot read them; Copilot also gets `.github/agents/` and Kiro `.kiro/skills/`, `.kiro/agents/`, `.kiro/steering/` copies, all generated by `check.mjs` |
+| `_ai/claude.md`, `.github/copilot-instructions.md`, `.kiro/steering/kiro.md` | Tool adapters: tool and model names only |
+| `_ai/helper-core.md` | The safety rules copied into every helper (Copilot starts helpers without `AGENTS.md`) |
+| `_ai/orchestration.md` | Helper briefs, parallel runs, checks |
+| `_ai/hooks/guard.mjs` | Blocks writing SQL, hard stops and secret reads; fails closed. Wired in `.claude/settings.json` (with deny rules), `.github/hooks/guard.json`, `.kiro/hooks/guard.json` |
+| `_ai/hooks/lang.mjs` | Adds "reply in English" to every prompt; wired in `.claude/settings.json`, `.github/hooks/lang.json`, `.kiro/hooks/lang.json` |
+| `_ai/profiles/`, `_ai/setup.mjs` | `home` and `work` profiles; `setup.mjs` writes them into `CLAUDE.local.md`, `.github/instructions/profile.instructions.md`, `.kiro/steering/profile.md` and `.claude/settings.local.json` |
+| `_ai/templates/`, `_ai/new-project.mjs` | Project skeletons `app` and `data-eng` |
+| `_ai/check.mjs` | Self-check; `--fix` regenerates the copies |
 
 ## Tool notes
 
-- Always open the workspace root: the hooks run `node _ai/hooks/guard.mjs` from there, and a tool started in a subfolder may not load the rules.
-- Claude Code: open the workspace interactively once and accept the trust dialog; until then it ignores the `allow` rules in `.claude/settings.json`. Deny rules and the guard hook apply either way.
-- Copilot (VS Code) reads `AGENTS.md`, `.claude/skills/` and `.claude/agents/` natively; the guard runs from `.github/hooks/guard.json`. If `AGENTS.md` is not loaded, turn on the `chat.useAgentsMdFile` setting.
-- Kiro loads `.kiro/hooks/guard.json` in the IDE (1.0+) and CLI V3; the helpers also carry the guard as inline hooks, which Kiro CLI 2.x runs too.
+- Always open the workspace root: the hooks run from there, and a tool started in a subfolder may not load the rules.
+- Claude Code: accept the trust dialog once interactively; until then it ignores the `allow` rules. Deny rules and the guard apply either way. There is no root `CLAUDE.md` on purpose: Copilot also reads `CLAUDE.md` and would load `AGENTS.md` a second time through its import.
+- Copilot (VS Code, Copilot harness): reads `AGENTS.md`, `.claude/skills/`, `.claude/rules/` and the hooks in `.claude/settings.json` on its own. The guard runs from both hook files. Copilot has no repository-level deny rules; a second layer needs admin-managed settings or policy hooks. If `AGENTS.md` is not loaded, turn on `chat.useAgentsMdFile`.
+- Kiro: loads `.kiro/hooks/` in the IDE (1.0+) and CLI V3; the helpers also carry the guard as inline hooks. Kiro CLI V3 rewrites `.kiro/agents/*.json` on first run; `check.mjs` accepts that.
 
 ## Change the setup
 
-1. Edit the source: `AGENTS.md` for rules, `.claude/skills/<name>/SKILL.md` for a skill, `.claude/agents/<name>.md` for a helper, `.claude/rules/<name>.md` for language rules, `_ai/profiles/` for permissions. Behavior is never per tool; a tool adapter only maps names.
-2. Run `node _ai/check.mjs --fix` (regenerates the Kiro and Copilot wrappers, checks links, headers, JSON and the guard tests), then `node _ai/check.mjs`.
-3. After a profile change, run `node _ai/setup.mjs <profile>` again. Start a new chat session, then commit.
+1. Edit the source: `AGENTS.md`, `.claude/skills/<name>/SKILL.md`, `.claude/agents/<name>.md`, `.claude/rules/<name>.md`, `_ai/helper-core.md`, `_ai/claude.md` or `_ai/profiles/`. Behavior is never per tool; an adapter only maps names.
+2. Run `node _ai/check.mjs --fix`, then `node _ai/check.mjs`. It checks headers, links, JSON, word limits and the guard tests.
+3. After a profile or `_ai/claude.md` change, run `node _ai/setup.mjs <profile>` again. Start a new chat, then commit.
 
-Adding a skill: create `.claude/skills/<name>/SKILL.md` with `name` and `description`, list it in the Skills section of `AGENTS.md` and run the check. If you copy text from an external repo, keep its license line at the top of the skill.
+A new skill: `.claude/skills/<name>/SKILL.md` with `name` and `description`, listed in the Skills section of `AGENTS.md`. Text copied from an external repo keeps its license line at the top.
