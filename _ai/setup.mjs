@@ -2,6 +2,8 @@
 // Copies _ai/profiles/<profile>.md into the local file each tool loads on its own (all gitignored):
 //   CLAUDE.local.md (Claude Code), .github/instructions/profile.instructions.md (Copilot), .kiro/steering/profile.md (Kiro)
 // and sets Claude Code's permissions in .claude/settings.local.json (home: no prompts; work: prompts for all but reads).
+// CLAUDE.local.md also imports AGENTS.md and holds the Claude adapter (_ai/claude.md). There is no root CLAUDE.md,
+// because Copilot reads CLAUDE.md and expands its imports, which would load AGENTS.md twice there.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,8 +14,9 @@ if (!['home', 'work'].includes(profile)) { console.error('usage: node _ai/setup.
 
 const body = readFileSync(join(ROOT, '_ai/profiles', `${profile}.md`), 'utf8').replace(/\r\n/g, '\n');
 const note = `<!-- Written by node _ai/setup.mjs ${profile}. Edit _ai/profiles/${profile}.md and run it again. -->\n`;
+const claude = readFileSync(join(ROOT, '_ai/claude.md'), 'utf8').replace(/\r\n/g, '\n');
 const files = {
-  'CLAUDE.local.md': note + body,
+  'CLAUDE.local.md': `${note.replace(' and run', ' or _ai/claude.md and run')}@AGENTS.md\n\n${claude}\n${body}`,
   '.github/instructions/profile.instructions.md': `---\napplyTo: "**"\n---\n${note}${body}`,
   '.kiro/steering/profile.md': `---\ninclusion: always\n---\n${note}${body}`,
 };

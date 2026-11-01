@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/_ai/hooks/lang.mjs\""
+            "command": "node -e \"import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/lang.mjs')).href)\""
           }
         ]
       }

@@ -3,7 +3,6 @@
 !/.gitignore
 !/.gitattributes
 !/AGENTS.md
-!/CLAUDE.md
 !/README.md
 !/.claude/
 !/.github/
@@ -12,7 +11,7 @@
 # Reports about the setup itself
 !/docs/
 
-# Device profile and local settings, written by `node _ai/setup.mjs`
+# Device profile and local settings, written by `node _ai/setup.mjs` (CLAUDE.local.md is ignored by /*)
 /.claude/settings.local.json
 /.github/instructions/profile.instructions.md
 /.kiro/steering/profile.md

@@ -8,6 +8,14 @@
         "bash": "node _ai/hooks/lang.mjs",
         "timeoutSec": 10
       }
+    ],
+    "userPromptTransformed": [
+      {
+        "type": "command",
+        "powershell": "node _ai/hooks/lang.mjs",
+        "bash": "node _ai/hooks/lang.mjs",
+        "timeoutSec": 10
+      }
     ]
   }
 }

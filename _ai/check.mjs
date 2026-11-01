@@ -1,6 +1,7 @@
 // Self-check of the AI setup. Run after every change to it: node _ai/check.mjs [--fix]
-// Checks skill and agent headers, the wrappers generated from .claude/ (Kiro skills, agents and rules, Copilot rules),
-// relative links and anchors, JSON files, template placeholders and the guard hook tests. --fix rewrites the wrappers.
+// Checks skill and agent headers, the helper core in each agent, the files generated from .claude/ (Kiro skills, agents
+// and rules; Copilot agents), relative links and anchors, JSON files, template placeholders and the guard hook tests.
+// --fix rewrites the generated files.
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync, rmSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -58,21 +59,41 @@ orphans(p('.kiro/skills'), skills, true);
 // Only double quotes outside, so cmd, PowerShell and bash pass it unchanged; Claude Code sets CLAUDE_PROJECT_DIR, the others run from the root.
 export const GUARD_CMD = `node -e "import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})"`;
 
-// 2. agents: .claude/agents/<name>.md is the source; .kiro/agents/<name>.json uses it as the prompt
+// 2. agents: .claude/agents/<name>.md is the source; .kiro/agents/<name>.json uses it as the prompt and
+// .github/agents/<name>.agent.md is a copy with Copilot model IDs and tool aliases (Copilot prefers .github/agents).
+// Every source starts with the helper core from _ai/helper-core.md and sets omitClaudeMd: Copilot starts custom
+// subagents without AGENTS.md, so the core gives all helpers the same safety rules and Claude Code skips the full set.
 const MODELS = { haiku: 'claude-haiku-5.5', sonnet: 'claude-sonnet-5.5', opus: 'claude-opus-5.5' };
 const TOOLS = { Read: 'read', Grep: 'read', Glob: 'read', Edit: 'write', Write: 'write', Bash: 'shell', PowerShell: 'shell', WebSearch: 'web', WebFetch: 'web' };
+const COPILOT_TOOLS = { Read: 'read', Grep: 'search', Glob: 'search', Edit: 'edit', Write: 'edit', Bash: 'execute', PowerShell: 'execute', WebSearch: 'web', WebFetch: 'web' };
+const CORE_START = '<!-- helper core: generated from _ai/helper-core.md by node _ai/check.mjs --fix -->\n';
+const CORE_END = '<!-- /helper core -->\n';
+const CORE = CORE_START + read(p('_ai/helper-core.md')) + CORE_END;
+const AGENT_GEN = '<!-- Generated from .claude/agents/';
 // tags for the IDE and CLI V3, plus the tool names Kiro CLI 2.x needs (a `web` tag alone gives no web tools there)
 const KIRO_TOOLS = { read: ['read', 'glob', 'grep'], write: ['write'], shell: ['shell'], web: ['web', 'web_search', 'web_fetch'] };
 const agents = walk(p('.claude/agents')).filter((f) => f.endsWith('.md')).map((f) => f.split(/[\\/]/).pop().slice(0, -3));
 for (const a of agents) {
-  const h = header(p('.claude/agents', `${a}.md`));
+  const src = p('.claude/agents', `${a}.md`);
+  const h = header(src);
   if (!h) { errors.push(`.claude/agents/${a}.md: no frontmatter`); continue; }
   if (h.get('name') !== a) errors.push(`.claude/agents/${a}.md: name must be "${a}"`);
+  if (h.get('omitClaudeMd') !== 'true') errors.push(`.claude/agents/${a}.md: needs omitClaudeMd: true (the helper core replaces AGENTS.md)`);
   const model = MODELS[h.get('model')];
   if (!model) errors.push(`.claude/agents/${a}.md: model must be one of ${Object.keys(MODELS).join(', ')}`);
   const tools = (h.get('tools') ?? '').split(/,\s*/).filter(Boolean);
   const unknown = tools.filter((t) => !TOOLS[t]);
   if (unknown.length) errors.push(`.claude/agents/${a}.md: unknown tools ${unknown.join(', ')}`);
+  // the helper core block right after the frontmatter, the same in every helper
+  const [, front, rest] = read(src).match(/^(---\n[\s\S]*?\n---\n)([\s\S]*)$/);
+  const after = rest.includes(CORE_END) && rest.startsWith(CORE_START) ? rest.slice(rest.indexOf(CORE_END) + CORE_END.length) : rest;
+  expect(src, front + CORE + after, 'helper core block');
+  const body = (FIX ? read(src) : front + CORE + after).slice(front.length);
+  // Copilot copy: same body; links re-based from .claude/agents/ to .github/agents/
+  const rebased = body.replace(/\]\((?!https?:|#)([^)\s]+)\)/g, (m, t) => `](${relative(p('.github/agents'), resolve(p('.claude/agents'), t)).replace(/\\/g, '/')})`);
+  expect(p('.github/agents', `${a}.agent.md`), `---\nname: ${a}\ndescription: ${h.raw.description}\n` +
+    `tools: ${JSON.stringify([...new Set(tools.map((t) => COPILOT_TOOLS[t]).filter(Boolean))])}\nmodel: ${model}\n---\n` +
+    `${AGENT_GEN}${a}.md by node _ai/check.mjs --fix; edit the source. -->\n${rebased}`, 'Copilot agent');
   const tags = [...new Set(tools.map((t) => TOOLS[t]).filter(Boolean))];
   // inline hooks guard the helper even where workspace hook files are not loaded (Kiro CLI before V3)
   const hooks = tags.filter((t) => t !== 'web').map((t) => ({ name: `guard ${t}`, trigger: 'PreToolUse', matcher: t, action: { type: 'command', command: GUARD_CMD }, timeout: 10 }));
@@ -87,9 +108,16 @@ for (const a of agents) {
   if (!same) expect(file, JSON.stringify(kiro, null, 2) + '\n', 'Kiro agent');
 }
 orphans(p('.kiro/agents'), [...agents, ...(existsSync(p('.kiro/agents')) ? readdirSync(p('.kiro/agents')).filter((n) => /\.json\.bak(\.\d+)?$/.test(n)) : [])], false);
+// generated Copilot agents whose source is gone; hand-written Copilot agents (no marker) stay
+for (const n of existsSync(p('.github/agents')) ? readdirSync(p('.github/agents')) : []) {
+  if (!n.endsWith('.agent.md') || !read(p('.github/agents', n)).includes(AGENT_GEN) || agents.includes(n.slice(0, -9))) continue;
+  if (FIX) { rmSync(p('.github/agents', n)); fixed.push(`removed .github/agents/${n}`); }
+  else errors.push(`.github/agents/${n}: no matching source in .claude/agents/; run node _ai/check.mjs --fix`);
+}
 
-// 2b. path-scoped rules: .claude/rules/<name>.md is the source (Claude Code and Copilot read it); Kiro and the Copilot
-// harness get generated copies with their own frontmatter. One glob per rule (Kiro's fileMatchPattern takes one).
+// 2b. path-scoped rules: .claude/rules/<name>.md is the source, read by Claude Code and Copilot (which reads .claude/rules
+// like .github/instructions, so a copy there would load twice); Kiro gets a generated copy. One glob per rule
+// (Kiro's fileMatchPattern takes one).
 const rules = walk(p('.claude/rules')).filter((f) => f.endsWith('.md')).map((f) => f.split(/[\\/]/).pop().slice(0, -3));
 const GEN = '<!-- Generated from .claude/rules/';
 for (const r of rules) {
@@ -98,12 +126,11 @@ for (const r of rules) {
   const [, glob, body] = m;
   const note = `${GEN}${r}.md by node _ai/check.mjs --fix; edit the source. -->\n`;
   expect(p('.kiro/steering', `${r}.md`), `---\ninclusion: fileMatch\nfileMatchPattern: "${glob}"\n---\n${note}${body}`, 'Kiro rule');
-  expect(p('.github/instructions', `${r}.instructions.md`), `---\napplyTo: "${glob}"\n---\n${note}${body}`, 'Copilot rule');
 }
-// generated rule copies whose source is gone
-for (const [dir, suffix] of [[p('.kiro/steering'), '.md'], [p('.github/instructions'), '.instructions.md']]) {
+// generated rule copies whose source is gone, and any generated Copilot copy (Copilot reads .claude/rules itself)
+for (const [dir, suffix, keep] of [[p('.kiro/steering'), '.md', rules], [p('.github/instructions'), '.instructions.md', []]]) {
   for (const n of existsSync(dir) ? readdirSync(dir) : []) {
-    if (!n.endsWith(suffix) || !read(join(dir, n)).includes(GEN) || rules.includes(n.slice(0, -suffix.length))) continue;
+    if (!n.endsWith(suffix) || !read(join(dir, n)).includes(GEN) || keep.includes(n.slice(0, -suffix.length))) continue;
     if (FIX) { rmSync(join(dir, n)); fixed.push(`removed ${rel(join(dir, n))}`); }
     else errors.push(`${rel(join(dir, n))}: no matching source in .claude/rules/; run node _ai/check.mjs --fix`);
   }
@@ -112,7 +139,7 @@ for (const [dir, suffix] of [[p('.kiro/steering'), '.md'], [p('.github/instructi
 // 3. relative links and anchors in the setup's Markdown
 const slug = (h) => h.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s/g, '-');
 const anchors = (f) => [...read(f).matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => slug(m[1]));
-const docs = [p('AGENTS.md'), p('CLAUDE.md'), p('README.md'), p('_ai/orchestration.md'), ...['.claude', '.github', '.kiro', '_ai/profiles'].flatMap((d) => walk(p(d)))]
+const docs = [p('AGENTS.md'), p('README.md'), p('_ai/orchestration.md'), p('_ai/claude.md'), p('_ai/helper-core.md'), ...['.claude', '.github', '.kiro', '_ai/profiles'].flatMap((d) => walk(p(d)))]
   .filter((f) => f.endsWith('.md') && existsSync(f));
 for (const f of docs) {
   const text = read(f).replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
@@ -139,6 +166,14 @@ for (const f of [p('.claude/settings.json'), ...walk(p('.github/hooks')), ...wal
   for (const c of cmds) if (c !== GUARD_CMD) errors.push(`${rel(f)}: guard hook command must be the fail-closed GUARD_CMD from _ai/check.mjs`);
 }
 
+// 4b. Claude Code loads AGENTS.md through the @AGENTS.md import in CLAUDE.local.md (written by setup.mjs). A root
+// CLAUDE.md would also be read by Copilot, which expands its imports and so would load AGENTS.md twice.
+if (existsSync(p('CLAUDE.md'))) errors.push('CLAUDE.md: remove it; Claude Code reads CLAUDE.local.md (node _ai/setup.mjs), and Copilot would load AGENTS.md twice through it');
+if (existsSync(p('CLAUDE.local.md'))) {
+  const local = read(p('CLAUDE.local.md'));
+  if (!/^(<!--.*-->\n)?@AGENTS\.md\n/.test(local) || !local.includes(read(p('_ai/claude.md')))) errors.push('CLAUDE.local.md: out of date (no @AGENTS.md import or an old _ai/claude.md); run node _ai/setup.mjs <profile>');
+}
+
 // 5. template placeholders
 for (const f of walk(p('_ai/templates'))) {
   for (const [, k] of read(f).matchAll(/\{\{(\w+)\}\}/g)) if (!['PROJECT', 'project', 'DATE'].includes(k)) errors.push(`${rel(f)}: unknown placeholder {{${k}}}`);
@@ -163,8 +198,9 @@ for (const a of agents) {
 }
 
 // 7. word limits: the setup must not grow quietly; a new rule replaces or merges an old one
-const words = (f) => read(f).split(/\s+/).filter(Boolean).length;
-const LIMITS = [[p('AGENTS.md'), 1400], [p('_ai/orchestration.md'), 600],
+// the generated helper core has its own limit, so an agent's own text is counted without it
+const words = (f) => read(f).replace(CORE, '').split(/\s+/).filter(Boolean).length;
+const LIMITS = [[p('AGENTS.md'), 1400], [p('_ai/orchestration.md'), 300], [p('_ai/helper-core.md'), 120],
   ...skills.map((s) => [p('.claude/skills', s, 'SKILL.md'), 1400]), ...agents.map((a) => [p('.claude/agents', `${a}.md`), 300]),
   ...rules.map((r) => [p('.claude/rules', `${r}.md`), 300])];
 for (const [f, max] of LIMITS) if (existsSync(f) && words(f) > max) errors.push(`${rel(f)}: ${words(f)} words, limit ${max}; shorten or merge rules`);

@@ -14,7 +14,7 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## Workspace and projects
 
-- This repository is the workspace root: the AI setup (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.github/`, `.kiro/`, `_ai/`) plus one folder per project, which is not part of this repository. A project's Git checkout is its `code/` folder. Never touch `personal/`: no listing, reading, searching, referencing or editing.
+- This repository is the workspace root: the AI setup (`AGENTS.md`, `.claude/`, `.github/`, `.kiro/`, `_ai/`) plus one folder per project, which is not part of this repository. A project's Git checkout is its `code/` folder. Never touch `personal/`: no listing, reading, searching, referencing or editing.
 - Active project = the folder holding the files in scope; if unclear, ask once. Before project work read `<project>/docs/ai/project.md` (At a glance, Guardrails, Commands, Glossary; use its terms; other sections when needed). Read `context.md` (state, open work) and `memory.md` (decisions, Bugs table) only when they matter. Rules in `code/AGENTS.md` or `code/CLAUDE.md` also apply; the stricter one wins.
 - Project type in `project.md`: `app` or `data-eng`. New project: `node _ai/new-project.mjs <Name> --template app|data-eng`.
 - Keep `docs/ai/` short: state in `context.md` (replace, don't append, under about 40 lines), decisions and bugs with a non-obvious cause in `memory.md` (update or merge an existing row instead of adding one), stable facts in `project.md`. One fact, one file. Before a new report, update an existing one on the same topic. The tool's own memory holds only user preferences. On "handoff": write state, open steps and file paths to `context.md` (link artifacts, don't copy) and tell the user to continue in a new chat.
@@ -39,13 +39,22 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## After a code change
 
-Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` triggers in [orchestration](_ai/orchestration.md); `reviewer` is required for logic changes in 5+ files, counting the callers of a new or changed function. A skipped trigger goes under **Not done** with the reason.
+Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` rows in [Plans and helpers](#plans-and-helpers); a skipped trigger goes under **Not done** with the reason.
 
-## Bigger work and helpers
+## Plans and helpers
 
-Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface), work on 5+ files, or starting any helper, read [orchestration](_ai/orchestration.md). Helpers: `scout` (search), `worker` (bulk edits), `tester` (tests), `reviewer` (review). Also in small tasks: a web lookup, a file or log over about 300 lines, or a read across 3+ files goes to `scout`; "run the tests" or a test or lint run with long output goes to `tester`. Delegate only to these four, never a built-in or unnamed subagent; if a helper cannot start, do its work yourself.
+Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface) or work on 3+ files: state the goal and an observable **Done when**, risks first. Plan only: numbered steps, then stop.
 
-Models: cheap = Haiku 5.5, medium = Sonnet 5.5, top = Opus 5.5 (IDs per tool in its file). Work on the medium model. Suggest the top model once for design, architecture or hard debugging; on the top model for routine work, suggest the medium model once. Then continue.
+You decide and write all logic. A helper start costs 20 s or more plus its own context: start one only for a "Use for" cell, and then always. Only these four, never a built-in or unnamed subagent; if one cannot start, do its work yourself. Before starting one, read [orchestration](_ai/orchestration.md).
+
+| Helper | Use for | Not for |
+|---|---|---|
+| `scout` | a web lookup; a file or log over about 300 lines; a read across 3+ files; one per independent question, in parallel | what one search or file read answers; lines you need to edit |
+| `worker` | 10+ files from an exact spec that no single command can apply | what one command (`sed`, a script) can do; under 10 files |
+| `tester` | "run the tests"; output over about 50 lines; after a risky change | a short suite or focused check on your change |
+| `reviewer` | after `tester`: a risky change; new or changed DDL, load or publish steps; logic in 5+ files, counting every caller of a new or changed function, even identical caller edits. Fix Must fix findings | a rename or string replace proven by search counts and passing tests; `docs/ai/` files |
+
+Models: cheap = Haiku 5.5, medium = Sonnet 5.5, top = Opus 5.5 (IDs per tool in its file). Work on the medium model. Suggest the top model once for design, architecture or hard debugging, and the medium model once when routine work runs on the top model; then continue.
 
 ## Databases (every profile)
 
