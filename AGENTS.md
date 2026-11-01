@@ -39,20 +39,20 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## After a code change
 
-Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` rows below. A skipped trigger goes under **Not done** with the reason.
+Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` rows below; `reviewer` is required for logic changes in 5+ files, counting the callers of a new or changed function. A skipped trigger goes under **Not done** with the reason.
 
 ## Plans and helpers
 
 Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface) or work on 3+ files: state the goal and an observable **Done when**, risks first. Plan only: numbered steps, then stop.
 
-You decide and write all logic. A helper start costs 20 s or more plus its own context: start one only for a "Use for" cell, and then always. Never a built-in or unnamed subagent; if one cannot start, do its work yourself. Before starting one, read and follow [orchestration](_ai/orchestration.md).
+You decide and write all logic. A helper costs 20 s or more plus its own context: start one only for a "Use for" cell, and then always. Never a built-in or unnamed subagent; if one cannot start, do its work yourself. Before starting one, read and follow [orchestration](_ai/orchestration.md).
 
 | Helper | Use for | Not for |
 |---|---|---|
-| `scout` | a web lookup; a file or log over about 300 lines; a read across 3+ files; one per independent question, in parallel | what one search or file read answers; lines you need to edit |
+| `scout` | a web lookup; a file or log over about 300 lines; a read across 3+ files | what one search or file read answers; lines you need to edit |
 | `worker` | 10+ files from an exact spec that no single command can apply | what one command (`sed`, a script) can do; under 10 files |
 | `tester` | "run the tests"; output over about 50 lines; after a risky change | a short suite or focused check on your change |
-| `reviewer` | after `tester`: a risky change; new or changed DDL, load or publish steps; logic in 5 or more files. A new or changed function counts with its file and every caller changed to use it, even when each caller gets the same one line. Fix Must fix findings | a rename or string replace that adds or changes no function, proven by search counts and passing tests; `docs/ai/` files |
+| `reviewer` | after `tester`: a risky change; new or changed DDL, load or publish steps; logic in 5 or more files. A new or changed function counts with its file and every caller changed to use it, even when each caller gets the same one line | a rename or string replace that adds or changes no function, proven by search counts and passing tests; `docs/ai/` files |
 
 Models: cheap = Haiku 5.5, medium = Sonnet 5.5, top = Opus 5.5 (IDs per tool in its file). Work on the medium model. Suggest the top model once for design, architecture or hard debugging, and the medium model once for routine work on the top model; then continue.
 

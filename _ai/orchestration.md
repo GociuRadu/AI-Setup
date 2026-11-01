@@ -12,10 +12,10 @@ Read by the main agent before it starts a helper. When to start one is in `AGENT
 
 ## Parallel
 
-Read-only work, disjoint files and independent suites run in parallel: at most 4 helpers, started in one message. Same files, dependent output or a required order (schema before code) run one after another.
+One `scout` per independent question. Read-only work, disjoint files and independent suites run in parallel: at most 4 helpers, started in one message. Same files, dependent output or a required order (schema before code) run one after another.
 
 ## Check
 
 - Read the diff (`git -C <code root> --no-pager diff HEAD`) or compare the files with the intended change; check every helper claim against the files.
 - After workers: `diff --stat` and the diff of one file per worker; search counts alone are not enough.
-- A failed test or review: fix it or send concrete fixes back, recheck at most 2 times, then report the blocker.
+- A failed test or a `reviewer` Must fix: fix it or send concrete fixes back, recheck at most 2 times, then report the blocker.
