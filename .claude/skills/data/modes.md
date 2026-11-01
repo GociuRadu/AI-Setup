@@ -1,4 +1,4 @@
-# Modes and records
+# Modes
 
 One mode per request; load only the section in use. Tables and pipelines share the rules below; their own parts follow.
 
@@ -27,7 +27,7 @@ Open checks: <checks not run, and who runs them>
 Any Must fix -> fix first. Build: Must fix findings are fixed before showing. Offer Debug for each Must fix.
 
 - **Debug:** use the [bug skill](../bug/SKILL.md) (it proves the cause and writes the report; the fix is a separate approved adapt or build step). Hypotheses to test first are in the table and pipeline sections below. SQL timeout: separate slow from blocked with DEV reads of `sys.dm_exec_requests` (wait_type, blocking_session_id), `sys.dm_tran_locks` on target and staging, and Query Store top duration; mark which must run during the failing stage.
-- **Design records:** one file per table design (`docs/ai/reports/<safe-name>.model.yaml`) or pipeline (`<safe-name>.design.yaml`). Safe name: letters, digits, hyphens, underscores, starts with a letter or digit, at most 80 characters. Read an existing record before resuming and do not re-ask settled choices; update it after every answered decision; never copy another table's or pipeline's answers. Short, no code copies, no customer rows, no secrets. Small changes get none.
+- **Design records and runbooks:** [records](records.md).
 
 ## Tables
 
@@ -51,34 +51,6 @@ Read the DDL or design with the approved scope. Check, in order:
 
 Grain vs key mismatch, duplicate or NULL key parts, join fan-out, overlapping history intervals, wrong types or truncation.
 
-### Design record
-
-```yaml
-name: <safe-name>
-status: goal            # goal > store > profile > grain > entities > cases > addons > physical > plan > files > review > done
-next: <exact next action>
-goal: {data: "", readers: "", access: "", volume: "", change_rate: ""}
-size: {rows_now: "", rows_2y: "", bytes_per_row: "", tier: small|medium|large}
-store: {choice: "", reason: ""}
-tables:
-  - name: <schema.table>
-    grain: "one row per ..."
-    case: 02-entity          # 01-staging ... 09-flexible
-    key: ""
-    data: keep|rebuild
-    addons: []
-    declined: []
-    physical: {clustered_key: "", partitioning: none, columnstore: false, indexes: []}
-    load: {staging: "", publish: insert|switch|merge, batch_hint: ""}
-relationships: []
-run_order: []
-profile: {status: pending, evidence: ""}
-decisions: []            # each: question, choice, by, date
-assumptions: []
-review: {verdict: "", open: []}
-artifacts: []
-```
-
 ## Pipelines
 
 ### Adapt
@@ -88,7 +60,7 @@ artifacts: []
 3. Review (below) and show the report.
 4. Agree which findings to fix. Change only those parts and keep existing names and conforming behavior.
 5. Before replacing a running pipeline, the user runs old and new on DEV over the same window; you compare them with read queries (row count, keys, totals of one measure).
-6. Update the design record: case, current values, decisions found, add-ons present.
+6. Update the [design record](records.md): case, current values, decisions found, add-ons present.
 
 ### Review
 
@@ -105,30 +77,3 @@ Automatic at the end of build and adapt, or on request.
 ### Debug hypotheses
 
 Rank first: the case traps, rules R1-R12 (partial publish, non-idempotent rerun, clock-based watermark, repeated source reads), and the run log or audit rows for the failing window.
-
-### Runbook (last output of build and adapt)
-
-What it does (case, source -> target, schedule, readers). Decisions and add-ons with reasons. When it fails (what the run log shows, the alert, what the next run does alone). How to rerun. How to undo, from the case. Where to look (run log, freshness or staleness check, pipeline monitor). Measured throughput and limiting resource for medium and large loads. Post-commit recovery limit when no previous copy is retained.
-
-### Design record
-
-```yaml
-pipeline: <PL_name>
-case: <01-one-time-load | 02-daily-ingestion | 03-serving-table | 04-large-volume | 05-frequent-load | 06-streaming>
-status: frame       # frame > case > decide > plan > build > review > test > runbook > done
-updated: YYYY-MM-DD
-goal: "<source> -> <target>, <how often>, <how much>, read by <who>"
-linked: []
-signals: {}         # key -> {value, source: user|inferred|unknown, evidence}
-size: {tier: "", rows: "", gb: "", avg_row_bytes: "", provenance: ""}
-throughput: {chunk_size: "", parallelism: {source: "", writers: "", workers: ""}, batch_size: "", measured_rows_per_sec_per_writer: "", limiting_resource: "", est_wall_time: ""}
-values: {}
-decisions: []       # - {id, choice, why, recommended, by}
-addons: {chosen: [], declined: []}   # - {id, why}
-setup: []           # - {item, status: exists|missing|created_by_user}
-plan_ok: false
-build: {files: [], review: {verdict: "", must_fix: 0, should_fix: 0, nice_to_have: 0}}
-tests: []           # - {done_when, result: passed|failed|not_run, evidence}
-open: []
-next: ""
-```

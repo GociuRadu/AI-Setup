@@ -4,7 +4,7 @@ Read when volume is medium or large, when a load is slow, or when the user menti
 
 ## 1. Size first
 
-Run a SIZE_CHECK (read on local/DEV): rows, GB, average row bytes, widest columns, key distribution and skew, partition or file layout, change rate per day.
+Load tiers size one run (they drive chunking); table tiers in [scale](../model/scale.md#1-size-it-first) size the stored table. Run a SIZE_CHECK (read on local/DEV): rows, GB, average row bytes, widest columns, key distribution and skew, partition or file layout, change rate per day.
 
 | Tier | Rough size | Consequence |
 |---|---|---|

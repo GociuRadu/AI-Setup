@@ -1,6 +1,14 @@
 # Spark
 
-Runtime, JDBC limits and performance review for Spark notebooks. Platform differences (Synapse vs local): [platforms](platforms.md).
+Notebook rules, runtime, JDBC limits and performance review for Spark notebooks (Synapse or local). Platform differences (Synapse vs local): [platforms](platforms.md).
+
+## Notebook rules
+
+1. **Parameters:** one parameter cell with literal values; the pipeline passes every parameter and its defaults equal the cell (a unit test asserts it). Validate parameters at the start of `run()`. Everything that differs between Synapse and a local run is a parameter in that cell (`Environment` = `DEV`/`PROD`/`LOCAL`, `DbServer`, `DbName`, `SourcePath`, `ExpectedWorkspaceName`); no hardcoded server, `abfss://` path or workspace name outside it, and no per-notebook `if LOCAL` copies.
+2. **Runtime:** pool versions live in `project.md`; unverified values say "to verify on the pool". Local tests use the same major.minor ([runtime](#runtime)).
+3. **Testable code:** transformations are functions DataFrame -> DataFrame; I/O, `mssparkutils` and the final `run()` stay in their own cells, and Synapse-only calls sit behind one wrapper so the code runs locally ([platforms](platforms.md)). Connection differences live in one `jdbc_options(settings, token)` function: `Environment == "LOCAL"` gives SQL login + `trustServerCertificate`, otherwise `accessToken`. The local runner executes the parameter cell, applies `-P Name=Value` overrides (as the pipeline does on Synapse), then runs the other cells, and fakes `mssparkutils` (`env`, `credentials`, `fs.cp`, `notebook.exit`); the notebook body stays identical to what runs on Synapse. Tests load definitions with the project's AST loader. Extract a module only when two notebooks share it. Exports keep their cell banners; `%pip` and `%run` sit in dedicated cells; never execute an export to syntax-check it.
+4. **JDBC:** sessions, partitions, batch size, timeouts: [JDBC limits](#jdbc-limits).
+5. **Performance:** evidence first, never invented Spark UI metrics: [performance review](#performance-review).
 
 ## Runtime
 

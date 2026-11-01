@@ -4,7 +4,7 @@ Design the table for how it is loaded and read. Pairs with the [pipeline perform
 
 ## 1. Size it first
 
-Estimate before choosing structures: bytes per row (sum of column widths + about 10 overhead) × rows now × rows in 2 years, plus indexes (about +30-100%). Record it in the design (`size`).
+Table tiers size the stored table (they drive structures); load tiers in [performance](../pipeline/performance.md#1-size-first) size one run. Estimate before choosing structures: bytes per row (sum of column widths + about 10 overhead) × rows now × rows in 2 years, plus indexes (about +30-100%). Record it in the design (`size`).
 
 | Tier | Rough size | Design |
 |---|---|---|

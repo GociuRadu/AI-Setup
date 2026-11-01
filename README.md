@@ -44,7 +44,6 @@ Name the project or path in the request and say the goal, the scope and the expe
 
 | Need | Use | Output |
 |---|---|---|
-| Turn a rough request into a clear prompt first | `/p <request>` (waits for your OK) | Goal, Scope, Done when, Constraints |
 | Question, small change in a few files | normal chat | answer or changes |
 | Plan or design, risky path, 5+ files, research | just ask: the main agent plans and starts the helpers | plan or changes |
 | Explain, document, write up a decision | `/analyze <scope>` | `docs/ai/reports/…-analyze-….md` |

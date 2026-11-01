@@ -5,7 +5,7 @@
 - Fixtures are synthetic: invented identifiers, no customer rows, small (a few rows per case), stored under the project's `tests/fixtures/`.
 - Spark: build inputs from the fixture with an explicit schema, write a temporary local Delta table when the code reads Delta, and compare with `assertDataFrameEqual` (rows) and `assertSchemaEqual` (types and nullability).
 - SQL: seed staging and audit rows per test, reset tables in `setUp`, assert target rows, staging rows and audit status after each call.
-- Load notebook code with the project's AST loader; never execute a notebook export ([SKILL.md](SKILL.md) Spark rules) or a module with top-level writes.
+- Load notebook code with the project's AST loader; never execute a notebook export ([notebook rules](spark.md#notebook-rules)) or a module with top-level writes.
 
 ## Required failure-path tests
 

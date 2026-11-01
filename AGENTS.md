@@ -24,7 +24,7 @@ One set of rules for every project and every tool (Claude Code, GitHub Copilot, 
 
 ## Skills
 
-Read the skill before the task it covers: `review` (review or audit), `bug` (something is wrong), `analyze` (explain, document), `data` (tables, DDL, loads, pipelines, Spark notebooks), `confluence-project` (a project Confluence page by link), `ponytail` (smallest change; before any code write), `p` (rewrite a rough request, only on `/p`). They live in `.claude/skills/<name>/SKILL.md`.
+Read the skill before the task it covers: `review` (review or audit), `bug` (something is wrong), `analyze` (explain, document), `data` (tables, DDL, loads, pipelines, Spark notebooks), `confluence-project` (a project Confluence page by link), `ponytail` (smallest change; before any code write). They live in `.claude/skills/<name>/SKILL.md`.
 
 ## Output locations
 
