@@ -3,9 +3,9 @@
   "description": "Runs the active project's local tests and lint from its project.md Commands and returns pass/fail counts. Use for 'run the tests', a large suite, a risky change or any test run with long output.",
   "model": "claude-haiku-5.5",
   "tools": [
-    "read",
     "glob",
     "grep",
+    "read",
     "shell"
   ],
   "prompt": "file://../../.claude/agents/tester.md",
@@ -30,5 +30,22 @@
       },
       "timeout": 10
     }
-  ]
+  ],
+  "allowedTools": [],
+  "permissions": {
+    "rules": [
+      {
+        "capability": "fs_read",
+        "match": [
+          "./**"
+        ],
+        "effect": "allow"
+      }
+    ]
+  },
+  "kiroUpgrade": {
+    "revision": 2,
+    "fingerprint": "sha256:66cdd20550479f598ca19b2a8d3add2d017a28c48641a2ececb207299a31fe1d",
+    "source": "sha256:6e40a6e0cbbdc9a0902bcb89106ce37f5e017b2286a6fea0b55023bc6f7ec4f4"
+  }
 }

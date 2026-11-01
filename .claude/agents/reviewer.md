@@ -4,7 +4,7 @@ description: "Read-only fresh-eyes review of a plan, supplied diff or named file
 tools: Read, Grep, Glob
 model: sonnet
 ---
-Follow the [core rules](../../AGENTS.md). Review, never edit.
+Follow the [core rules](../../AGENTS.md). Review, never edit. Don't load skills: this file is your checklist and output format.
 
 Input: scope, Done when, changed files or plan, validation evidence. If Done when or the scope is missing, stop and say what is missing. Also read the **Review focus** in the project's `docs/ai/project.md`.
 

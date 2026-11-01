@@ -1,6 +1,6 @@
 // Self-check of the AI setup. Run after every change to it: node _ai/check.mjs [--fix]
-// Checks skill and agent headers, the Kiro wrappers (generated from .claude/), relative links and anchors,
-// JSON files, template placeholders and the guard hook tests. --fix rewrites the Kiro wrappers.
+// Checks skill and agent headers, the wrappers generated from .claude/ (Kiro skills, agents and rules, Copilot rules),
+// relative links and anchors, JSON files, template placeholders and the guard hook tests. --fix rewrites the wrappers.
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync, rmSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -73,9 +73,37 @@ for (const a of agents) {
   // inline hooks guard the helper even where workspace hook files are not loaded (Kiro CLI before V3)
   const hooks = tags.filter((t) => t !== 'web').map((t) => ({ name: `guard ${t}`, trigger: 'PreToolUse', matcher: t, action: { type: 'command', command: 'node _ai/hooks/guard.mjs' }, timeout: 10 }));
   const kiro = { name: a, description: h.get('description'), model, tools: tags.flatMap((t) => KIRO_TOOLS[t]), prompt: `file://../../.claude/agents/${a}.md`, hooks };
-  expect(p('.kiro/agents', `${a}.json`), JSON.stringify(kiro, null, 2) + '\n', 'Kiro agent');
+  // Kiro CLI V3 rewrites these files on first run (tool order, extra keys, a .bak copy): compare only the keys written here
+  const file = p('.kiro/agents', `${a}.json`);
+  let cur = null;
+  try { cur = JSON.parse(read(file)); } catch { /* missing or invalid: regenerate */ }
+  const same = cur && Object.keys(kiro).every((k) => k === 'tools'
+    ? JSON.stringify([...(cur.tools ?? [])].sort()) === JSON.stringify([...kiro.tools].sort())
+    : JSON.stringify(cur[k]) === JSON.stringify(kiro[k]));
+  if (!same) expect(file, JSON.stringify(kiro, null, 2) + '\n', 'Kiro agent');
 }
-orphans(p('.kiro/agents'), agents, false);
+orphans(p('.kiro/agents'), [...agents, ...(existsSync(p('.kiro/agents')) ? readdirSync(p('.kiro/agents')).filter((n) => /\.json\.bak(\.\d+)?$/.test(n)) : [])], false);
+
+// 2b. path-scoped rules: .claude/rules/<name>.md is the source (Claude Code and Copilot read it); Kiro and the Copilot
+// harness get generated copies with their own frontmatter. One glob per rule (Kiro's fileMatchPattern takes one).
+const rules = walk(p('.claude/rules')).filter((f) => f.endsWith('.md')).map((f) => f.split(/[\\/]/).pop().slice(0, -3));
+const GEN = '<!-- Generated from .claude/rules/';
+for (const r of rules) {
+  const m = read(p('.claude/rules', `${r}.md`)).match(/^---\npaths:\n {2}- "([^"\n]+)"\n---\n([\s\S]*)$/);
+  if (!m) { errors.push(`.claude/rules/${r}.md: frontmatter must be exactly one paths entry: paths:\\n  - "<glob>"`); continue; }
+  const [, glob, body] = m;
+  const note = `${GEN}${r}.md by node _ai/check.mjs --fix; edit the source. -->\n`;
+  expect(p('.kiro/steering', `${r}.md`), `---\ninclusion: fileMatch\nfileMatchPattern: "${glob}"\n---\n${note}${body}`, 'Kiro rule');
+  expect(p('.github/instructions', `${r}.instructions.md`), `---\napplyTo: "${glob}"\n---\n${note}${body}`, 'Copilot rule');
+}
+// generated rule copies whose source is gone
+for (const [dir, suffix] of [[p('.kiro/steering'), '.md'], [p('.github/instructions'), '.instructions.md']]) {
+  for (const n of existsSync(dir) ? readdirSync(dir) : []) {
+    if (!n.endsWith(suffix) || !read(join(dir, n)).includes(GEN) || rules.includes(n.slice(0, -suffix.length))) continue;
+    if (FIX) { rmSync(join(dir, n)); fixed.push(`removed ${rel(join(dir, n))}`); }
+    else errors.push(`${rel(join(dir, n))}: no matching source in .claude/rules/; run node _ai/check.mjs --fix`);
+  }
+}
 
 // 3. relative links and anchors in the setup's Markdown
 const slug = (h) => h.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s/g, '-');
@@ -126,7 +154,8 @@ for (const a of agents) {
 // 7. word limits: the setup must not grow quietly; a new rule replaces or merges an old one
 const words = (f) => read(f).split(/\s+/).filter(Boolean).length;
 const LIMITS = [[p('AGENTS.md'), 1400], [p('_ai/orchestration.md'), 600],
-  ...skills.map((s) => [p('.claude/skills', s, 'SKILL.md'), 1400]), ...agents.map((a) => [p('.claude/agents', `${a}.md`), 300])];
+  ...skills.map((s) => [p('.claude/skills', s, 'SKILL.md'), 1400]), ...agents.map((a) => [p('.claude/agents', `${a}.md`), 300]),
+  ...rules.map((r) => [p('.claude/rules', `${r}.md`), 300])];
 for (const [f, max] of LIMITS) if (existsSync(f) && words(f) > max) errors.push(`${rel(f)}: ${words(f)} words, limit ${max}; shorten or merge rules`);
 
 // 8. guard hook tests, including one stdin payload per tool through the real script

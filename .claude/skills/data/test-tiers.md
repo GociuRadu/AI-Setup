@@ -20,4 +20,4 @@
 
 ## Integration guard
 
-Integration harnesses (local test container) refuse any host or database other than the local test container (the [Python rules](../../../AGENTS.md#python): tests never reach a connected system; the [core rules](../../../AGENTS.md#databases-every-profile) Databases section sets the container rules), and include one test that proves the refusal. Container setup: [platforms](platforms.md#local-test-container).
+Integration harnesses (local test container) refuse any host or database other than the local test container (the [Python rules](../../rules/python.md): tests never reach a connected system; the [core rules](../../../AGENTS.md#databases-every-profile) Databases section sets the container rules), and include one test that proves the refusal. Container setup: [platforms](platforms.md#local-test-container).

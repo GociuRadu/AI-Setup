@@ -29,7 +29,7 @@ BEGIN
 END;
 ```
 
-Review against the T-SQL rules in the [SQL rules](../../../../../AGENTS.md#sql).
+Review against the T-SQL rules in the [SQL rules](../../../../rules/sql.md).
 
 ## Atomic replacement
 

@@ -9,7 +9,7 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 ## Responses
 
 - Reply in English; keep quoted text and identifiers as is. Answer first, short, no repetition. Mermaid for flows and tables for comparisons, only when they help.
-- Answer only what was asked. Fix issues instead of only reporting them, except in `review`, `analyze`, `reviewer`, `tester`, and `bug` without a fix request. Before any code write, read and apply [ponytail](.claude/skills/ponytail/SKILL.md).
+- Answer only what was asked. Fix issues instead of only reporting them, except in `review`, `analyze`, a test run, `reviewer`, `tester`, and `bug` without a fix request. Before any code write, read and apply [ponytail](.claude/skills/ponytail/SKILL.md).
 - When files changed or steps remain, use only these lines (skip empty ones; files as links): `**Done:**` result; `**Run:**` user steps; `**Changed:**` one line per file; `**Not done:**` skipped, unverified, risk. A saved report replaces Done/Changed with its path, a one-line verdict and what was not checked. Otherwise 1-3 sentences, no headings, unless a skill defines the output.
 
 ## Workspace and projects
@@ -22,7 +22,7 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## Skills
 
-Read the skill before its task: `review` (review, audit), `bug` (something is wrong), `analyze` (explain, document), `data` (tables, DDL, loads, pipelines, Spark notebooks), `confluence-project` (a project Confluence page by link), `ponytail` (before any code write). Path: `.claude/skills/<name>/SKILL.md`.
+`review`, `bug`, `analyze`, `data`, `confluence-project`, `ponytail` in `.claude/skills/<name>/SKILL.md`: read the skill before the task its description names.
 
 ## Output locations
 
@@ -43,7 +43,7 @@ Run the focused check (as the profile allows), update `context.md` (what is true
 
 ## Bigger work and helpers
 
-Before a plan or design, a risky path (database loads, migrations or schema changes, auth, a shared config or interface), work on 5+ files, or starting any helper, read [orchestration](_ai/orchestration.md). Helpers: `scout` (search), `worker` (bulk edits), `tester` (tests), `reviewer` (review). Also in small tasks: a web lookup, a file or log over about 300 lines, or a read across 3+ files goes to `scout`; a test or lint run with long output goes to `tester`. Delegate only to these four, never a built-in or unnamed subagent; if a helper cannot start, do its work yourself.
+Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface), work on 5+ files, or starting any helper, read [orchestration](_ai/orchestration.md). Helpers: `scout` (search), `worker` (bulk edits), `tester` (tests), `reviewer` (review). Also in small tasks: a web lookup, a file or log over about 300 lines, or a read across 3+ files goes to `scout`; "run the tests", a full suite, or a test or lint run with long output goes to `tester`. Delegate only to these four, never a built-in or unnamed subagent; if a helper cannot start, do its work yourself.
 
 Models: cheap = Haiku 5.5, medium = Sonnet 5.5, top = Opus 5.5 (IDs per tool in its file). Work on the medium model. Suggest the top model once for design, architecture or hard debugging; on the top model for routine work, suggest the medium model once. Then continue.
 
@@ -74,20 +74,9 @@ Only when the user names the action in this conversation; the user runs it:
 - Never lose existing content: merge, don't overwrite; on conflicts show a diff table and ask. Keep existing validation and error handling.
 - Destructive local actions (delete, broad overwrite, reset) need Git or a backup; name the affected paths.
 
-## Python
+## Code rules
 
-- Runtime, interpreter and test commands are in `project.md`. Detect the selected interpreter before checks; never silently create or select a virtual environment.
-- Large Excel: openpyxl `read_only=True` with `iter_rows()`; `data_only=True` for cached values (missing caches are not recalculation).
-- Keep alphanumeric business keys (SAP keys) as strings; change matching normalization only with evidence.
-- Tests are side-effect-free: never import a module with top-level writes or run against a connected system as a test.
-
-## SQL
-
-- Engine, DDL folder and audit tables come from `project.md`. Schema-qualify objects; put new DDL in the existing subject folder.
-- State grain, keys, nullability, constraints and rerun behavior; describe truncate, sync-delete, incremental or transactional behavior accurately. Keep existing set-based staging and reload strategies unless asked.
-- T-SQL: `THROW`, not `RAISERROR` (except the DDL guard followed by `SET NOEXEC ON`); no `SELECT *`; no `NOLOCK`; dynamic SQL only with `QUOTENAME` or a fixed mapping.
-- Bound validation reads by key, date range or `TOP`; state purpose, target, environment and expected result.
-- Data repair: a scoping read, then the exact narrow write with expected count and rollback, in a transaction. Verify with reads; never rerun a write to check it.
+[SQL](.claude/rules/sql.md) and [Python](.claude/rules/python.md) rules load on their own when a matching file is read or edited. Read the matching one yourself before writing SQL or Python anywhere else (chat, a string inside other code).
 
 ## Tools
 

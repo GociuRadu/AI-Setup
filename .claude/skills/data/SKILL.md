@@ -15,12 +15,12 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 - TRUNCATE, DROP or emptying a table only when the user names it, except these steps, which the agent writes and the user runs:
   - `Data: rebuild` tables (DDL header): emptying staging in the load path, the approved publish step, the target of an approved full-snapshot publish, drop-and-create in their DDL file.
   - `Data: keep` tables: only drop-and-create of an empty table behind the has-data guard. One exception: the new target of a one-time load that the case gate confirmed nobody reads may be emptied on a pipeline 01 rerun and on a pipeline 01 or 04 undo (04 reruns resume missing chunks). Nothing else on `keep` tables.
-- A new table is `rebuild` only when the user asked for a full reload of it; otherwise `keep`. Repairs follow the [SQL rules](../../../AGENTS.md#sql).
+- A new table is `rebuild` only when the user asked for a full reload of it; otherwise `keep`. Read the [SQL rules](../../rules/sql.md) before writing any SQL, also inside notebooks and loaders; repairs follow them.
 - Platform, engine, DDL folder, naming and audit table come from the active project's `project.md`; read only the matching rows of [platforms](platforms.md). Project conventions override the defaults here. Mark any platform fact not verified as unverified. No preview features in production.
 
 ## Defaults
 
-- Smallest complete change per the [ponytail](../ponytail/SKILL.md) skill (read it before any code change); reuse the nearest existing notebook, DDL, test and pattern. Keep existing names and behavior unless a change is approved.
+- Smallest complete change; reuse the nearest existing notebook, DDL, test and pattern. Keep existing names and behavior unless a change is approved.
 - Routine full-snapshot load: one main table + one reusable staging table per dataset, one publish path, the existing audit table (none in `project.md`: propose a minimal one as a separate, optional DDL marked assumed). No previous copy, fallback mode, extra layer or helper framework without a concrete need and approval; state the post-commit recovery limit. Keep setup and run instructions short. Do not force this layout on history, append-only or streaming workflows.
 - Validation (schema, types, keys, duplicates, counts, version guards) lives in the loader/publish path. A failed load never publishes partial data.
 - Tests: a few behavior tests (success, failure protection, rerun) plus a contract check. What each test tier must contain: [test tiers](test-tiers.md).

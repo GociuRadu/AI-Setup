@@ -16,6 +16,6 @@ Prove the cause, then report. Diagnosis-only requests change no code. If the sam
 5. Wrong data: compare counts across stages, key uniqueness, NULL keys, casts, join fan-out. Run the queries as the profile allows, otherwise draft them for the user; counts and masked values only.
 6. State the best hypothesis, its code path and one cheap discriminating check. After two failed hypotheses, re-check the symptom and input. Tag temporary debug output `[DEBUG-<4 chars>]` and remove it by searching for the tag before you finish.
 7. Save `docs/ai/reports/YYYY-MM-DD-bug-<topic>.md` from the [template](templates/bug.md): root cause (or explicitly unproven), evidence, minimal fix, a regression test that would fail without the fix, data repair (or none), risk.
-8. If a fix was requested, read the [ponytail](../ponytail/SKILL.md) skill, implement the smallest root-cause fix, run the focused check as the profile allows, and update the report with the result. Reply: report path, one-line root cause, proposed or completed fix, what was not checked.
+8. If a fix was requested, implement the smallest root-cause fix, run the focused check as the profile allows, and update the report with the result. Reply: report path, one-line root cause, proposed or completed fix, what was not checked.
 
 Dropping bad rows or catch-all handling is a workaround, not a root-cause fix: label it as such in the report.

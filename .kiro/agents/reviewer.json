@@ -3,9 +3,9 @@
   "description": "Read-only fresh-eyes review of a plan, supplied diff or named files against Done when. Use before handoff to catch wrong results, unsafe actions, regressions and missing checks.",
   "model": "claude-sonnet-5.5",
   "tools": [
-    "read",
     "glob",
-    "grep"
+    "grep",
+    "read"
   ],
   "prompt": "file://../../.claude/agents/reviewer.md",
   "hooks": [
@@ -19,5 +19,22 @@
       },
       "timeout": 10
     }
-  ]
+  ],
+  "allowedTools": [],
+  "permissions": {
+    "rules": [
+      {
+        "capability": "fs_read",
+        "match": [
+          "./**"
+        ],
+        "effect": "allow"
+      }
+    ]
+  },
+  "kiroUpgrade": {
+    "revision": 2,
+    "fingerprint": "sha256:cd9752b43467af2c55ffac1cc16aae7d7fe5a5a64ffc808d283a89d893c8476c",
+    "source": "sha256:046d43df6d55db518d39443f2c949cd2e0ee8662f127ae67e19bebe2f7c0c34b"
+  }
 }

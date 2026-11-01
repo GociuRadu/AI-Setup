@@ -14,13 +14,16 @@ flowchart LR
 
 ## Install on a device
 
+Requires Git and Node.js 18 or newer (the guard hook and scripts run on Node).
+
 ```powershell
 git clone https://github.com/GociuRadu/AI-Setup work
 cd work
 node _ai/setup.mjs home    # or: work
+node _ai/check.mjs         # confirms the setup: ends with "setup ok"
 ```
 
-`setup.mjs` also lists every MCP server configured for Claude Code, Kiro and VS Code, and how to turn each one off; it changes none of them. Then open the `work` folder (the workspace root, not a project or `code/` folder) in VS Code, Kiro or Claude Code. Requires Node.js 18 or newer for the guard hook and scripts.
+`setup.mjs` also lists every MCP server configured for Claude Code, Kiro and VS Code, and how to turn each one off; it changes none of them. Then open the `work` folder (the workspace root, not a project or `code/` folder) in VS Code, Kiro or Claude Code.
 
 | Profile | Behavior |
 |---|---|
@@ -77,11 +80,12 @@ The main agent works on Sonnet (Claude Code default in `.claude/settings.json`; 
 
 | Path | Purpose | Read by |
 |---|---|---|
-| `AGENTS.md` | Core rules: responses, projects, helpers, databases, hard stops, secrets, Python, SQL | Copilot, Kiro, Codex; Claude through `CLAUDE.md` |
+| `AGENTS.md` | Core rules: responses, projects, helpers, databases, hard stops, secrets | Copilot, Kiro, Codex; Claude through `CLAUDE.md` |
+| `.claude/rules/` | SQL and Python rules, loaded only with matching files (single source) | Claude, Copilot; Kiro through `.kiro/steering/`, the Copilot harness through `.github/instructions/` |
 | `CLAUDE.md`, `.github/copilot-instructions.md`, `.kiro/steering/kiro.md` | Tool adapters: tool and model names only | one tool each |
 | `.claude/skills/` | Skills, the single source | Claude, Copilot; Kiro through `.kiro/skills/` |
 | `.claude/agents/` | Helpers `scout`, `worker`, `tester`, `reviewer` | Claude, Copilot; Kiro through `.kiro/agents/` |
-| `.kiro/skills/`, `.kiro/agents/` | Generated wrappers that load the `.claude/` files | Kiro |
+| `.kiro/skills/`, `.kiro/agents/`, rule copies in `.kiro/steering/` and `.github/instructions/` | Generated from the `.claude/` files | Kiro, Copilot |
 | `.claude/settings.json`, `.github/hooks/guard.json`, `.kiro/hooks/guard.json` | Wire the guard hook (and Claude's deny rules, Sonnet default, earlier auto-compact, Haiku for unpinned subagents) | one tool each |
 | `_ai/orchestration.md` | Helper triggers, briefs, parallel rules, verification | main agent, only for bigger work |
 | `_ai/hooks/guard.mjs` | Blocks writing SQL, hard stops and secret reads in every tool | all |
@@ -98,8 +102,8 @@ The main agent works on Sonnet (Claude Code default in `.claude/settings.json`; 
 
 ## Change the setup
 
-1. Edit the source: `AGENTS.md` for rules, `.claude/skills/<name>/SKILL.md` for a skill, `.claude/agents/<name>.md` for a helper, `_ai/profiles/` for permissions. Behavior is never per tool; a tool adapter only maps names.
-2. Run `node _ai/check.mjs --fix` (regenerates the Kiro wrappers, checks links, headers, JSON and the guard tests), then `node _ai/check.mjs`.
+1. Edit the source: `AGENTS.md` for rules, `.claude/skills/<name>/SKILL.md` for a skill, `.claude/agents/<name>.md` for a helper, `.claude/rules/<name>.md` for language rules, `_ai/profiles/` for permissions. Behavior is never per tool; a tool adapter only maps names.
+2. Run `node _ai/check.mjs --fix` (regenerates the Kiro and Copilot wrappers, checks links, headers, JSON and the guard tests), then `node _ai/check.mjs`.
 3. After a profile change, run `node _ai/setup.mjs <profile>` again. Start a new chat session, then commit.
 
 Adding a skill: create `.claude/skills/<name>/SKILL.md` with `name` and `description`, list it in the Skills section of `AGENTS.md` and run the check. If you copy text from an external repo, keep its license line at the top of the skill.

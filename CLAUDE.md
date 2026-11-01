@@ -4,5 +4,5 @@
 
 - Helpers: `scout`, `worker`, `tester`, `reviewer` in `.claude/agents/`; start them with the Agent tool and that exact name. Never `general-purpose`, `Explore` or `Plan`.
 - Skills: `.claude/skills/`, each also a slash command with its name (`/review`, `/data`, ...).
-- Models: cheap = `haiku`, medium = `sonnet`, top = `opus` (Haiku 5.5, Sonnet 5.5, Opus 5.5).
+- Models: cheap = `haiku`, medium = `sonnet`, top = `opus`.
 - Guards: deny rules and the guard hook in `.claude/settings.json`. The profile is `CLAUDE.local.md`, written by `node _ai/setup.mjs`.

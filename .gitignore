@@ -9,6 +9,8 @@
 !/.github/
 !/.kiro/
 !/_ai/
+# Reports about the setup itself
+!/docs/
 
 # Device profile and local settings, written by `node _ai/setup.mjs`
 /.claude/settings.local.json
@@ -21,6 +23,7 @@
 /.kiro/settings/
 /.kiro/specs/
 /.github/hooks/*.log
+/.kiro/agents/*.bak*
 
 # Never commit secrets or caches anywhere
 .env

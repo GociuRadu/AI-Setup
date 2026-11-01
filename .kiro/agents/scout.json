@@ -3,12 +3,12 @@
   "description": "Cheap search in files, long logs or the public web. Returns evidence with paths or URLs, or writes it to the one report path the brief names. No code edits, no design decisions.",
   "model": "claude-haiku-5.5",
   "tools": [
-    "read",
     "glob",
     "grep",
+    "read",
     "web",
-    "web_search",
     "web_fetch",
+    "web_search",
     "write"
   ],
   "prompt": "file://../../.claude/agents/scout.md",
@@ -33,5 +33,22 @@
       },
       "timeout": 10
     }
-  ]
+  ],
+  "allowedTools": [],
+  "permissions": {
+    "rules": [
+      {
+        "capability": "fs_read",
+        "match": [
+          "./**"
+        ],
+        "effect": "allow"
+      }
+    ]
+  },
+  "kiroUpgrade": {
+    "revision": 2,
+    "fingerprint": "sha256:33ad8686eec707256e85c61636e838da3bcb7fd8388498d6c3630ea30bf1df9c",
+    "source": "sha256:bfcfbc55ee0c7cbaa4858c948086351a5b40a2fe6cc501c71b67a5a255cf5ebd"
+  }
 }
