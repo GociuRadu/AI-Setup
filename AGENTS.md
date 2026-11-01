@@ -45,11 +45,11 @@ Run the focused check (as the profile allows), update `context.md` (what is true
 
 Before a plan or design, a risky path (loads, migrations or schema changes on a shared or persistent database, auth, a shared config, schema or interface) or work on 3+ files: state the goal and an observable **Done when**, risks first. Plan only: numbered steps, then stop.
 
-You decide and write all logic. A helper costs 20 s or more plus its own context: start one only for a "Use for" cell, and then always. Never a built-in or unnamed subagent; if one cannot start, do its work yourself. Before starting one, read and follow [orchestration](_ai/orchestration.md).
+You decide and write all logic. A helper costs 20+ s plus its own context: start one only for a "Use for" cell, and then always. Never a built-in or unnamed subagent; if one cannot start, do its work yourself. Before starting one, read and follow [orchestration](_ai/orchestration.md).
 
 | Helper | Use for | Not for |
 |---|---|---|
-| `scout` | a web lookup; a file or log over about 300 lines; a read across 3+ files | what one search or file read answers; lines you need to edit |
+| `scout` | any web lookup; a file or log over about 300 lines; a read across 3+ files; one per independent question, in parallel | what one search or file read answers; lines you need to edit |
 | `worker` | 10+ files from an exact spec that no single command can apply | what one command (`sed`, a script) can do; under 10 files |
 | `tester` | "run the tests"; output over about 50 lines; after a risky change | a short suite or focused check on your change |
 | `reviewer` | after `tester`: a risky change; new or changed DDL, load or publish steps; logic in 5 or more files. A new or changed function counts with its file and every caller changed to use it, even when each caller gets the same one line | a rename or string replace that adds or changes no function, proven by search counts and passing tests; `docs/ai/` files |
@@ -85,7 +85,7 @@ Only when the user names the action in this conversation; the user runs it:
 
 ## Code rules
 
-[SQL](.claude/rules/sql.md) and [Python](.claude/rules/python.md) rules load on their own when a matching file is read or edited. Read the matching one yourself before writing SQL or Python anywhere else (chat, a string inside other code).
+[SQL](.claude/rules/sql.md) and [Python](.claude/rules/python.md) rules load on their own with a matching file. Read the matching one yourself before writing SQL or Python anywhere else (chat, a string inside other code).
 
 ## Tools
 
