@@ -39,7 +39,7 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## After a code change
 
-Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` rows below: a new or changed function plus its changed callers, 5 or more files in total, needs `reviewer`, even with identical caller lines. A skipped trigger goes under **Not done** with the reason.
+Run the focused check (as the profile allows), update `context.md` (what is true, what is left), and add a `memory.md` Bugs row for a fixed bug whose cause was not obvious. Check the `tester` and `reviewer` rows below. A skipped trigger goes under **Not done** with the reason.
 
 ## Plans and helpers
 
@@ -52,7 +52,7 @@ You decide and write all logic. A helper start costs 20 s or more plus its own c
 | `scout` | a web lookup; a file or log over about 300 lines; a read across 3+ files; one per independent question, in parallel | what one search or file read answers; lines you need to edit |
 | `worker` | 10+ files from an exact spec that no single command can apply | what one command (`sed`, a script) can do; under 10 files |
 | `tester` | "run the tests"; output over about 50 lines; after a risky change | a short suite or focused check on your change |
-| `reviewer` | after `tester`: a risky change; new or changed DDL, load or publish steps; logic in 5 or more files, counting a new or changed function's file and each caller changed to use it. Fix Must fix findings | a pure rename or string replace proven by search counts and passing tests; `docs/ai/` files |
+| `reviewer` | after `tester`: a risky change; new or changed DDL, load or publish steps; logic in 5 or more files. A new or changed function counts with its file and every caller changed to use it, even when each caller gets the same one line. Fix Must fix findings | a rename or string replace that adds or changes no function, proven by search counts and passing tests; `docs/ai/` files |
 
 Models: cheap = Haiku 5.5, medium = Sonnet 5.5, top = Opus 5.5 (IDs per tool in its file). Work on the medium model. Suggest the top model once for design, architecture or hard debugging, and the medium model once for routine work on the top model; then continue.
 
