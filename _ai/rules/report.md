@@ -4,7 +4,7 @@ applyTo: "**/docs/ai/reports/**"
 # Report format
 
 A report is **one HTML file**: `<project>/docs/ai/reports/YYYY-MM-DD-<kind>-<topic>.html` (kind: review, bug, analyze, data, research).
-- New: copy `_ai/templates/report.md` to `<same name>.md`, fill it, run `node _ai/report.mjs <file.md>`. It writes the `.html` (with the Markdown source embedded) and deletes the `.md`.
+- New: copy `_ai/templates/report.md` to `<same name>.md`, fill it, run `node _ai/report.mjs <file.md>`. It writes the `.html` (with the Markdown source embedded) and prints `scan:` warnings; fix them and run again. A build with no warning deletes the `.md`.
 - Update (same scope = same file): `node _ai/report.mjs --edit <file.html>` restores the `.md`; edit it, build again.
 - Never write or edit report HTML by hand. Never leave a `.md` next to its `.html`.
 
@@ -17,17 +17,17 @@ Readers scan, they do not read: the first screen must answer the question.
 - Cut restated facts, meta steps ("send this report"), empty sections, options nobody asked about. Every section has a picture: a diagram, a comparison or a table. Paragraphs at most 2 sentences and 50 words.
 - `##` headings state the conclusion and its first 2 words carry it (`## The index runs on SDK defaults`, not `## Index` or `## Overview`).
 - Limits: bottom line at most 40 words; visible text about 600 words; bold under 20% of the words; tables key column first, at most 5 columns; lists at most 7 items of at most 25 words.
-- The build prints `scan:` warnings for these limits (the collapsed Evidence is not counted). Fix every warning before handing off.
+- The build prints `scan:` warnings for these limits (the collapsed Evidence, code and diagrams are not counted). Fix every warning before handing off.
 
 Blocks (the renderer keys on these exact shapes; the template shows each one):
 
 | Block | Markdown | Renders as |
 |---|---|---|
-| Finding | `### High · <statement>` + `- **Problem:**`, `- **Fix:**`, `- **Where:**` | colored card; more than ~6: cards for High/Medium, rest in `\| # \| Sev \| Where \| Problem \| Fix \|` |
+| Finding | `### High · <statement>` + `- **Problem:**`, `- **Fix:**`, `- **If skipped:**`, `- **Where:**` | colored card; more than ~6: cards for High/Medium, rest in `\| # \| Sev \| Where \| Problem \| Fix \|` |
 | Question | `### Q · <question as sent>` + `- **Context:**`, `- **Proposal:**` | numbered card |
-| Graph | ` ```graph ` (or ` ```graph down `), chains `a > [main] > !risk > +new >label> b`; the same text = the same node, so fan-out and joins work | SVG diagram; too wide turns top-down by itself |
-| Flow | ` ```flow `, one independent `Label: a > b > c` chain per line | one SVG lane per line |
-| Bars | ` ```bars `, `Label: 123` per line, optional `# note` | horizontal bar chart (funnels, counts per stage) |
+| Graph | ` ```graph ` (or ` ```graph down `), chains `a > [main] > !risk > +new >label> b`; the same text = the same node, so fan-out and joins work | SVG diagram; too wide turns top-down by itself; a cycle is drawn dashed |
+| Flow | ` ```flow `, one independent `Label: a > b > c` chain per line | one lane of boxes per line; wraps on a phone |
+| Bars | ` ```bars `, `Label: 123` per line (a unit may follow the number), optional `# note` | horizontal bar chart (funnels, counts per stage) |
 | Before / after | ` ```compare `, `Today: x; y` and `After: x; y` | side-by-side columns |
 | Calls | ` ```seq `, `A > B: message` per line | interaction rows |
 | Files | ` ```tree `, indented paths, `+` new, `~` changed, `!` risk, `# note` | file tree |

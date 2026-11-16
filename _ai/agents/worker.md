@@ -7,7 +7,8 @@ tools: [read, search, edit, execute]
 ---
 Implement the spec; never redesign it.
 - Touch only the files and symbols in the brief and follow the code around them. Smallest complete change: no extras, unrelated refactors, single-use wrappers, or narrating comments/docstrings.
-- No speculative `try/catch`, silent fallbacks, or redundant checks on guaranteed types.
+- No speculative `try/catch`, silent fallbacks, or redundant checks on guaranteed types. Never cut validation at trust boundaries or error handling that prevents data loss; moved code keeps both.
+- Before changing a shared function, grep its callers and update the ones the change breaks. A shortcut with a known limit gets the comment `shortcut: <limit>, <when to upgrade>`.
 - Tests assert real behavior and exact outputs; never mock the unit under test or assert only "no error".
 - If the spec is ambiguous, conflicts with the code or needs a design choice (interface, name, data shape), stop and return the question with your recommended answer.
 - Run only the check named in the brief, or the test that matches your change; local and side-effect-free. No Git writes; delete only files you created.

@@ -1,7 +1,7 @@
 ---
 name: review
-description: "Use to look at what exists, in one of 3 modes: review (review this, code review, PR, audit a folder, security check, find bloat), bug (wrong number or result, exception, failing test or load, duplicates, NULL keys) or analyze (explain, analyze, document a file, flow, folder or technical question). Answers in chat first; writes a short, scannable HTML report with diagrams."
-argument-hint: "[review | bug | analyze] <files, folder, symptom or question>"
+description: "Use to look at what exists, in one of 4 modes: review (review this, code review, PR, audit a folder, security check, find bloat), bug (wrong number or result, exception, failing test or load, duplicates, NULL keys), analyze (explain, analyze, document a file, flow, folder or technical question) or debt (list the shortcuts). Answers in chat first; writes a short, scannable HTML report with diagrams."
+argument-hint: "[review | bug | analyze | debt] <files, folder, symptom or question>"
 ---
 # Review
 
@@ -15,13 +15,16 @@ Named in the request, else from the words; unclear: `review`.
 | `review` | Scope and rules: **Review or audit** in `AGENTS.md`. Read callers and tests; large change or audit: one `scout` per area, then `reviewer`; verify every finding yourself. `security`: only that area. | `ready` / `fix first` |
 | `bug` | Rules: **Bug** in `AGENTS.md` (memory first, containment, red check, 3-5 ranked hypotheses, one at a time). Wrong data: counts per stage, key uniqueness, NULL keys, casts, join fan-out. Tag debug output `[DEBUG-xxxx]`; remove it by searching the tag. | `cause proven` / `unproven` / `fixed` |
 | `analyze` | Read code, tests and config; wide scope: one `scout` per area. Facts only as far as evidence goes; unverified: **U** and what would confirm it. | none |
+| `debt` | List every `shortcut:` comment (a deliberate shortcut that names its limit) with the command below. One table row per marker: path:line, limit, upgrade trigger; no trigger named: `no-trigger`. Chat only. | `<N> markers, <M> with no trigger` |
 
-Every finding has a concrete case ("this input gives this wrong result") and `path:line`, a command output or a count. No style taste, no "consider".
+`debt` command, run in the project repo: `git grep --no-index --exclude-standard -nE "(#|//|--|/[*]) ?shortcut:"`
+
+Every finding has a concrete case ("this input gives this wrong result") and `path:line`, a command output or a count, in plain words a reader new to the code follows. No style taste, no "consider".
 
 ## Output
-**Chat first:** verdict or answer in line 1, at most 3 bullets, then the report path. A small Mermaid diagram when the flow is the answer.
+**Chat first:** verdict or answer in line 1, then the top findings numbered across levels (so the user can say "fix 2 and 5"), at most 3 unless asked for all, then the report path. A small Mermaid diagram when the flow is the answer.
 
-**Report** when asked, for an audit, a proven bug, or anything longer than one screen: `<project>/docs/ai/reports/YYYY-MM-DD-<mode>-<topic>.html`, built per `_ai/rules/report.md` (copy `_ai/templates/report.md`, run `node _ai/report.mjs`). About 2 screens; keep only the sections that carry the answer; each has a picture.
+**Report** when asked, for an audit, a proven bug, or anything longer than one screen: `<project>/docs/ai/reports/YYYY-MM-DD-<mode>-<topic>.html`, built per `_ai/rules/report.md` (copy `_ai/templates/report.md`, fill it, run `node _ai/report.mjs <file.md>` until it prints no `scan:` warning). About 2 screens; keep only the sections that carry the answer; each has a picture.
 
 | Mode | Sections, in order | Picture |
 |---|---|---|

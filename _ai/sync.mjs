@@ -19,8 +19,8 @@ const MANAGED = ['.claude/agents', '.claude/skills', '.claude/rules', '.claude/s
 const PROFILES = ['home', 'work'];
 const MODELS = { claude: { haiku: 'haiku', sonnet: 'sonnet', opus: 'opus' }, kiro: { haiku: 'claude-haiku-5.5', sonnet: 'claude-sonnet-5.5', opus: 'claude-opus-5.5' } };
 const TOOLS = {
-  claude: { read: ['Read'], search: ['Grep', 'Glob'], web: ['WebSearch', 'WebFetch'], edit: ['Edit', 'Write'], execute: ['Bash', 'PowerShell'], todo: ['TodoWrite'] },
-  kiro: { read: ['read'], search: ['glob', 'grep'], web: ['web_search', 'web_fetch'], edit: ['write'], execute: ['shell'], agent: ['subagent'], todo: [] },
+  claude: { read: ['Read'], search: ['Grep', 'Glob'], web: ['WebSearch', 'WebFetch'], edit: ['Edit', 'Write'], execute: ['Bash', 'PowerShell'], todo: ['TodoWrite'], skill: ['Skill'] },
+  kiro: { read: ['read'], search: ['glob', 'grep'], web: ['web_search', 'web_fetch'], edit: ['write'], execute: ['shell'], agent: ['subagent'], todo: [], skill: [] },
 };
 
 // frontmatter: `key: value`, "quoted" strings and [a, b] lists only
@@ -92,7 +92,8 @@ export function build(profile) {
   const agents = walk('_ai/agents').filter((f) => f.endsWith('.md') && !f.endsWith('/_core.md'));
   for (const src of agents) {
     const { meta, body } = parse(read(src));
-    const prompt = (meta.name === 'orchestrator' ? '' : `${core}\n`) + body;
+    const helper = meta.name !== 'orchestrator';
+    const prompt = (helper ? `${core}\n` : '') + body;
     const tools = (tool) => [...new Set((meta.tools ?? []).flatMap((t) => {
       if (tool === 'claude' && t === 'agent') return [`Agent(${(meta.agents ?? []).join(', ')})`];
       if (!(t in TOOLS[tool])) throw new Error(`${src}: unknown tool ${t}`);
@@ -100,7 +101,9 @@ export function build(profile) {
     }))];
     if (!MODELS.claude[meta.model]) throw new Error(`${src}: unknown model ${meta.model}`);
     const cdest = `.claude/agents/${meta.name}.md`;
-    out[cdest] = yaml({ name: meta.name, description: meta.description, model: MODELS.claude[meta.model], ...(meta['reasoning-effort'] && { effort: meta['reasoning-effort'] }), tools: tools('claude').join(', ') })
+    out[cdest] = yaml({ name: meta.name, description: meta.description, model: MODELS.claude[meta.model], ...(meta['reasoning-effort'] && { effort: meta['reasoning-effort'] }), tools: tools('claude').join(', '),
+      // helpers get _core.md instead of AGENTS.md and CLAUDE.local.md: about 1,400 fewer words per helper start
+      ...(helper && { omitClaudeMd: 'true' }) })
       + note(src) + relink(prompt, src, cdest, 'claude');
     const has = (t) => (meta.tools ?? []).includes(t);
     const kdest = `.kiro/agents/${meta.name}.json`;
@@ -163,9 +166,21 @@ export function brokenLinks(out) {
   return bad;
 }
 
+// `_ai/...` paths named in a source (AGENTS.md, README.md, _ai/**/*.md) that do not exist; a placeholder such as <name> ends the path
+export function missingPaths(files = ['AGENTS.md', 'README.md', ...walk('_ai').filter((f) => f.endsWith('.md'))]) {
+  const bad = [];
+  for (const f of files) {
+    for (const m of read(f).matchAll(/(?<![\w./-])_ai\/[\w./-]*/g)) {
+      const p = m[0].replace(/\.+$/, '');
+      if (!existsSync(join(ROOT, p))) bad.push(`${f} -> ${p}`);
+    }
+  }
+  return [...new Set(bad)];
+}
+
 const savedProfile = () => {
   const f = join(ROOT, 'CLAUDE.local.md');
-  return existsSync(f) ? /(?:profile: |setup\.mjs )(home|work)\b/.exec(readFileSync(f, 'utf8'))?.[1] : undefined;
+  return existsSync(f) ? /profile: (home|work)\b/.exec(readFileSync(f, 'utf8'))?.[1] : undefined;
 };
 const managedFiles = () => MANAGED.flatMap((p) => existsSync(join(ROOT, p)) && !p.endsWith('.json') ? walk(p) : existsSync(join(ROOT, p)) ? [p] : []);
 
@@ -193,13 +208,13 @@ function main(args) {
   if (unknown.length) { console.error('usage: node _ai/sync.mjs [home|work] [--check]'); return 1; }
   if (!profile && !check) { console.error('first run: name the profile, node _ai/sync.mjs home|work'); return 1; }
   const out = build(profile);
-  const broken = brokenLinks(out);
+  const broken = [...brokenLinks(out).map((b) => `broken link: ${b}`), ...missingPaths().map((b) => `missing path: ${b}`)];
 
   if (check) {
     const problems = [
       ...Object.entries(out).filter(([f, t]) => !existsSync(join(ROOT, f)) || readFileSync(join(ROOT, f), 'utf8') !== t).map(([f]) => `stale or missing: ${f}`),
       ...managedFiles().filter((f) => !(f in out)).map((f) => `extra: ${f}`),
-      ...broken.map((b) => `broken link: ${b}`),
+      ...broken,
     ];
     if (!profile) problems.push('no profile: run node _ai/sync.mjs home|work');
     console.log(problems.length ? `${problems.join('\n')}\nnot synced: run node _ai/sync.mjs` : 'in sync');
@@ -212,7 +227,7 @@ function main(args) {
     writeFileSync(join(ROOT, f), text);
   }
   writeFileSync(join(ROOT, '.claude/settings.local.json'), localSettings(profile));
-  if (broken.length) console.log(`broken links:\n${broken.join('\n')}`);
+  if (broken.length) console.log(broken.join('\n'));
   console.log(`synced ${Object.keys(out).length} files, profile ${profile}. ${profile === 'home' ? 'Kiro: use Autopilot.' : 'Kiro: use Supervised. Claude Code: keep approvals on.'}`);
   return broken.length ? 1 : 0;
 }

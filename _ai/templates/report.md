@@ -1,6 +1,6 @@
 <!-- Report skeleton (rules and scan limits: _ai/rules/report.md).
      Copy to <project>/docs/ai/reports/YYYY-MM-DD-<kind>-<topic>.md, fill it, delete unused blocks,
-     then run: node _ai/report.mjs <that.md> (writes .html, deletes .md; fix all scan: warnings). -->
+     then run: node _ai/report.mjs <that.md> (writes .html; fix every scan: warning and run again; a clean build deletes the .md). -->
 # Analyze: <topic>
 | Date | Scope | Status |
 |---|---|---|
@@ -18,6 +18,7 @@
 ### High · <the problem, stated as a fact>
 - **Problem:** <one concrete case>
 - **Fix:** <one sentence>
+- **If skipped:** <what happens, one sentence>
 - **Where:** [file.py:42](../../../code/path/file.py#L42)
 
 <!-- Questions for someone else (PO, tech lead): one card each, numbered automatically. -->

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, relink, build, brokenLinks } from './sync.mjs';
+import { parse, relink, build, brokenLinks, missingPaths } from './sync.mjs';
 
 test('parse reads quoted strings and lists', () => {
   const { meta, body } = parse('---\nname: x\ndescription: "a: b"\ntools: [read, search]\n---\nhi\n');
@@ -21,4 +21,17 @@ test('build covers every agent for both tools with no broken links', () => {
   }
   assert.ok(out['CLAUDE.local.md'].includes('profile: work'));
   assert.deepEqual(brokenLinks(out), []);
+});
+
+test('helpers start without CLAUDE.md, the orchestrator keeps it and can use skills', () => {
+  const out = build('work');
+  for (const a of ['scout', 'tester', 'worker', 'reviewer', 'challenger']) assert.match(out[`.claude/agents/${a}.md`], /^omitClaudeMd: true$/m, a);
+  assert.doesNotMatch(out['.claude/agents/orchestrator.md'], /omitClaudeMd/);
+  assert.match(out['.claude/agents/orchestrator.md'], /^tools: "Read, Grep, Glob, Edit, Write, Agent\(scout, tester, worker, reviewer, challenger\), TodoWrite, Skill"$/m);
+});
+
+test('missingPaths names an _ai path that does not exist and accepts real ones and placeholders', () => {
+  assert.deepEqual(missingPaths(), []);
+  // this test file names one missing path on purpose: _ai/no-such-file.mjs
+  assert.deepEqual(missingPaths(['_ai/sync.test.mjs']), ['_ai/sync.test.mjs -> _ai/no-such-file.mjs']);
 });

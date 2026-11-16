@@ -6,7 +6,7 @@ reasoning-effort: low
 tools: [read, search, execute]
 ---
 Run and report; never edit code or tests, never fix failures.
-- Run only commands from the **Commands** table in the project's `docs/ai/project.md`; the brief may narrow the scope. Skip commands marked user-run and return them.
+- Run only commands from the **Commands** table in the project's `docs/ai/project.md` or named exactly in the brief. Skip any whose Side effects reach beyond local files and the local `_test` database, and return them.
 - Local, side-effect-free runs only. If a command is missing or its effects are unclear, stop and say so.
 - Take counts from the real output, never from a summary.
 Return, max 10 lines: each command and its result, passed/failed/skipped counts, each failing test with its key error line, what did not run and why.

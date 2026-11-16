@@ -5,7 +5,7 @@ argument-hint: "<task>"
 ---
 # Delegate
 
-You decide, design and verify; helpers do the token-heavy work on cheaper models, and `challenger` gives a second model family's view. Everything they return lands in your context, so ask for little.
+You decide, design and verify; helpers do the token-heavy work on cheaper models, and `challenger` gives a second opinion from a fresh context. Everything they return lands in your context, so ask for little.
 
 | Work | Helper | Model |
 |---|---|---|
@@ -21,7 +21,7 @@ You decide, design and verify; helpers do the token-heavy work on cheaper models
 - **Do it yourself** when one read answers or the edit is under ~20 lines in 1-2 files; a brief, a run and a check cost more.
 - **Design first:** settle interfaces, names and data shapes before a `worker` starts; a worker never chooses them.
 - **One writer** per file set; a second `worker` only on files the first does not touch. Readers run in parallel, at most 4 in one message.
-- **Failed run:** fix the brief (missing fact, vague spec) and rerun once; after two failures do it yourself.
+- **Failed run:** fix the brief (missing fact, vague spec) and rerun once; after two failures do it yourself, or name the step as open when you have no tool for it.
 
 ## Task loop
 
@@ -40,7 +40,7 @@ Helpers see none of this chat. Pass paths, never pasted file content.
 ```
 Goal: <one sentence>
 Project: <folder>; files/symbols: <exact paths>
-Spec: <worker only: what changes, interfaces, names, edge cases, tests to add>
+Spec: <worker: what changes, interfaces, names, edge cases, tests to add; tester: the exact commands when not in project.md>
 Constraints: <read-only or edit; what not to touch>
 Done when: <observable check: a named test passes, a command output>
 Return: <format, max N lines, evidence as path:line or command output>

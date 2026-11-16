@@ -2,7 +2,6 @@
 name: confluence-project
 description: "Use when the user gives a page link on the project's Confluence site and asks to read it, answer questions about it, write or update it, inside a project of this workspace."
 argument-hint: "<page link> <question, or what to write/change>"
-user-invocable: true
 ---
 # Confluence (project pages)
 
