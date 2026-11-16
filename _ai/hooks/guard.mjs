@@ -1,4 +1,4 @@
-// PreToolUse guard for Claude Code, GitHub Copilot and Kiro. Blocks (exit 2 plus a deny decision):
+// PreToolUse guard for Claude Code and Kiro. Blocks (exit 2 plus a deny decision):
 // - shell commands that send writing SQL (DML, DDL, EXEC, ...) through a database client, inline, piped or
 //   from a script, and tools that only write databases;
 // - hard stops: force-push, deleting Docker volumes, production compose files, release scripts, SSH;
@@ -91,7 +91,7 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
   return null;
 }
 
-// file tools: every argument whose name is a path (Claude file_path, Kiro path/paths, Copilot filePath),
+// file tools: every argument whose name is a path (Claude file_path, Kiro path/paths),
 // also nested (Kiro CLI batch reads send {operations: [{path}]})
 function pathArgs(value, key = '') {
   // a glob pattern is not a file, but one rooted in personal/ still lists it
@@ -122,8 +122,7 @@ if (process.argv[1]?.endsWith('guard.mjs')) run();
 function decide() {
   let input;
   try { input = JSON.parse(readFileSync(0, 'utf8')); } catch { process.exit(0); }
-  // Claude Code and Kiro send tool_input; Copilot sends toolArgs, sometimes as a JSON string
-  let args = input?.tool_input ?? input?.toolArgs ?? {};
+  let args = input?.tool_input ?? {};
   if (typeof args === 'string') { try { args = JSON.parse(args); } catch { args = { command: args }; } }
   const cwd = input?.cwd ?? process.cwd();
   const command = args.command ?? args.commandLine;

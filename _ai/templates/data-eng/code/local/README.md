@@ -84,7 +84,7 @@ The SQL service and both images declare no persistent data volumes; SQL test dat
 ## Notebooks locally
 
 1. Keep Synapse Git notebooks (`Notebooks/*.json`); for editing in VS Code convert with `synapse-to-ipynb` (both directions; check the cell mapping on one notebook first).
-2. Notebook layout: parameters cell (`env = "synapse"`), one I/O cell per environment, transformation cells as pure `DataFrame -> DataFrame` functions, a final `run()` cell.
+2. Notebook layout: one parameter cell (`Environment` = `DEV`/`PROD`/`LOCAL`, servers, paths), one shared wrapper for Synapse-only/JDBC connection differences, transformation cells as pure `DataFrame -> DataFrame` functions, and a final `run()` cell.
 3. Tests never execute the notebook: `load_definitions("Notebooks/<name>.json")` returns its imports, functions, classes and literal constants; `mssparkutils`/`notebookutils` resolve to the stub (secrets from env vars, `abfss://` paths under `/tmp/lake`).
 4. Spark tests use `get_spark()` (`local[2]`, 2 shuffle partitions, Delta) and `assertDataFrameEqual` / `assertSchemaEqual` with synthetic fixtures.
 5. SQL tests use `connect()` + `apply_ddl()`: creates `{{project}}_test`, runs `TablesDataBase/**/*.sql` split on `GO`; any host other than the container or a database not ending in `_test` is refused.

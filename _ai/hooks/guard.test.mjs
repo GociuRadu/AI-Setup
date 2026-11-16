@@ -1,4 +1,4 @@
-// Self-check: node _ai/hooks/guard.test.mjs (also run by node _ai/check.mjs)
+// Self-check: node _ai/hooks/guard.test.mjs (also run by node --test)
 import assert from 'node:assert/strict';
 import { writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -126,15 +126,6 @@ const payloads = [
   // shape captured from Kiro CLI 2.21 (inline agent hook)
   ['Kiro CLI', { hook_event_name: 'preToolUse', cwd: dir, session_id: 's', tool_name: 'shell', tool_tags: ['shell', '@builtin'], tool_input: { command: 'docker volume rm data', __tool_use_purpose: 'x' } }, 2],
   ['Kiro', { hook_event_name: 'PreToolUse', tool_name: 'read_file', tool_input: { path: 'src/app.py' }, cwd: dir }, 0],
-  ['Copilot', { toolName: 'bash', toolArgs: JSON.stringify({ command: 'docker compose down -v' }), cwd: dir }, 2],
-  ['Copilot', { toolName: 'bash', toolArgs: JSON.stringify({ command: 'npm test' }), cwd: dir }, 0],
-  ['Copilot', { sessionId: 's', toolName: 'powershell', toolArgs: { command: 'git push --force' }, cwd: dir }, 2],
-  ['Copilot', { sessionId: 's', toolName: 'view', toolArgs: { path: join(dir, 'code', '.env') }, cwd: dir }, 2],
-  ['Copilot', { sessionId: 's', toolName: 'create', toolArgs: { path: 'personal/x.md', file_text: 'x' }, cwd: fileURLToPath(new URL('../..', import.meta.url)) }, 2],
-  ['Copilot', { sessionId: 's', toolName: 'view', toolArgs: { path: join(dir, 'README.md') }, cwd: dir }, 0],
-  // Copilot runs the PascalCase PreToolUse hook in .claude/settings.json with VS Code compatible fields and Claude tool names
-  ['Copilot (.claude hook)', { hook_event_name: 'PreToolUse', session_id: 's', tool_name: 'Bash', tool_input: { command: 'ssh host' }, cwd: dir }, 2],
-  ['Copilot (.claude hook)', { hook_event_name: 'PreToolUse', session_id: 's', tool_name: 'Read', tool_input: { path: '.env.local' }, cwd: dir }, 2],
 ];
 for (const [tool, payload, code] of payloads) {
   const r = spawnSync(process.execPath, [script], { input: JSON.stringify(payload) });
