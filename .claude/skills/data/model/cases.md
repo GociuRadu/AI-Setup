@@ -14,7 +14,7 @@ Pick the case per table, first match wins. A table can mix cases (an entity with
 | 08 | fact | numbers summed in reports at a grain | one row per item per site per day | the grain columns | rebuild when rebuilt from core, keep for state snapshots |
 | 09 | flexible | attributes vary row to row | one row per product, attributes in JSON | like an entity | keep |
 
-Data: rebuild = may be dropped any time and reloaded fully. Keep = must survive, so the guard is on and changes go through migrations ([decisions](./decisions.md) change_with_data).
+Data: rebuild = may be dropped any time and reloaded fully. Keep = must survive, so the guard is on and changes go through migrations ([decisions](decisions.md) change_with_data).
 
 ## DDL file shape (every table)
 
@@ -67,7 +67,7 @@ GO
 
 Rules: audit columns only on tables a pipeline writes. Checks that run after each load (cycles, overlaps) belong to the loading pipeline, and the file holds them as a commented query. Run order: lookups, parent entities (with -1 rows), entities, version/edge/key map/link, facts. An FK to a missing table fails the CREATE. Traps: another table points here with an FK so DROP fails (rebuild children too, or migrate); a keep table with its guards deleted is wiped by one run.
 
-Base add-ons (per table): SOURCE_IN_THE_KEY (the same code from two systems: `UNIQUE (source_system, item_no)`); SOFT_DELETE (`_is_deleted`, `_deleted_at`); UPDATED_AT (other pipelines read incrementally); CASE_SENSITIVE_KEY (binary collation); TENANT (tenant_id first in the key, plus row-level security); READER_VIEW (a view with only what readers need and `_is_deleted = 0`); COMPRESSION (page, big read-mostly); PARTITIONING (see [scale](./scale.md)); DESCRIPTIONS (extended properties when others maintain it).
+Base add-ons (per table): SOURCE_IN_THE_KEY (the same code from two systems: `UNIQUE (source_system, item_no)`); SOFT_DELETE (`_is_deleted`, `_deleted_at`); UPDATED_AT (other pipelines read incrementally); CASE_SENSITIVE_KEY (binary collation); TENANT (tenant_id first in the key, plus row-level security); READER_VIEW (a view with only what readers need and `_is_deleted = 0`); COMPRESSION (page, big read-mostly); PARTITIONING (see [scale](scale.md)); DESCRIPTIONS (extended properties when others maintain it).
 
 ---
 
@@ -76,7 +76,7 @@ Base add-ons (per table): SOURCE_IN_THE_KEY (the same code from two systems: `UN
 Where a load lands before its checks. Rebuilt or emptied every run.
 - Heap: no PK, no constraints, few NOT NULLs (bad rows must land so the checks can count them). Column types: text (generous but not max) for untrusted sources such as files and Excel; the target's types for typed sources and for high-volume or SWITCH loads (below). Plus audit columns. Data: rebuild, no guard.
 - Add-ons: TYPED_COLUMNS (a typed, trusted DB source); MERGE_INDEX (an index on the key built after the load, when publish reads staging by key); RUN_COLUMN (`_run_id`, when staging is appended per run).
-- For high-volume loads: staging mirrors the target's columns and types, and for SWITCH also its indexes, filegroup and partition range check ([scale](./scale.md)).
+- For high-volume loads: staging mirrors the target's columns and types, and for SWITCH also its indexes, filegroup and partition range check ([scale](scale.md)).
 - Traps: constraints in staging (the load fails on the first bad row); every column NVARCHAR(MAX).
 
 ## 02 entity
@@ -218,7 +218,7 @@ CREATE TABLE <schema>.<table> (
 );
 ```
 
-- Add-ons: COLUMNSTORE (over about 1M rows read by reports; PK NONCLUSTERED, then `CREATE CLUSTERED COLUMNSTORE INDEX cci_<table>`; see [scale](./scale.md)); POINT_IN_TIME_KEY (the version id valid when it happened); FOREIGN_KEYS (small or row-by-row loaded; big bulk loads let the pipeline check); RELOAD_WINDOW (a reload replaces only a date range, by delete + insert or partition switch); DATE_DIMENSION.
+- Add-ons: COLUMNSTORE (over about 1M rows read by reports; PK NONCLUSTERED, then `CREATE CLUSTERED COLUMNSTORE INDEX cci_<table>`; see [scale](scale.md)); POINT_IN_TIME_KEY (the version id valid when it happened); FOREIGN_KEYS (small or row-by-row loaded; big bulk loads let the pipeline check); RELOAD_WINDOW (a reload replaces only a date range, by delete + insert or partition switch); DATE_DIMENSION.
 - Traps: the header grain differs from the PK; NULL dimension ids, or -1 without its row; averages stored as measures; stock summed over 30 days.
 
 ## 09 flexible

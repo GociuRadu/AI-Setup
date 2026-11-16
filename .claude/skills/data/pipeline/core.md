@@ -52,7 +52,7 @@ Records: pipeline, target, source, run type (normal, initial, backfill, hand-ove
 
 - Watermark = window end of the last succeeded run of type normal or hand-over. Files: the processed list. `initial`, `backfill` and `deletes` never move it. `initial` chunks run in parallel by design.
 - A succeeded normal run needs a window end when the source has a marker. Keep at least one year of history. Never delete a table's last watermark row.
-- HAND_OVER after 01 or 04 needs a verified source marker captured just before the initial read, or a complete-file list. No marker or list: design an explicit case-02 full-snapshot follow-on. Never record a fabricated timestamp or last loaded key.
+- HAND_OVER after 01 or 04 needs a verified source marker captured just before the initial read, or a complete-file list. No marker or list: design an explicit case-02 full-snapshot follow-on.
 - Existing project audit table (named in `project.md`): reuse it for the sources it fits ([audit reuse](templates/restartable-snapshot.md#audit-table-reuse)). Do not add a second run table.
 
 ## Alerts
@@ -68,7 +68,7 @@ Rename to snake_case. Trim. Empty text -> NULL. Drop fully empty rows and count 
 
 ## Columns and layers
 
-- Names snake_case singular. Time in UTC, millisecond precision. Money and quantities as fixed decimal, never float. Right-sized text, never max by default. Key declared and proven by VALIDATE.
+- Types and names: [decisions](../model/decisions.md#types_naming). Key declared and proven by VALIDATE.
 - Audit columns last: `_loaded_at` (UTC), `_source` (`<type>:<object or file>[#sheet]`), `_loaded_by` (`<pipeline>:<run>`). Tracked deletes: `_is_deleted`, `_deleted_at`. Silver never physically deletes.
 - Layers: bronze (as received), staging (is this batch usable), silver (one row per business key), gold (what consumers need). Layer and schema names come from the existing asset, never invented.
 
@@ -93,4 +93,4 @@ All cases: a network path to each source, layers, a service identity with only t
 | TESTS (Done-when list as a rerunnable script) | others depend on the target |
 | OWNER (named owner and alert recipient) | anyone besides you depends on the table |
 
-Offer the top three that match the signals. Declined add-ons are recorded with the reason.
+Declined add-ons are recorded with the reason.

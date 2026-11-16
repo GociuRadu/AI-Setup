@@ -5,7 +5,7 @@ One mode per request; load only the section in use. Tables and pipelines share t
 ## Shared rules
 
 - **Changes:** review changes nothing. Fixes from a review or debug are code changes made after the user agrees which findings to fix; database changes stay drafts (SKILL.md Safety). A change to a table that keeps data goes through a migration ([decisions](model/decisions.md#change_with_data)).
-- **Levels:** the same as the `review` skill: **Must fix**, **Should fix**, **Nice to have**. Examples:
+- **Levels:** **Must fix**, **Should fix**, **Nice to have**:
 
 | Level | Tables | Pipelines |
 |---|---|---|
@@ -13,27 +13,26 @@ One mode per request; load only the section in use. Tables and pipelines share t
 | Should fix | maintainability: naming, missing `serves:` comment, unused column | non-PROD broken, minor wrong values in non-critical columns |
 | Nice to have | style or optional | cosmetic |
 
-- **Review output** (answer first; do not list passed checks):
+- **Review output** (answer first; do not list passed checks; when run by `reviewer`, its return format wins and Nice to have is for chat reviews only):
 
 ```
 Review - <object> - <date>
 Verdict: ready | fix first     Must fix n - Should fix n - Nice to have n
 | # | Level | Area | Where | Problem | Fix |
-Suggestions: <add-ons that fit>
 Open checks: <checks not run, and who runs them>
 <summary line> - <next step line>
 ```
 
-Any Must fix -> fix first. Build: Must fix findings are fixed before showing. Offer Debug for each Must fix.
+Any Must fix -> fix first. Offer Debug for each Must fix.
 
-- **Debug:** use the [bug skill](../bug/SKILL.md) (it proves the cause and writes the report; the fix is a separate approved adapt or build step). Hypotheses to test first are in the table and pipeline sections below. SQL timeout: separate slow from blocked with DEV reads of `sys.dm_exec_requests` (wait_type, blocking_session_id), `sys.dm_tran_locks` on target and staging, and Query Store top duration; mark which must run during the failing stage.
-- **Design records and runbooks:** [records](records.md).
+- **Debug:** prove the cause first, per **Bug** in `AGENTS.md` (red check, ranked hypotheses, **unproven** when it cannot run); the fix is a separate approved adapt or build step. Save the result on request with the [review skill](../review/SKILL.md) in `bug` mode. Hypotheses to test first are in [Debug hypotheses](#debug-hypotheses) below. SQL timeout: separate slow from blocked with DEV reads of `sys.dm_exec_requests` (wait_type, blocking_session_id), `sys.dm_tran_locks` on target and staging, and Query Store top duration; mark which must run during the failing stage.
+- **Decisions and runbooks:** record settled choices in `plans/` and `memory.md`; pipeline runbooks live in `docs/ai/runbooks/<safe-name>.md` ([SKILL.md](SKILL.md#workflow)).
 
 ## Tables
 
 ### Decide
 
-One question, no full model. Give: what it means in this task with a concrete example, options and the trade-off, one recommendation grounded in evidence, and what would change it. Use [decisions](model/decisions.md) and [scale](model/scale.md). Save nothing unless a design record exists.
+One question, no full model. Give: what it means in this task with a concrete example, options and the trade-off, one recommendation grounded in evidence, and what would change it. Use [decisions](model/decisions.md) and [scale](model/scale.md). Save settled choices in `memory.md`.
 
 ### Review
 
@@ -41,26 +40,21 @@ Read the DDL or design with the approved scope. Check, in order:
 1. Grain: header grain equals the key. One row per what is stated and true.
 2. Keys and constraints: natural key unique, no NULL grain parts, FKs where required and indexed, history intervals consistent.
 3. Case fit and traps from [cases](model/cases.md).
-4. Types and names: smallest correct, no MAX in keys, DECIMAL for money.
-5. Indexes: each has a named query, no duplicates, none missing for FKs.
-6. Load fit and scale: size tier, staging compatible, clustered key for appends, deferred indexes, columnstore batch note, SWITCH alignment, long keys bounded or hashed ([scale](model/scale.md) checklist).
-7. Change safety: keep tables guarded, migrations idempotent with rollback.
-8. Workspace defaults: one main plus one staging table per dataset unless justified, no speculative tables or columns.
-
-### Debug hypotheses
-
-Grain vs key mismatch, duplicate or NULL key parts, join fan-out, overlapping history intervals, wrong types or truncation.
+4. Types, names and indexes: [R11](SKILL.md#rules) and [decisions](model/decisions.md#types_naming).
+5. Load fit and scale: size tier, staging compatible, clustered key for appends, deferred indexes, columnstore batch note, SWITCH alignment, long keys bounded or hashed ([scale](model/scale.md) checklist).
+6. Change safety: [R11](SKILL.md#rules) and [decisions](model/decisions.md#change_with_data).
+7. Workspace defaults: one main plus one staging table per dataset unless justified, no speculative tables or columns.
 
 ## Pipelines
 
 ### Adapt
 
-1. Read what exists: notebook, pipeline JSON, DDL, design record, last runs (read the run rows on DEV). Trace them as one chain: pipeline activity -> notebook -> target/staging/audit/procedure names in it -> their DDL and validation SQL -> tests -> runbook. Ask for what is missing.
+1. Read what exists: notebook, pipeline JSON, DDL, `memory.md`, runbook, last runs (read the run rows on DEV). Trace them as one chain: pipeline activity -> notebook -> target/staging/audit/procedure names in it -> their DDL and validation SQL -> tests -> runbook. Ask for what is missing.
 2. Map it to a case. Unclear -> ask.
 3. Review (below) and show the report.
 4. Agree which findings to fix. Change only those parts and keep existing names and conforming behavior.
 5. Before replacing a running pipeline, the user runs old and new on DEV over the same window; you compare them with read queries (row count, keys, totals of one measure).
-6. Update the [design record](records.md): case, current values, decisions found, add-ons present.
+6. Update `docs/ai/runbooks/<safe-name>.md` and `memory.md`: case, current values, decisions found, add-ons present.
 
 ### Review
 
@@ -72,8 +66,9 @@ Automatic at the end of build and adapt, or on request.
 | vulnerabilities | dependencies with known CVEs, unpinned versions, outdated runtime |
 | correctness | identify the case; walk its vanilla flow (a missing block is Must fix); rules R1-R12 in [SKILL.md](SKILL.md) and the case traps; names and audit columns; decisions made explicitly in the record, not silently defaulted; add-ons whose triggers match and are missing are suggestions, not findings |
 | reliability | run log, alert, partial writes, safe rerun, timeouts, token lifetime vs the longest write |
-| performance | the [playbook](pipeline/performance.md) section 8: unbounded parallelism or transactions, no chunking at volume, SELECT *, collect() on big data, row-by-row loops, repeated counts, tuning without a measured number, constants copied from another job |
+| performance | the [playbook](pipeline/performance.md) sections 2-6 |
 
-### Debug hypotheses
+## Debug hypotheses
 
-Rank first: the case traps, rules R1-R12 (partial publish, non-idempotent rerun, clock-based watermark, repeated source reads), and the run log or audit rows for the failing window.
+- Tables: grain vs key mismatch, duplicate or NULL key parts, join fan-out, overlapping history intervals, wrong types or truncation.
+- Pipelines: rank first the case traps, rules R1-R12 (partial publish, non-idempotent rerun, clock-based watermark, repeated source reads), and the run log or audit rows for the failing window.

@@ -4,7 +4,6 @@ Application/service project. Stable facts only. Created {{DATE}}. Mark unverifie
 
 ## At a glance
 - Type: `app`
-
 - Purpose: <one line>
 - Platform: <language, framework, runtime, hosting>
 - Code root / Git root: `{{PROJECT}}/code` / `{{PROJECT}}/code` (clone the repo from the project folder: `git clone <url> code`)
@@ -30,6 +29,17 @@ Run from `{{PROJECT}}/code`.
 | Integration tests | `<command>` | <local container only> |
 | Lint / type check | `<command>` | none |
 | Build | `<command>` | <local only> |
+
+## Definition of done
+
+- Unit tests and lint pass; a bug fix has a test that failed before it.
+- API or schema change: callers and migrations updated, backward compatible or the break named.
+- `context.md` updated; the user has a commit message and any run steps (the user commits).
+
+## Release and rollback
+
+- Release: <who deploys, how, where it is described>; the agent never deploys.
+- Rollback: <previous version, feature flag or down migration>; a migration without a rollback is named in the change.
 
 ## Glossary
 

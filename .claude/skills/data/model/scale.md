@@ -4,7 +4,7 @@ Design the table for how it is loaded and read. Pairs with the [pipeline perform
 
 ## 1. Size it first
 
-Table tiers size the stored table (they drive structures); load tiers in [performance](../pipeline/performance.md#1-size-first) size one run. Estimate before choosing structures: bytes per row (sum of column widths + about 10 overhead) × rows now × rows in 2 years, plus indexes (about +30-100%). Record it in the design (`size`).
+Estimate before choosing structures: bytes per row (sum of column widths + about 10 overhead) × rows now × rows in 2 years, plus indexes (about +30-100%). Record it in the design (`size`).
 
 | Tier | Rough size | Design |
 |---|---|---|
@@ -18,7 +18,7 @@ Check the tier limits: max database size, log-rate limit and tempdb for the serv
 
 - **Staging**: a heap, no constraints, no triggers; column types per [table 01](cases.md#01-staging) (typed like the target for high-volume loads, so nothing converts on the way in). Rebuilt or truncated per run. Exception: when publish uses SWITCH, staging must match the target's structure, including its clustered key and indexes, before the switch ([publish](../pipeline/templates/publish.md)). Parallel writers each insert a slice into the same heap; a heap has no clustered-key contention.
 - **Narrow, ever-increasing clustered key** (IDENTITY, or date + id) for tables that are appended: inserts go to the end, no page splits, parallel writers do not fight over the middle of the index. A random GUID clustered key at volume causes splits and fragmentation; use `NEWSEQUENTIALID()` or a different key.
-- **Few indexes on big load targets.** Every index is written on every insert. Load first, build secondary indexes after (or keep them on the serving table only). Named-query test: no query, no index.
+- **Few indexes on big load targets.** Every index is written on every insert. Load first, build secondary indexes after (or keep them on the serving table only).
 - **No triggers, no per-row defaults that call functions, no scalar UDF computed columns** on bulk-load targets.
 - **Constraints**: keep PK and unique keys (they are the correctness guard). On big bulk-loaded facts, leave FKs to the pipeline's orphan check; add them `WITH CHECK` only where loads are small.
 - **Types**: smallest type that fits (INT vs BIGINT, DATE vs DATETIME2, DECIMAL(p,s) sized, VARCHAR where no Unicode). Row width drives both load speed and scan speed. Avoid NVARCHAR(MAX)/VARCHAR(MAX) in anything keyed, joined or filtered (large-object columns also block some bulk paths and index builds).
@@ -58,9 +58,9 @@ Part of the pipeline's publish step, written down by the model so it is not forg
 
 - Size tier recorded with rows, bytes per row, growth.
 - Clustered key narrow and increasing for appends; secondary indexes each with a `serves:` comment and deferred until after load where possible.
-- Staging mirrors the target (and for SWITCH: indexes, filegroup, CHECK range).
+- Staging mirrors the target ([section 2](#2-load-friendly-structures)).
 - Long text keys bounded or hashed. No MAX types in keys.
 - Partitioning has a stated switch/retention reason and a boundary-maintenance owner, or is absent.
-- Columnstore tables: batch size ≥ 102,400 noted for the pipeline.
+- Columnstore tables: batch size noted for the pipeline.
 - Post-load statistics and index steps named for the pipeline.
 - Log rate and size limits checked for the tier (read on DEV).

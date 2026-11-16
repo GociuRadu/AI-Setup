@@ -5,7 +5,7 @@
 - Fixtures are synthetic: invented identifiers, no customer rows, small (a few rows per case), stored under the project's `tests/fixtures/`.
 - Spark: build inputs from the fixture with an explicit schema, write a temporary local Delta table when the code reads Delta, and compare with `assertDataFrameEqual` (rows) and `assertSchemaEqual` (types and nullability).
 - SQL: seed staging and audit rows per test, reset tables in `setUp`, assert target rows, staging rows and audit status after each call.
-- Load notebook code with the project's AST loader; never execute a notebook export ([notebook rules](spark.md#notebook-rules)) or a module with top-level writes.
+- Load notebook code with the project's AST loader; never execute a notebook export or a module with top-level writes.
 
 ## Required failure-path tests
 
@@ -16,8 +16,8 @@
 | Concurrency | second session on a held lock is skipped (busy), not blocked forever |
 | Recovery | after an uncertain commit, audit Succeeded makes the rerun skip; failure handlers never rewrite a Succeeded row |
 | Contracts | pipeline JSON parameters and defaults equal the notebook parameter cell; DDL columns equal the loader contract |
-| Grain | key unique, required columns non-NULL, joins do not fan out (row count before = after for N:1) |
+| Grain | checks in [schema contract](model/templates/schema-contract.md) |
 
 ## Integration guard
 
-Integration harnesses (local test container) refuse any host or database other than the local test container (the [Python rules](../../rules/python.md): tests never reach a connected system; the [core rules](../../../AGENTS.md#databases-every-profile) Databases section sets the container rules), and include one test that proves the refusal. Container setup: [platforms](platforms.md#local-test-container).
+Integration harnesses write only to `*_test` databases ([core rules](../../../AGENTS.md#databases) Databases) and include one test that proves the refusal of any other host or database. Container setup: [platforms](platforms.md#local-test-container).

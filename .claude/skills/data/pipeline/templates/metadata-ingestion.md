@@ -2,7 +2,7 @@
 
 ## Control list + ForEach
 
-Pattern reference only (procfwk, ADF metadata-driven copy); no framework.
+Pattern reference only (procfwk, ADF metadata-driven copy).
 
 | Column | Example |
 |---|---|
@@ -17,7 +17,7 @@ Pipeline: Lookup (enabled rows, ordered by Priority) -> ForEach (`isSequential: 
 
 ## Concurrency budget worksheet
 
-Use one knob per level and record every value in the design record.
+Use one knob per level and record every value in the runbook and `memory.md`.
 
 | Level | Symbol | Value | Source |
 |---|---|---|---|

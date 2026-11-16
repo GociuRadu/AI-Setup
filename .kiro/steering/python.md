@@ -2,7 +2,7 @@
 inclusion: fileMatch
 fileMatchPattern: "**/*.py"
 ---
-<!-- Generated from .claude/rules/python.md by node _ai/check.mjs --fix; edit the source. -->
+<!-- Generated from _ai/rules/python.md by node _ai/sync.mjs; edit the source. -->
 # Python rules
 
 - Runtime, interpreter and test commands are in `project.md`. Detect the selected interpreter before checks; never silently create or select a virtual environment.

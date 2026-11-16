@@ -2,6 +2,7 @@
 paths:
   - "**/*.sql"
 ---
+<!-- Generated from _ai/rules/sql.md by node _ai/sync.mjs; edit the source. -->
 # SQL rules
 
 - Engine, DDL folder and audit tables come from `project.md`. Schema-qualify objects; put new DDL in the existing subject folder.

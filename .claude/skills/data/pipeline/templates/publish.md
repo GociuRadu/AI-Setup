@@ -29,8 +29,6 @@ BEGIN
 END;
 ```
 
-Review against the T-SQL rules in the [SQL rules](../../../../rules/sql.md).
-
 ## Atomic replacement
 
 | | TRUNCATE + SWITCH | TRUNCATE + INSERT ... WITH (TABLOCK) |
@@ -41,4 +39,4 @@ Review against the T-SQL rules in the [SQL rules](../../../../rules/sql.md).
 | Readers | blocked briefly by the schema lock | blocked for the copy |
 | Use when | large tables or tight windows | small and medium tables, or staging cannot match the target structure |
 
-Both run in the same transaction as the audit update. TRUNCATE fails, and SWITCH is restricted, while another table references the target with a foreign key: drop and recreate the FK in the same transaction, or publish by key-range MERGE. No previous copy is kept unless approved: state the post-commit recovery limit (source replay or point-in-time restore).
+Both run in the same transaction as the audit update. TRUNCATE fails, and SWITCH is restricted, while another table references the target with a foreign key: drop and recreate the FK in the same transaction, or publish by key-range MERGE.

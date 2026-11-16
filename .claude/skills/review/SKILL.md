@@ -1,40 +1,33 @@
 ---
 name: review
-description: "Use for review this, code review, review my PR, an audit of a project or folder, or find bloat. Not for explaining or documenting code (use analyze)."
-argument-hint: "[files, folder, or 'audit' for the whole active project]"
-user-invocable: true
-license: MIT
+description: "Use to look at what exists, in one of 3 modes: review (review this, code review, PR, audit a folder, security check, find bloat), bug (wrong number or result, exception, failing test or load, duplicates, NULL keys) or analyze (explain, analyze, document a file, flow, folder or technical question). Answers in chat first; writes a short, scannable HTML report with diagrams."
+argument-hint: "[review | bug | analyze] <files, folder, symptom or question>"
 ---
+<!-- Generated from _ai/skills/review/SKILL.md by node _ai/sync.mjs; edit the source. -->
+# Review
 
-Adapted from [ponytail](https://github.com/DietrichGebert/ponytail) (MIT, Copyright (c) 2026 DietrichGebert).
+Look at what exists, prove it, show it so it scans in seconds. Change nothing unless asked (a fix request in the same message counts).
 
-Review like the senior developer who will be paged when it breaks. Order: correct, safe, holds under load, tested, fast, lean.
+## Pick the mode
+Named in the request, else from the words; unclear: `review`.
 
-## 1. Scope
+| Mode | Work | Verdict |
+|---|---|---|
+| `review` | Scope and rules: **Review or audit** in `AGENTS.md`. Read callers and tests; large change or audit: one `scout` per area, then `reviewer`; verify every finding yourself. `security`: only that area. | `ready` / `fix first` |
+| `bug` | Rules: **Bug** in `AGENTS.md` (memory first, containment, red check, 3-5 ranked hypotheses, one at a time). Wrong data: counts per stage, key uniqueness, NULL keys, casts, join fan-out. Tag debug output `[DEBUG-xxxx]`; remove it by searching the tag. | `cause proven` / `unproven` / `fixed` |
+| `analyze` | Read code, tests and config; wide scope: one `scout` per area. Facts only as far as evidence goes; unverified: **U** and what would confirm it. | none |
 
-- **Change review:** files or a diff the user names. Nothing named: if `project.md` names a Git root, read `git -C <root> --no-pager diff HEAD`, and on a branch also `git -C <root> diff <main>...HEAD` (as the profile allows); ask only if both are empty.
-- **Audit:** a folder or the whole active project (the AI setup only on request). Big repo: go deep where a mistake costs most and list what you did not read.
-- Read the change, then connected code: callers of every changed function, what it calls, tests, and the project's **Review focus** in `project.md`. Skip `.venv`, data files, secrets and the project's never-open list.
-- Find the expected load (one user running a script vs many processes) and say which you assumed.
+Every finding has a concrete case ("this input gives this wrong result") and `path:line`, a command output or a count. No style taste, no "consider".
 
-## 2. Look for
+## Output
+**Chat first:** verdict or answer in line 1, at most 3 bullets, then the report path. A small Mermaid diagram when the flow is the answer.
 
-- The checklist of the [reviewer agent](../../agents/reviewer.md) (bug, data loss, security, missing test, scope).
-- **Scale:** check-then-write races, same work in every process, unbounded growth, a query per item, O(n^2) on big input.
-- **Speed:** big slowdowns are problems; small wins are suggestions.
-- **Lean:** dead code, unused options, abstraction with one implementation, an existing helper or stdlib feature not reused, near-copies. Before calling code unused, search the whole project including tests, config and string references.
+**Report** when asked, for an audit, a proven bug, or anything longer than one screen: `<project>/docs/ai/reports/YYYY-MM-DD-<mode>-<topic>.html`, built per `_ai/rules/report.md` (copy `_ai/templates/report.md`, run `node _ai/report.mjs`). About 2 screens; keep only the sections that carry the answer; each has a picture.
 
-## 3. Check before reporting
+| Mode | Sections, in order | Picture |
+|---|---|---|
+| `review` | Finding cards (High first; more than ~6: rest in the table), What the change does (1 line), Next steps; Not checked in Evidence | `tree` of changed files, `!` on risky ones |
+| `bug` | Symptom `Expected \| Observed \| Where \| Since \| Affected`, Root cause (2-4 lines + evidence), Fix `File \| Change` + regression test + data repair draft (rows, rollback), Next steps. Incident: Timeline `Time (UTC) \| Event`, Why it was not caught | `flow` with the failing stage `!`, or `bars` of counts per stage |
+| `analyze` | How it works, Components `Part \| Role \| Where`, Questions (`### Q ·` cards with a proposal), Risks (1 line each), Next steps | `graph`, `flow` or `seq`; `compare` for today vs after |
 
-Every finding needs a concrete case ("this input leads to this wrong result"); re-read the lines to confirm. A `shortcut:` comment that names its limit is a decision, not a finding, unless the load already crosses it. Propose the smallest fix; prefer deletion. No style taste, no "consider".
-
-## 4. Output
-
-Very simple English. Start with `What this change does:` (or `What this repo does:` for an audit) in 2-3 sentences. Then numbered findings in the [reviewer agent](../../agents/reviewer.md)'s levels (Must fix also covers code that breaks at load), plus **Nice to have** (small cleanups, minor speed or lean wins). Skip empty groups; audit max 20 findings.
-
-Each finding: `path:Lx-Ly`, the problem with a concrete example, the fix.
-
-End with `Verdict: ready | fix first: 1, 3`, `Lean: -<N> lines possible.` if relevant, `Not checked:` if something mattered.
-
-- Change review: findings in chat.
-- Audit: save to `<project>/docs/ai/reports/YYYY-MM-DD-review-<topic>.md` (update an existing report on the same scope instead of duplicating); in chat give only path, verdict, counts per group and what was not checked.
+PR description on request: title under 70 characters, then **Summary**, **Tested**, **Not tested**, **Risk**.

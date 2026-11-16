@@ -20,7 +20,7 @@ The project's `project.md` names its platforms (for example Azure SQL Database +
 
 | Topic | Synapse Spark pool | Local PySpark |
 |---|---|---|
-| Versions | Spark 3.5 runtime: Java 17, Scala 2.12.18, Delta 3.2, Python 3.11 or 3.10 (*verify on the pool*, see [runtime](spark.md#runtime)) | `pyspark==3.5.*`, `delta-spark==3.2.*`, Java 17, Python 3.11 |
+| Versions | see [runtime](spark.md#runtime) | see [runtime](spark.md#runtime) |
 | Delta | built in | `configure_spark_with_delta_pip` plus the Delta SQL extension and catalog settings on the session builder |
 | `mssparkutils` / `notebookutils`, linked services, `getToken` | available | absent: put these calls behind one wrapper (one cell or module) with a local stand-in driven by parameters or fixtures, so `run()` and the tests run locally |
 | JDBC driver to SQL | mssql-jdbc bundled with the runtime (version: read it on the pool, [runtime](spark.md#runtime)) | add `com.microsoft.sqlserver:mssql-jdbc:<version>` via `spark.jars.packages`, same major version as the pool (*verify*) |
@@ -30,9 +30,9 @@ The project's `project.md` names its platforms (for example Azure SQL Database +
 ## Local test container
 
 - Image `mcr.microsoft.com/mssql/server:2025-latest` (pin a CU tag once chosen), environment `ACCEPT_EULA=Y`, `MSSQL_PID=Developer`, `MSSQL_SA_PASSWORD` from an environment variable set for the test run. The `data-eng` template runs it through Docker Compose (`code/local/`) with no published port and no volume: only the test runner on the Compose network reaches it, and its data dies with the container.
-- The password is a throwaway test value, never a real secret, never committed and never printed. The project's secret files stay closed (core rules).
-- Tests create their own database and objects, reset them in setup and remove the container or database afterwards. The harness refuses any host other than the container ([test tiers](test-tiers.md#integration-guard)).
-- Start and stop it through the project's test runner; queries against it are reads (SKILL.md Safety).
+- The password is a throwaway test value, never a real secret, never committed and never printed.
+- Tests create their own database and objects, reset them in setup and remove the container or database afterwards.
+- Start and stop it through the project's test runner; queries against it are reads ([core rules](../../../AGENTS.md#databases) Databases).
 
 ## What local tests cannot cover
 

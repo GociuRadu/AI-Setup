@@ -1,13 +1,13 @@
 # Decisions
 
-Read only the topic needed. Each topic: the question, the default, when to deviate. Ask the user one consequential decision at a time with a recommendation.
+Read only the topic needed. Each topic: the question, the default, when to deviate.
 
 ## store: where the data lives
 
 - Needs row-level updates, constraints, joins and many small queries: relational database (engine per `project.md`).
 - Large append-only data, scanned in bulk, read by Spark/BI: lake or lakehouse files with Delta/Parquet; keep SQL for the serving slice.
 - Both: land in the lake, publish the serving slice to SQL.
-- Over ~100 GB in Azure SQL Database or huge scans: ask whether it belongs in the lake first ([scale](./scale.md)).
+- Over ~100 GB in Azure SQL Database or huge scans: ask whether it belongs in the lake first ([scale](scale.md)).
 
 | Need | Azure SQL Database | Delta (lake) |
 |---|---|---|
@@ -40,7 +40,7 @@ JSON only for attributes that vary by row and are not filtered or summed (case 0
 - Natural key: unique, stable, meaningful to the source (item number). Always keep it unique-constrained.
 - Surrogate key (INT IDENTITY, BIGINT for logs): the durable id others point to; used when natural keys are long, composite, change, or come from several sources.
 - Composite grain key on facts: the grain columns.
-- Hash key: only for long text keys ([scale](./scale.md) section 3).
+- Hash key: only for long text keys ([scale](scale.md) section 3).
 - Never use GUID clustered keys for big appended tables. Never reuse an id.
 
 ## relationships
@@ -89,4 +89,4 @@ An index exists only for a named query (`-- serves:`). Order key columns by equa
 
 - Views: a reader view hides audit columns and soft-deleted rows; they are not for speed.
 - Compression: PAGE for big read-mostly rowstore tables, columnstore for facts/events, none on small or hot-write tables.
-- Partitioning: only with a switch or retention reason ([scale](./scale.md) section 5).
+- Partitioning: only with a switch or retention reason ([scale](scale.md) section 5).

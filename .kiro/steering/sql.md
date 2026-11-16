@@ -2,7 +2,7 @@
 inclusion: fileMatch
 fileMatchPattern: "**/*.sql"
 ---
-<!-- Generated from .claude/rules/sql.md by node _ai/check.mjs --fix; edit the source. -->
+<!-- Generated from _ai/rules/sql.md by node _ai/sync.mjs; edit the source. -->
 # SQL rules
 
 - Engine, DDL folder and audit tables come from `project.md`. Schema-qualify objects; put new DDL in the existing subject folder.

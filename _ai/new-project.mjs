@@ -15,7 +15,7 @@ const templates = path.join(root, '_ai/templates');
 const src = path.join(templates, template);
 // starts with a letter or digit: Docker Compose project names require it
 if (!name || !template || !/^[A-Za-z0-9][\w.-]*$/.test(name)) { console.error('usage: node _ai/new-project.mjs <Name> [--template app|data-eng] [--dest <dir>]'); process.exit(1); }
-if (!fs.existsSync(src)) { console.error(`no template ${template}: ${fs.readdirSync(templates).join(', ')}`); process.exit(1); }
+if (template === 'common' || !fs.existsSync(src)) { console.error(`no template ${template}: ${fs.readdirSync(templates).filter((d) => d !== 'common' && !d.includes('.')).join(', ')}`); process.exit(1); }
 const target = path.join(path.resolve(opt('--dest', root)), name);
 if (fs.existsSync(target)) { console.error(`${target} exists; not overwriting`); process.exit(1); }
 
@@ -23,8 +23,9 @@ if (fs.existsSync(target)) { console.error(`${target} exists; not overwriting`);
 const vars = { PROJECT: name, project: name.toLowerCase().replace(/[^a-z0-9_-]/g, '_'), DATE: new Date().toISOString().slice(0, 10) };
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
 let n = 0;
-for (const f of walk(src)) {
-  const out = path.join(target, path.relative(src, f));
+// common (shared docs/ai) first, then the template's own files
+for (const [base, f] of [path.join(templates, 'common'), src].flatMap((b) => walk(b).map((f) => [b, f]))) {
+  const out = path.join(target, path.relative(base, f));
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, fs.readFileSync(f, 'utf8').replace(/\{\{(\w+)\}\}/g, (m, k) => vars[k] ?? m));
   n++;

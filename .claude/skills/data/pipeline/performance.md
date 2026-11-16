@@ -1,10 +1,10 @@
 # Throughput and parallelism playbook
 
-Read when volume is medium or large, when a load is slow, or when the user mentions speed, batches, parallelism or chunks. All numbers are starting points. Measure on one chunk or dataset, then set the value in the design record. Never copy a constant from another pipeline.
+Read when volume is medium or large, when a load is slow, or when the user mentions speed, batches, parallelism or chunks. All numbers are starting points. Measure on one chunk or dataset, then set the value in the runbook and `memory.md`.
 
 ## 1. Size first
 
-Load tiers size one run (they drive chunking); table tiers in [scale](../model/scale.md#1-size-it-first) size the stored table. Run a SIZE_CHECK (read on local/DEV): rows, GB, average row bytes, widest columns, key distribution and skew, partition or file layout, change rate per day.
+Run a SIZE_CHECK (read on local/DEV): rows, GB, average row bytes, widest columns, key distribution and skew, partition or file layout, change rate per day.
 
 | Tier | Rough size | Consequence |
 |---|---|---|
@@ -38,7 +38,7 @@ Estimate wall time as rows / (rows per second per writer x writers). Take rows p
 - Bulk path: the Microsoft JDBC driver supports `useBulkCopyForBatchInsert=true` (verify driver version and column types on DEV). The Spark SQL connector with `tableLock` and `batchsize` is another option. Verify that it exists on the pool before authoring anything that depends on it. If existing project loaders use the generic jdbc format on purpose (see `project.md`), keep it unless a measured gain is proven on DEV.
 - Azure SQL Database is always fully logged. The usual ceiling is log rate governance; how to read it on Azure and locally: [platforms](../platforms.md#sql-engines). If log write sits near 100% while the writers wait, more parallelism does not help. Scale up for the load (SCALE_UP), or reduce the transaction size and row width.
 - Bound transaction size. Never one giant MERGE or one giant INSERT for tens of millions of rows (log growth, lock escalation, long rollback). For atomic publication of a big batch, use staging plus SWITCH or partition SWITCH (metadata-only). Otherwise MERGE or INSERT in key-range slices of about 1M to 5M rows, each slice in its own transaction, with the visible swap at the end.
-- Partitioned targets: chunk i loads its own staging table or partition. Staging must match the target structure, indexes and filegroup, and carry a CHECK on the partition range. Switching is then instant and per partition.
+- Partitioned targets: chunk i loads its own staging table or partition, matching the target as in [scale](../model/scale.md#2-load-friendly-structures). Switching is then instant and per partition.
 - After the load: statistics, deferred indexes and rowgroup checks as in [scale](../model/scale.md#6-after-the-load) (drafts for the user).
 - Authentication: a token expires during a long write. Fetch it per chunk on the driver, never print it, and keep each chunk short.
 - If the move is plain, with no transform, dedupe or cast, a pipeline Copy activity with parallelCopies and partition options (dynamic range or physical partitions) is often cheaper and faster than Spark. Use Spark when the data is transformed.
@@ -59,7 +59,3 @@ Estimate wall time as rows / (rows per second per writer x writers). Take rows p
 ## 7. Prove the speed
 
 Record in the runbook, from the first DEV or measured run: rows per second per writer, writer count, total wall time and time per stage (read, transform, write, index, publish), the limiting resource (source, Spark, log rate, network) and the tuning change that was accepted. A tuning change without a before and after number is a guess. Reject it.
-
-## 8. Review traps (performance area)
-
-Chunk column not indexed at the source. OFFSET paging. Chunks sized by rows. More parallelism than the target log rate can take. Indexes maintained during a bulk load. One MERGE over tens of millions of rows. SELECT *. Spark code anti-patterns ([Spark performance review](../spark.md#performance-review)). Thousands of tiny files. Verification by a second full read of the source. A token that expires mid-chunk. Spark partition count copied from another job. Retried chunk written without removing its range.

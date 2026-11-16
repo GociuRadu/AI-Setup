@@ -2,8 +2,8 @@
 name: data
 description: "Use for every data model, table, DDL, schema, ingestion or load pipeline, Spark notebook, migration, JDBC or slow-load/slow-table request on Azure SQL Database, Synapse Spark or local SQL Server/PySpark, also small loads into a local database and questions like 'is this table or load well designed?'; invoke before writing the DDL or loader or answering the design question."
 argument-hint: "<table, pipeline, notebook, design question or review>"
-user-invocable: true
 ---
+<!-- Generated from _ai/skills/data/SKILL.md by node _ai/sync.mjs; edit the source. -->
 
 # Data
 
@@ -11,20 +11,20 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 
 ## Safety (on top of the core rules)
 
-- Databases: the [core rules](../../../AGENTS.md#databases-every-profile) Databases section; the checks in the files below follow it. When only production has the data, draft the check for the user.
+- Databases: the [core rules](../../../AGENTS.md#databases) Databases section; the checks in the files below follow it.
 - TRUNCATE, DROP or emptying a table only when the user names it, except these steps, which the agent writes and the user runs:
   - `Data: rebuild` tables (DDL header): emptying staging in the load path, the approved publish step, the target of an approved full-snapshot publish, drop-and-create in their DDL file.
   - `Data: keep` tables: only drop-and-create of an empty table behind the has-data guard. One exception: the new target of a one-time load that the case gate confirmed nobody reads may be emptied on a pipeline 01 rerun and on a pipeline 01 or 04 undo (04 reruns resume missing chunks). Nothing else on `keep` tables.
-- A new table is `rebuild` only when the user asked for a full reload of it; otherwise `keep`. Read the [SQL rules](../../rules/sql.md) before writing any SQL, also inside notebooks and loaders; repairs follow them.
-- Platform, engine, DDL folder, naming and audit table come from the active project's `project.md`; read only the matching rows of [platforms](platforms.md). Project conventions override the defaults here. Mark any platform fact not verified as unverified. No preview features in production.
+- A new table is `rebuild` only when the user asked for a full reload of it; otherwise `keep`.
+- Platform, engine, DDL folder, naming and audit table come from the active project's `project.md`; read only the matching rows of [platforms](platforms.md). Project conventions override the defaults here. No preview features in production.
 
 ## Defaults
 
-- Smallest complete change; reuse the nearest existing notebook, DDL, test and pattern. Keep existing names and behavior unless a change is approved.
-- Routine full-snapshot load: one main table + one reusable staging table per dataset, one publish path, the existing audit table (none in `project.md`: propose a minimal one as a separate, optional DDL marked assumed). No previous copy, fallback mode, extra layer or helper framework without a concrete need and approval; state the post-commit recovery limit. Keep setup and run instructions short. Do not force this layout on history, append-only or streaming workflows.
+- Reuse the nearest existing notebook, DDL, test and pattern; keep existing names and behavior unless a change is approved.
+- Routine full-snapshot load: one main table + one reusable staging table per dataset, one publish path, the existing audit table (none in `project.md`: propose a minimal one as a separate, optional DDL marked assumed). No previous copy, fallback mode, extra layer or helper framework without a concrete need and approval; state the post-commit recovery limit. Do not force this layout on history, append-only or streaming workflows.
 - Validation (schema, types, keys, duplicates, counts, version guards) lives in the loader/publish path. A failed load never publishes partial data.
-- Tests: a few behavior tests (success, failure protection, rerun) plus a contract check. What each test tier must contain: [test tiers](test-tiers.md).
-- Small change (one column, one parameter, one fix) = steps Frame, Build, Review only. No design record.
+- Tests: a few behavior tests (success, failure protection, rerun) plus a contract check ([test tiers](test-tiers.md)).
+- Small change (one column, one parameter, one fix) = steps Frame, Build, Review only; no runbook.
 
 ## Rules
 
@@ -45,18 +45,16 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 
 ## Workflow
 
-1. **Frame.** Read existing code, DDL, design record and runbook. Infer source, target, grain, volume, frequency, readers; mark each inferred or unknown. Volumes come from a size-check read on local/DEV, not from asking; when only production has the data, mark the volume unknown and draft the query.
+1. **Frame.** Read existing code, DDL, `memory.md` and any runbook. Infer source, target, grain, volume, frequency, readers; mark each inferred or unknown. Volumes come from a size-check read on local/DEV, not from asking; when only production has the data, mark the volume unknown and draft the query.
 2. **Pick the case** and the size tier (small, medium, large): table tiers in [model/scale](model/scale.md), load tiers in [pipeline/performance](pipeline/performance.md) (different thresholds: one sizes the table, the other the run). Medium and large need measured size evidence before chunk, batch or parallelism values.
 3. **Decide** only the choices the case needs.
 4. **Build** the case flow from `pipeline/cases.md` or `model/cases.md` in the existing artifact paths (DDL: one setup file per subject as in `project.md`). Notebook code follows the [notebook rules](spark.md#notebook-rules).
-5. **Review** with [modes](modes.md); for every new or changed DDL, load or publish step also run the `reviewer` agent before handoff; fix Must fix findings before showing. Review findings go to chat; save them only on request (`docs/ai/reports/YYYY-MM-DD-data-<topic>.md`). Run the focused side-effect-free tests; a full-suite run goes to `tester`.
-6. **Handoff:** the steps left to the user (production, deploy, every write, load and DDL) in order; a design record for new or changed pipelines and table designs, a runbook for pipelines only ([records](records.md)).
+5. **Review** with [modes](modes.md); for every new or changed DDL, load or publish step also run the `reviewer` agent before handoff; fix Must fix findings before showing. Review findings go to chat; save them only on request (`docs/ai/reports/YYYY-MM-DD-data-<topic>.html`, `_ai/rules/report.md`). Run the focused side-effect-free tests.
+6. **Handoff:** list user-run steps in order (production, deploy, every write, load and DDL). Record settled design choices in `plans/` and `memory.md`. For a new or changed pipeline (not a small fix), write or update `docs/ai/runbooks/<safe-name>.md` and link it in `project.md` Asset index: case, source -> target, schedule, readers, decisions/add-ons, failure/alert behavior, rerun and undo steps, measured throughput/bottleneck (medium/large), and post-commit recovery limit.
 
 ## Resources (read only what the task needs)
 
-Read only the files in the rows that match, one at a time: at most three before the first draft (`spark` for notebook code not counted); `modes`, `records`, `test-tiers` and `performance` only at Review, Handoff or when sizing. Never read the whole folder.
-
-Case numbers are per file: pipeline cases (01-06) and table cases (01-09) are different lists; write them as `pipeline 02` or `table 02`.
+Read only the rows that match, one file at a time, at most three before the first draft (`spark` not counted). Case numbers are per file (`pipeline 02`, `table 02`).
 
 | Need | Read |
 |---|---|
@@ -67,7 +65,6 @@ Case numbers are per file: pipeline cases (01-06) and table cases (01-09) are di
 | Big or slow table, partitioning, columnstore, long keys | [model/scale](model/scale.md) |
 | Grain/key/null/cardinality contract checks | [schema contract](model/templates/schema-contract.md) |
 | Review, decide, debug, adapt (tables and pipelines) | [modes](modes.md) |
-| Design record, runbook | [records](records.md) |
 | Pipeline case flow, traps, Done when, add-ons | [pipeline/cases](pipeline/cases.md) |
 | Blocks, change detection, publish, run log, alerts | [pipeline/core](pipeline/core.md) |
 | Speed, chunks, parallelism, batch writes, SWITCH | [pipeline/performance](pipeline/performance.md) |

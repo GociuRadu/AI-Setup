@@ -11,7 +11,7 @@ Case = how often + how much. Never the source or the target. Pick in this order 
 
 A request that spans two cases becomes two linked pipelines, built in order (01/04 then 02/05 via HAND_OVER; 02/05 then 03 via its input check). Not covered, so propose the closest and ask: export-only sources (land files, then 02 with trigger file_lands and BRONZE); tens of millions of rows a day into one table (02 with publish by SWITCH or key-range slices, see performance.md); sub-second latency (an event platform, not a scheduled job).
 
-Signals to collect or infer (record with provenance `user`, `inferred` or `unknown`): source_type, source_rows, source_gb, avg_row_bytes, initial_load_fits_one_run, change_marker_available, complete_file_tracking_available, history_needed, deletes_at_source, source_owner, source_can_redeliver, source_changes_without_warning, source_fed_by_other_job, source_may_go_silent, amounts_matter, personal_data, bad_rows_tolerated, as_of_questions, replays_expected, others_depend_on_target, recurring_follows, target_kind, schedule, window (when it may run), parallelism_limit (source and target). Infer what you can from the repo and DEV reads; ask only an unknown that changes the case, a gate or a decision (R9: one question at a time, with a recommendation); leave the rest `unknown` in the record. Never infer measured size from a case threshold.
+Signals to collect or infer (record with provenance `user`, `inferred` or `unknown`): source_type, source_rows, source_gb, avg_row_bytes, initial_load_fits_one_run, change_marker_available, complete_file_tracking_available, history_needed, deletes_at_source, source_owner, source_can_redeliver, source_changes_without_warning, source_fed_by_other_job, source_may_go_silent, amounts_matter, personal_data, bad_rows_tolerated, as_of_questions, replays_expected, others_depend_on_target, recurring_follows, target_kind, schedule, window (when it may run), parallelism_limit (source and target). Infer what you can from the repo and DEV reads; ask only an unknown that changes the case, a gate or a decision (R9); leave the rest `unknown` in the record. Never infer measured size from a case threshold.
 
 ---
 
@@ -32,7 +32,7 @@ Data loaded once into a new table nobody reads. A failure means fix and rerun.
 A source feeds a silver table on a schedule, unattended. Silver = latest truth, one row per key.
 - Flow: the recurring frame in core.md.
 - Values: source, target, key, change marker and overlap (default 10 minutes), newer field, column map, source time zone, freshness limit (about 2x the schedule), active hours.
-- Decisions (one at a time, with a recommendation): first_load (everything, from an agreed start date, or a one-time 01/04 load then an explicit recurring follow-on when the initial extraction does not fit one run); load_type (changes if the source can say what changed, else full); trigger (fixed times or file lands).
+- Decisions: first_load (everything, from an agreed start date, or a one-time 01/04 load then an explicit recurring follow-on when the initial extraction does not fit one run); load_type (changes if the source can say what changed, else full); trigger (fixed times or file lands).
 - Volume: for a large daily batch or a full snapshot use performance.md (partitioned read, parallel staging write, SWITCH or key-range publish). One giant MERGE is never the answer.
 - Traps: upper bound from the pipeline clock; no overlap on modified_at; 0 rows treated as failure (0 rows from a changes read = skipped); same key twice in a batch; updating unchanged rows (churns `_loaded_at`); full load plus a partial answer marking good rows deleted; file read while still written; two pipelines on one staging table.
 - Done when: a second run with no new data ends skipped (API too, despite the overlap); a rerun of the same window changes nothing; a forced failure leaves silver and the watermark unchanged and the alert arrives; a killed run does not block the next; the run log shows every run with window and counts.
@@ -44,7 +44,7 @@ A source feeds a silver table on a schedule, unattended. Silver = latest truth, 
 A gold table computed from silver and read all the time. Built on the side, checked, swapped in at once.
 - Flow: START -> CHECK_INPUTS -> SKIP? -> BUILD -> VALIDATE -> SWAP -> FINISH.
 - CHECK_INPUTS: every input is OK (daily inputs: last run not failed; frequent: not stale; streams: heartbeat inside the limit) and something changed since the last build (a newer succeeded run that wrote rows, or a moved stream position). Input not OK ends the run failed, reason "input X not OK". Nothing changed ends skipped.
-- BUILD computes the whole table into a side copy. VALIDATE: rows > 0, key unique, no empty key, and the reconcile total of the copy equals silver with the same filters, read at the same moment as BUILD. SWAP: one step, copy becomes live, live becomes the previous version (the previous version is kept only when the design approves a retained copy; otherwise state the recovery limit). FINISH records the input runs it was built from.
+- BUILD computes the whole table into a side copy. VALIDATE: rows > 0, key unique, no empty key, and the reconcile total of the copy equals silver with the same filters, read at the same moment as BUILD. SWAP: one step, copy becomes live, live becomes the previous version. FINISH records the input runs it was built from.
 - Gate: do all inputs log their runs in the run log? No -> bring them onto it, or rebuild on every trigger (simpler, no SKIP).
 - Values: gold tables, grain, key, inputs, what it computes, reconcile measure and filters, frequency (an input whose change must show within gold's interval must refresh at least that often), active hours, freshness or staleness limit, how reports read it.
 - Decisions: trigger (own schedule with input check, or after the silver loads when you own them all); swap_together for several gold tables (a fact with its dimensions: together).
@@ -55,9 +55,9 @@ A gold table computed from silver and read all the time. Built on the side, chec
 
 ## 04 large-volume
 
-A table too big for one run (hundreds of millions to billions of rows, 10 GB to 1 TB), loaded once into a new table nobody reads, in chunks. Read [performance.md](./performance.md) in full before planning.
+A table too big for one run (hundreds of millions to billions of rows, 10 GB to 1 TB), loaded once into a new table nobody reads, in chunks. Read [performance.md](performance.md) in full before planning.
 - Flow: SIZE_CHECK -> PLAN_CHUNKS -> each chunk in parallel: READ -> CLEAN_CAST -> WRITE -> COUNT_CHECK -> after all: VALIDATE -> RECONCILE -> INDEX(key).
-- SIZE_CHECK first (read on local/DEV), then propose chunk size, chunk count, parallelism and the estimated wall time from the measured numbers. READ one chunk through an index at the source with counts and totals in the pass. CLEAN_CAST while the data moves (cleaning afterwards is a second full pass). WRITE removes the chunk's range, then writes it, no indexes. COUNT_CHECK: read = written + empty dropped (+ set aside), chunk logged done. VALIDATE after all chunks: key unique, no empty key, total rows = sum of chunk counts. RECONCILE: target totals = sum of chunk totals (no second read). INDEX once on the full data (lake: compaction).
+- SIZE_CHECK first (read on local/DEV), then propose chunk size, chunk count, parallelism and the estimated wall time from the measured numbers. READ one chunk through an index at the source with counts and totals in the pass. CLEAN_CAST while the data moves (cleaning afterwards is a second full pass). WRITE removes the chunk's range, then writes it, no indexes. COUNT_CHECK, VALIDATE and RECONCILE: [per-chunk and after-all checks](performance.md#6-fail-small-retry-cheap); the chunk is logged done and VALIDATE also checks no empty key. INDEX once on the full data (lake: compaction).
 - Gate: is the target a new table nobody reads? No -> load into a copy on the side and SWAP (03).
 - Values: source and owner, target, chunk column (indexed at the source?), window (nights, weekend), parallelism the source owner accepts (default 4, raise only with measured scaling).
 - Decision source_changes (a fact, always asked): no change (resume only missing chunks); changes with a verified marker (CATCH_UP, includes HAND_OVER); changes without a marker (restart from a consistent copy on a rerun, never resume mixed snapshots).
@@ -70,7 +70,7 @@ A table too big for one run (hundreds of millions to billions of rows, 10 GB to 
 
 Load what changed every 5-60 minutes, all day. The 02 frame tuned for frequent runs: fast when nothing changed, never overlapping, alerting on stale data instead of every failed run.
 - Flow: the recurring frame plus STALENESS_CHECK. A refused `busy` start is green. The next run catches up from the watermark. A cheap marker lets CHECK skip before READ. APIs confirm a skip after a bounded READ.
-- Gate: does the source provide reliable change tracking (CDC or version, a valid time or cursor contract, complete-file identities, a lake version)? No -> stop before build, agree tracking or a case-02 full-snapshot design. Never relax the frequency silently or fabricate a watermark.
+- Gate: does the source provide reliable change tracking (CDC or version, a valid time or cursor contract, complete-file identities, a lake version)? No -> stop before build, agree tracking or a case-02 full-snapshot design. Never relax the frequency silently.
 - Values: source, target, key, change marker and overlap, newer field, column map, time zone, interval (default 15 minutes), staleness limit (default 3 missed intervals), active hours.
 - Decision: first_load, as in 02.
 - Traps: compute that takes minutes to start; a run longer than the interval (big sources belong in 02); a start time in the past; alerting on every failed run; skipped counted as unhealthy; no overlap on modified_at; an unindexed change marker (full scan of production every 15 minutes).
@@ -92,7 +92,7 @@ A job running 24/7 keeping a table fresh within about a minute.
 
 ## Cross-case add-on notes
 
-`02:HISTORY` means case 02's HISTORY add-on, not a new case. Validate that referenced IDs resolve and that requires/excludes hold before recommending.
+`02:HISTORY` means case 02's HISTORY add-on, not a new case.
 - BRONZE: keep each batch as received, append-only, deleted after N days. For sources that cannot redeliver (files, APIs) or to prove what arrived.
 - DELETES: deletes visible as `_is_deleted`. From change tracking if available, else a key compare every N runs as its own run type `deletes` that never moves the watermark.
 - HISTORY: every version kept (valid_from, valid_to, is_current). For as-of questions.
