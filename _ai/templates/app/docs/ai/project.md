@@ -34,7 +34,7 @@ Run from `{{PROJECT}}/code`.
 
 - Unit tests and lint pass; a bug fix has a test that failed before it.
 - API or schema change: callers and migrations updated, backward compatible or the break named.
-- `context.md` updated; a commit message and any run steps are ready (who commits: the device profile).
+- `context.md` matches the new state; a commit message and any run steps are ready (who commits: the device profile).
 
 ## Release and rollback
 

@@ -46,12 +46,13 @@ User > API > [Orchestrator]
 Offline: source > [main step] > !risky step
 ```
 
-<!-- bars: counts per stage, funnels. -->
+<!-- bars: counts per stage, funnels. `Label: number [unit] # note` per line. -->
 ```bars
 All rows: 15879
 Kept: 2203 # after filter
 ```
 
+<!-- seq: `A > B: message` per line. tree: indented paths; + new, ~ changed, ! risk, # note. -->
 ```seq
 Frontend > API: POST /chats
 API > Orchestrator: start workflow
@@ -65,6 +66,7 @@ code/
     ~ _render_answer # changed
 ```
 
+<!-- A cell that is exactly yes, no, done, open, blocked, ... renders as a colored chip. A numbered list renders as a timeline of steps. -->
 | Part | What | Where |
 |---|---|---|
 | <part> | <one fact> | `path:line` |

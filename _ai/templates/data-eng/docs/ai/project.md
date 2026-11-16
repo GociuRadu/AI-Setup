@@ -34,7 +34,7 @@ Run from `{{PROJECT}}/code`. Local runner: [local/README.md](../../code/local/RE
 
 - The tiers the change touches pass locally; a wrong-data fix has a test with the failing case.
 - A new or changed load: rerun is idempotent, `docs/ai/runbooks/<name>.md` exists and is linked in the Asset index, and decisions are recorded in `memory.md`.
-- DDL, repairs and DEV runs are drafts for the user with expected rows and a rollback; `context.md` updated.
+- DDL, repairs and DEV runs are drafts for the user with expected rows and a rollback; `context.md` matches the new state.
 
 ## Glossary
 

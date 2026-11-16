@@ -8,8 +8,7 @@ argument-hint: "<goal or feature>"
 A plan is cheap to fix; code built on a wrong plan is not. Keep it to one screen.
 
 1. Read what the goal touches: code, `project.md`, `context.md`, `memory.md` decisions. Unknowns across many files or the web: one `scout` per question, in parallel.
-2. Design choices that are expensive to change later (data model, public interface, migration, architecture): suggest the `orchestrator` agent (Opus) once if the chat runs on Sonnet.
-3. Write `<project>/docs/ai/plans/YYYY-MM-DD-<topic>.md`:
+2. Write `<project>/docs/ai/plans/YYYY-MM-DD-<topic>.md`:
    ```
    # Plan: <topic>
    | Date | Status | Owner |
@@ -43,6 +42,6 @@ A plan is cheap to fix; code built on a wrong plan is not. Keep it to one screen
    | Question | Recommended answer |
    |---|---|
    ```
-4. Risky plans (data, schema, auth, shared interfaces): run the `reviewer` agent on the plan file with its Done when; fix Must fix items first. Re-review once at most; still open: move it to Open questions.
-5. Real Options with an expensive Choice (data model, public interface, migration, architecture, deleting features): run `challenger` once on the plan path. Answer each objection once in the Challenge table: `accepted` (change the plan) or `rejected` (one line of evidence). Still disputed: move it to Open questions. No second round.
-6. Ask only open questions that change the design, each with a recommended answer. Reply: 1-2 line summary, then numbered steps, linking the plan file. Plan-only request: stop here; otherwise run the steps through the [task loop](../delegate/SKILL.md#task-loop) and link the active plan from `context.md`.
+3. Risky plans (data, schema, auth, shared interfaces): run the `reviewer` agent on the plan file with its Done when; fix Must fix items first. Re-review once at most; still open: move it to Open questions.
+4. Real Options with an expensive Choice (data model, public interface, migration, architecture, deleting features): run `challenger` once on the plan path. Answer each objection once in the Challenge table: `accepted` (change the plan) or `rejected` (one line of evidence). Still disputed: move it to Open questions. No second round.
+5. Ask only open questions that change the design, each with a recommended answer. Reply: 1-2 line summary, then numbered steps, linking the plan file. Plan-only request: stop here; otherwise run the steps through the [task loop](../delegate/SKILL.md#task-loop) and link the active plan from `context.md`.

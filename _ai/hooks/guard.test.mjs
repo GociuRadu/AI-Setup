@@ -1,4 +1,4 @@
-// Self-check: node _ai/hooks/guard.test.mjs (also run by node _ai/check.mjs)
+// Self-check: node _ai/hooks/guard.test.mjs (also run by node --test)
 import assert from 'node:assert/strict';
 import { writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

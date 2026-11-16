@@ -1,6 +1,6 @@
 ---
 name: data
-description: "Use for every data model, table, DDL, schema, ingestion or load pipeline, Spark notebook, migration, JDBC or slow-load/slow-table request on Azure SQL Database, Synapse Spark or local SQL Server/PySpark, also small loads into a local database and questions like 'is this table or load well designed?'; invoke before writing the DDL or loader or answering the design question."
+description: "Use before writing or judging any data model, table, DDL, schema, migration, ingestion or load pipeline, Spark notebook or JDBC load, and for slow loads or tables, on Azure SQL Database, Synapse Spark or local SQL Server/PySpark; also small local loads and 'is this table or load well designed?'."
 argument-hint: "<table, pipeline, notebook, design question or review>"
 ---
 

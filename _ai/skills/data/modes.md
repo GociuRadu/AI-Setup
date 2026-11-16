@@ -25,7 +25,7 @@ Open checks: <checks not run, and who runs them>
 
 Any Must fix -> fix first. Offer Debug for each Must fix.
 
-- **Debug:** prove the cause first, per **Bug** in `AGENTS.md` (red check, ranked hypotheses, **unproven** when it cannot run); the fix is a separate approved adapt or build step. Save the result on request with the [review skill](../review/SKILL.md) in `bug` mode. Hypotheses to test first are in [Debug hypotheses](#debug-hypotheses) below. SQL timeout: separate slow from blocked with DEV reads of `sys.dm_exec_requests` (wait_type, blocking_session_id), `sys.dm_tran_locks` on target and staging, and Query Store top duration; mark which must run during the failing stage.
+- **Debug:** prove the cause first, per the `bug` mode of the [review skill](../review/SKILL.md) (red check, ranked hypotheses, **unproven** when it cannot run); the fix is a separate approved adapt or build step. Save the result on request as its report. Hypotheses to test first are in [Debug hypotheses](#debug-hypotheses) below. SQL timeout: separate slow from blocked with DEV reads of `sys.dm_exec_requests` (wait_type, blocking_session_id), `sys.dm_tran_locks` on target and staging, and Query Store top duration; mark which must run during the failing stage.
 - **Decisions and runbooks:** record settled choices in `plans/` and `memory.md`; pipeline runbooks live in `docs/ai/runbooks/<safe-name>.md` ([SKILL.md](SKILL.md#workflow)).
 
 ## Tables

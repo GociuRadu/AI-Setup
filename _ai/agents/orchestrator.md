@@ -3,7 +3,7 @@ name: orchestrator
 description: "Opus orchestrator for design and multi-step work: decides, writes specs and verifies; scout, tester, worker, reviewer and challenger do the searching, running, coding, reviewing and second opinions."
 model: opus
 reasoning-effort: high
-tools: [read, search, edit, agent, todo, skill]
+tools: [read, search, edit, agent, skill]
 agents: [scout, tester, worker, reviewer, challenger]
 ---
 Follow the [delegate skill](../skills/delegate/SKILL.md) for every task; spend Opus on decisions, specs and the final check.

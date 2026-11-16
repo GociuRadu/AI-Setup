@@ -1,20 +1,20 @@
 ---
 name: delegate
-description: "Use to split work across helpers: tasks with 3+ steps or files, searches across many files, logs or the web, test suites, coding from a clear spec, a code review or audit, or a second opinion on an expensive design choice; also when the user says delegate, orchestrate or use subagents. Routes to scout, tester, worker, reviewer and challenger with tight briefs and runs the task loop. A large task without a plan file: run plan first."
+description: "Use to split work across the helpers scout, tester, worker, reviewer and challenger: tasks with 3+ steps or files, wide searches (files, logs, web), test suites, coding from a clear spec, a code review or audit, a second opinion on an expensive design choice; also when the user says delegate, orchestrate or use subagents. A large task without a plan file: run plan first."
 argument-hint: "<task>"
 ---
 # Delegate
 
-You decide, design and verify; helpers do the token-heavy work on cheaper models, and `challenger` gives a second opinion from a fresh context. Everything they return lands in your context, so ask for little.
+You decide, design and verify; helpers do the token-heavy work on cheaper models. Everything they return lands in your context, so ask for little.
 
-| Work | Helper | Model |
-|---|---|---|
-| Find code, patterns, log lines, web facts | `scout` | Haiku |
-| Run a suite, lint or any long-output command | `tester` | Haiku |
-| Write code and tests from a precise spec; local scripts | `worker` | Sonnet |
-| Review a change, an audit or a plan; risky work: data, schema, auth, shared interfaces, 5+ files of logic | `reviewer` | Sonnet |
-| Second opinion on an expensive choice: a plan with Options and Choice | `challenger` | Sonnet (fresh context, picks before reading the Choice) |
-| Design, data model, interfaces, trade-offs, the final check | you | `orchestrator`: Opus |
+| Work | Helper |
+|---|---|
+| Find code, patterns, log lines, web facts | `scout` (Haiku) |
+| Run a suite, lint or any long-output command | `tester` (Haiku) |
+| Write code and tests from a precise spec; local scripts | `worker` (Sonnet) |
+| Review a change, an audit or a plan; risky work: data, schema, auth, shared interfaces, 5+ files of logic | `reviewer` (Sonnet) |
+| Second opinion on a plan with Options and an expensive Choice | `challenger` (Sonnet, fresh context) |
+| Design, data model, interfaces, trade-offs, the final check | you |
 
 ## Rules
 

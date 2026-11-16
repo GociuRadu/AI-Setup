@@ -19,8 +19,8 @@ const MANAGED = ['.claude/agents', '.claude/skills', '.claude/rules', '.claude/s
 const PROFILES = ['home', 'work'];
 const MODELS = { claude: { haiku: 'haiku', sonnet: 'sonnet', opus: 'opus' }, kiro: { haiku: 'claude-haiku-5.5', sonnet: 'claude-sonnet-5.5', opus: 'claude-opus-5.5' } };
 const TOOLS = {
-  claude: { read: ['Read'], search: ['Grep', 'Glob'], web: ['WebSearch', 'WebFetch'], edit: ['Edit', 'Write'], execute: ['Bash', 'PowerShell'], todo: ['TodoWrite'], skill: ['Skill'] },
-  kiro: { read: ['read'], search: ['glob', 'grep'], web: ['web_search', 'web_fetch'], edit: ['write'], execute: ['shell'], agent: ['subagent'], todo: [], skill: [] },
+  claude: { read: ['Read'], search: ['Grep', 'Glob'], web: ['WebSearch', 'WebFetch'], edit: ['Edit', 'Write'], execute: ['Bash', 'PowerShell'], skill: ['Skill'] },
+  kiro: { read: ['read'], search: ['glob', 'grep'], web: ['web_search', 'web_fetch'], edit: ['write'], execute: ['shell'], agent: ['subagent'], skill: [] },
 };
 
 // frontmatter: `key: value`, "quoted" strings and [a, b] lists only
@@ -50,10 +50,10 @@ export function relink(text, src, dest, tool) {
   });
 }
 
-const hookCmd = (file, guard) => guard
-  ? `node -e "import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','${file}')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix ${file}.');process.exit(2)})"`
-  : `node -e "import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','${file}')).href)"`;
-const GUARD = hookCmd('_ai/hooks/guard.mjs', true);
+// blocks (exit 2) when guard.mjs cannot load: the guard fails closed
+const GUARD = `node -e "import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})"`;
+// prompt hook: both tools add its stdout to the context, so the AGENTS.md language rule is repeated on every prompt
+const LANG = `node -e "console.log('Reply in English, even if this message is in Romanian or another language.')"`;
 
 function claudeSettings() {
   const sh = (p) => [`Bash(${p})`, `PowerShell(${p})`];
@@ -73,7 +73,7 @@ function claudeSettings() {
       ],
     },
     hooks: {
-      UserPromptSubmit: [{ hooks: [{ type: 'command', command: hookCmd('_ai/hooks/lang.mjs') }] }],
+      UserPromptSubmit: [{ hooks: [{ type: 'command', command: LANG }] }],
       PreToolUse: [{ matcher: 'Bash|PowerShell|Read|Edit|Write|NotebookEdit|Grep|Glob', hooks: [{ type: 'command', command: GUARD }] }],
     },
   };
@@ -82,7 +82,7 @@ function claudeSettings() {
 const kiroHooks = {
   '.kiro/hooks/guard.json': { version: 'v1', hooks: [['shell', 'Guard shell commands', 'Blocks writing SQL, hard stops and secret reads'], ['read', 'Guard file reads', 'Blocks reading secret files and personal/'], ['write', 'Guard file writes', 'Blocks writing secret files and personal/']]
     .map(([matcher, name, what]) => ({ name, description: `${what} (_ai/hooks/guard.mjs).`, trigger: 'PreToolUse', matcher, action: { type: 'command', command: GUARD }, timeout: 10 })) },
-  '.kiro/hooks/lang.json': { version: 'v1', hooks: [{ name: 'Reply in English', description: 'Adds a one-line reminder to reply in English to every prompt (_ai/hooks/lang.mjs).', trigger: 'UserPromptSubmit', action: { type: 'command', command: 'node _ai/hooks/lang.mjs' }, timeout: 10 }] },
+  '.kiro/hooks/lang.json': { version: 'v1', hooks: [{ name: 'Reply in English', description: 'Adds a one-line reminder to reply in English to every prompt.', trigger: 'UserPromptSubmit', action: { type: 'command', command: LANG }, timeout: 10 }] },
 };
 
 // Every generated file as { path: text }.

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { parse, relink, build, brokenLinks, missingPaths } from './sync.mjs';
 
 test('parse reads quoted strings and lists', () => {
@@ -27,7 +28,14 @@ test('helpers start without CLAUDE.md, the orchestrator keeps it and can use ski
   const out = build('work');
   for (const a of ['scout', 'tester', 'worker', 'reviewer', 'challenger']) assert.match(out[`.claude/agents/${a}.md`], /^omitClaudeMd: true$/m, a);
   assert.doesNotMatch(out['.claude/agents/orchestrator.md'], /omitClaudeMd/);
-  assert.match(out['.claude/agents/orchestrator.md'], /^tools: "Read, Grep, Glob, Edit, Write, Agent\(scout, tester, worker, reviewer, challenger\), TodoWrite, Skill"$/m);
+  assert.match(out['.claude/agents/orchestrator.md'], /^tools: "Read, Grep, Glob, Edit, Write, Agent\(scout, tester, worker, reviewer, challenger\), Skill"$/m);
+});
+
+test('the language reminder is one inline command, the same for both tools', () => {
+  const out = build('work');
+  const cmd = JSON.parse(out['.claude/settings.json']).hooks.UserPromptSubmit[0].hooks[0].command;
+  assert.equal(JSON.parse(out['.kiro/hooks/lang.json']).hooks[0].action.command, cmd);
+  assert.equal(spawnSync(cmd, { shell: true, encoding: 'utf8' }).stdout.trim(), 'Reply in English, even if this message is in Romanian or another language.');
 });
 
 test('missingPaths names an _ai path that does not exist and accepts real ones and placeholders', () => {
