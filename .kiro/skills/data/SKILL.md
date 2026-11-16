@@ -4,6 +4,6 @@ description: "Use for every data model, table, DDL, schema, ingestion or load pi
 ---
 # data
 
-Read `.claude/skills/data/SKILL.md` in full now and follow it exactly; it is the single source shared with Claude Code and Copilot. Relative links in it resolve from `.claude/skills/data/`; read linked files only when its steps say so.
+Read `.claude/skills/data/SKILL.md` in full now and follow it exactly; it is the single source shared with Claude Code. Relative links in it resolve from `.claude/skills/data/`; read linked files only when its steps say so.
 
 Expected input after the slash command: <table, pipeline, notebook, design question or review>

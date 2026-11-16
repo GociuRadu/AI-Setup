@@ -1,9 +1,8 @@
 // Sets this device's profile: node _ai/setup.mjs home|work
 // Copies _ai/profiles/<profile>.md into the local file each tool loads on its own (all gitignored):
-//   CLAUDE.local.md (Claude Code), .github/instructions/profile.instructions.md (Copilot), .kiro/steering/profile.md (Kiro)
+//   CLAUDE.local.md (Claude Code), .kiro/steering/profile.md (Kiro)
 // and sets Claude Code's permissions in .claude/settings.local.json (home: no prompts; work: prompts for all but reads).
-// CLAUDE.local.md also imports AGENTS.md and holds the Claude adapter (_ai/claude.md). There is no root CLAUDE.md,
-// because Copilot reads CLAUDE.md and expands its imports, which would load AGENTS.md twice there.
+// CLAUDE.local.md also imports AGENTS.md and holds the Claude adapter (_ai/claude.md).
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +16,6 @@ const note = `<!-- Written by node _ai/setup.mjs ${profile}. Edit _ai/profiles/$
 const claude = readFileSync(join(ROOT, '_ai/claude.md'), 'utf8').replace(/\r\n/g, '\n');
 const files = {
   'CLAUDE.local.md': `${note.replace(' and run', ' or _ai/claude.md and run')}@AGENTS.md\n\n${claude}\n${body}`,
-  '.github/instructions/profile.instructions.md': `---\napplyTo: "**"\n---\n${note}${body}`,
   '.kiro/steering/profile.md': `---\ninclusion: always\n---\n${note}${body}`,
 };
 for (const [f, text] of Object.entries(files)) {
@@ -68,5 +66,5 @@ function mcpReport() {
 console.log(`profile ${profile}: ${[...Object.keys(files), '.claude/settings.local.json'].join(', ')}`);
 mcpReport();
 console.log(profile === 'home'
-  ? 'Kiro: use Autopilot. Copilot: enable auto-approve for this workspace if you want no prompts.'
-  : 'Kiro: use Supervised. Copilot and Claude Code: keep approvals on.');
+  ? 'Kiro: use Autopilot.'
+  : 'Kiro: use Supervised. Claude Code: keep approvals on.');

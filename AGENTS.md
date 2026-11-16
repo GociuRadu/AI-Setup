@@ -14,7 +14,7 @@ The device profile (`home` or `work`, written by `node _ai/setup.mjs`) decides w
 
 ## Workspace and projects
 
-- This repository is the workspace root: the AI setup (`AGENTS.md`, `.claude/`, `.github/`, `.kiro/`, `_ai/`) plus one folder per project, which is not part of this repository. A project's Git checkout is its `code/` folder. Never touch `personal/`: no listing, reading, searching, referencing or editing.
+- This repository is the workspace root: the AI setup (`AGENTS.md`, `.claude/`, `.kiro/`, `_ai/`) plus one folder per project, which is not part of this repository. A project's Git checkout is its `code/` folder. Never touch `personal/`: no listing, reading, searching, referencing or editing.
 - Active project = the folder holding the files in scope; if unclear, ask once. Before project work read `<project>/docs/ai/project.md` (At a glance, Guardrails, Commands, Glossary; use its terms; other sections when needed). Read `context.md` (state, open work) and `memory.md` (decisions, Bugs table) only when they matter. Rules in `code/AGENTS.md` or `code/CLAUDE.md` also apply; the stricter one wins.
 - Project type in `project.md`: `app` or `data-eng`. New project: `node _ai/new-project.mjs <Name> --template app|data-eng`.
 - Keep `docs/ai/` short: state in `context.md` (replace, don't append, under about 40 lines), decisions and bugs with a non-obvious cause in `memory.md` (update or merge an existing row instead of adding one), stable facts in `project.md`. One fact, one file. Before a new report, update an existing one on the same topic. The tool's own memory holds only user preferences. On "handoff": write state, open steps and file paths to `context.md` (link artifacts, don't copy) and tell the user to continue in a new chat.

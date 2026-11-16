@@ -5,7 +5,6 @@
 !/AGENTS.md
 !/README.md
 !/.claude/
-!/.github/
 !/.kiro/
 !/_ai/
 # Reports about the setup itself
@@ -13,7 +12,6 @@
 
 # Device profile and local settings, written by `node _ai/setup.mjs` (CLAUDE.local.md is ignored by /*)
 /.claude/settings.local.json
-/.github/instructions/profile.instructions.md
 /.kiro/steering/profile.md
 
 # Tool state that is not setup
@@ -21,7 +19,6 @@
 /.claude/todos/
 /.kiro/settings/
 /.kiro/specs/
-/.github/hooks/*.log
 /.kiro/agents/*.bak*
 
 # Never commit secrets or caches anywhere
