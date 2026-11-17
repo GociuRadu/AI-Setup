@@ -1,63 +1,135 @@
 # AI setup
 
-One AI setup for a workspace with several projects, generated for both Claude Code and Kiro from one source in `_ai/`.
+One set of rules, skills and helper agents for a workspace with several projects. The source lives in `AGENTS.md` and `_ai/`; `node _ai/sync.mjs` generates the files Claude Code and Kiro read.
 
 ```mermaid
 flowchart LR
-  S["AGENTS.md + _ai/ (source)"] -->|node _ai/sync.mjs| G[".claude/ + CLAUDE.local.md (Claude Code)"]
+  S["AGENTS.md + _ai/ (source, in Git)"] -->|node _ai/sync.mjs| C[".claude/ + CLAUDE.local.md (Claude Code)"]
   S -->|node _ai/sync.mjs| K[".kiro/ (Kiro)"]
-  S --> P["&lt;project&gt;/docs/ai + code/"]
+  S -->|node _ai/new-project.mjs| P["&lt;project&gt;/docs/ai"]
 ```
 
 ## Install on a device
 
-Requires Git and Node.js 18+.
+Requires Git and Node.js 22+ (the test command uses `node --test` globs).
 
 ```powershell
-git clone <this repo> work; cd work
-node _ai/sync.mjs home      # or work; writes .claude/, .kiro/, CLAUDE.local.md; ends with "synced"
+git clone https://github.com/GociuRadu/AI-Setup work; cd work
+node _ai/sync.mjs home      # or: work. Writes .claude/, .kiro/, CLAUDE.local.md and prints "synced ..."
 node --test "_ai/**/*.test.mjs"
 ```
 
-Open the `work` folder (not a project folder). Profile: `home` = no approval prompts, `work` = prompts for all but reads; later runs remember it. Kiro: Autopilot on home, Supervised on work.
+Open the `work` folder (not a project folder) in VS Code, Claude Code or Kiro. Later `sync` runs remember the profile.
+
+| Profile | Approvals | Kiro mode |
+|---|---|---|
+| `home` | None, except the hard limits below | Autopilot |
+| `work` | Every action except reads asks first; no Git writes unless asked, never push | Supervised |
+
+## Start a project
+
+```powershell
+node _ai/new-project.mjs <Name> --template app        # docs/ai only; clone the repo into <Name>/code/
+node _ai/new-project.mjs <Name> --template data-eng   # also a local data-engineering skeleton in code/; run git init there
+```
+
+`--dest <dir>` creates the folder elsewhere; an existing folder is never overwritten.
+
+Each project gets `docs/ai/`, which the AI reads and keeps current:
+
+| File | Holds | Who updates it |
+|---|---|---|
+| `project.md` | Stack, commands, guardrails, asset index | You, once; the AI when assets change |
+| `context.md` | Current state and open work, under 40 lines | The AI, whenever a task starts, finishes or blocks |
+| `memory.md` | Decisions (with a **Review** date or trigger), lessons, non-obvious bugs | The AI; `plan` flags decisions whose review is due |
+| `plans/` | One plan file per large task | The `plan` skill |
+| `reports/` | HTML reports built by `node _ai/report.mjs` | The `review` and `data` skills, on request |
+
+## Daily use
+
+Chats run on Sonnet. Type a skill as `/<name>` or just describe the task; the description routes it.
+
+| You want to | Use |
+|---|---|
+| Ask a question, make a small change | Normal chat |
+| Design something or build a large task (3+ files, schema, auth, migration) | `/plan <goal>` |
+| Split work across helpers from a normal chat | `/delegate <task>` |
+| Long design or multi-step work on Opus | `claude --agent orchestrator` |
+| Review code, find a bug, explain a flow, list shortcuts | `/review [review \| bug \| analyze \| debt] <scope>` |
+| Tables, DDL, loads, pipelines, Spark notebooks | `/data <task>` |
+| Read or update a project Confluence page | `/confluence-project <link> <change>` |
+| Continue in a new chat | `/handoff` |
+
+### Skills
+
+| Skill | What it does |
+|---|---|
+| `plan` | Reads the code and `memory.md`, writes `docs/ai/plans/YYYY-MM-DD-<topic>.md` (goal, Done when, options, steps, risks), runs `reviewer` on risky plans and `challenger` on expensive choices, then asks only the questions that change the design. |
+| `delegate` | Sends the token-heavy work to helpers and runs each step through do → check → review → mark done from real output. 2 failed fix rounds stop the loop. |
+| `review` | 4 modes. `review`: findings only, fixes nothing. `bug`: reproduces first, then tests ranked hypotheses. `analyze`: explains a file, flow or question. `debt`: lists shortcuts. Answers in chat; writes an HTML report when asked. |
+| `data` | Data models, DDL, migrations, ingestion and load pipelines on Azure SQL, Synapse Spark or local SQL Server/PySpark. Drafts every write for you to run; records decisions and runbooks. |
+| `handoff` | Prints one paste-ready brief for a new chat or another agent. Writes no files. |
+| `confluence-project` | Reads, answers about or writes the project's Confluence pages. |
+
+### Helpers
+
+Helpers are subagents that start without this chat's context; you or `orchestrator` brief them through `delegate`. Built-in subagents are denied.
+
+| Helper | Model | Does | Edits files |
+|---|---|---|---|
+| `scout` | Haiku | Searches many files, long logs or the web; returns evidence | No |
+| `tester` | Haiku | Runs tests and lint from `project.md`; returns pass/fail counts | No |
+| `worker` | Sonnet | Implements a precise spec and its tests; makes no design choices | Yes |
+| `reviewer` | Sonnet | Fresh-eyes review of a change, folder or plan | No |
+| `challenger` | Sonnet | Second opinion on one expensive choice; picks its own option before reading yours | No |
+| `orchestrator` | Opus | Designs, writes specs, verifies; the only helper that can start other helpers | Yes |
+
+## Rules and safety
+
+[AGENTS.md](AGENTS.md) holds the rules every chat follows: replies, workspace files, autonomy, models, code, databases, hard stops and secrets. The **Databases**, **Hard stops** and **Secrets** sections apply in both profiles:
+
+- **Databases:** read-only queries on local Docker and DEV only; every write, DDL or load is a draft with expected rows and a rollback. PRODUCTION: nothing, not even reads.
+- **Hard stops:** production or staging, deploys, SSH, force-push and `down -v` run only by you.
+- **Secrets:** no `.env`-style files or tokens; no customer data in docs or memory.
+
+[_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) enforces part of this before every shell, read and write tool call in both tools: it blocks writing SQL sent through a database client, the hard stops, `.env` files (even when you name one; open it yourself) and `personal/`. It only sees command text and paths, so code that opens its own connection is not checked. Claude Code settings also deny the Hostinger `execute` tools and Atlassian `executeDestructive`.
+
+File rules in [_ai/rules/](_ai/rules/) load by path: [python.md](_ai/rules/python.md), [sql.md](_ai/rules/sql.md), [report.md](_ai/rules/report.md).
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Core workspace rules (language, autonomy, models, code, database and secret limits). |
-| `_ai/agents/` | `orchestrator` (Opus) plus helpers `scout`, `tester` (Haiku), `worker`, `reviewer` and `challenger` (Sonnet). `_core.md` is prepended to helpers; in Claude Code they start without `AGENTS.md` (`omitClaudeMd`). |
-| `_ai/skills/` | `plan`, `delegate`, `review` (modes review, bug, analyze), `data`, `handoff`, `confluence-project`. |
-| `_ai/rules/` | File-scoped rules (`applyTo`): [python.md](_ai/rules/python.md), [sql.md](_ai/rules/sql.md), [report.md](_ai/rules/report.md). |
-| `_ai/templates/` | `report.md` (report skeleton); project skeletons: `common` (shared `docs/ai`) plus `app` or `data-eng`. |
-| [_ai/report.mjs](_ai/report.mjs) | Builds a report: Markdown in, one HTML file out, with diagrams and `scan:` warnings. Tests: `report.test.mjs`. |
-| [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) | PreToolUse hook for Claude Code and Kiro; fails closed on hard limits. Tests: `guard.test.mjs`. |
-| [_ai/sync.mjs](_ai/sync.mjs) | Generates `.claude/`, `.kiro/`, hooks and the local profile files (`--check` verifies sync, links and every `_ai/` path named in a source). Tests: `sync.test.mjs`. |
-| `_ai/tools/`, `_ai/profiles/` | Per-tool name maps (Claude Code, Kiro) and device profiles (`home`, `work`). |
-| [_ai/new-project.mjs](_ai/new-project.mjs) | `node _ai/new-project.mjs <Name> --template app\|data-eng` |
-| `.claude/`, `.kiro/`, `CLAUDE.local.md` | Generated, gitignored. Never edit directly. |
-
-## Daily use
-
-| Need | Use |
-|---|---|
-| Question, small change | normal chat (Sonnet) |
-| Design, multi-step work on Opus with helpers | `orchestrator` agent (Claude Code: `claude --agent orchestrator`) ([delegate skill](_ai/skills/delegate/SKILL.md)) |
-| Delegate one task from a normal chat | `/delegate <task>` |
-| Large task, design, options (with a `challenger` second opinion) | `/plan <goal>` |
-| Review a change, audit, something is wrong, explain, list shortcuts | `/review [review \| bug \| analyze \| debt] <scope>` |
-| Tables, loads, pipelines, notebooks | `/data <task>` |
-| Project Confluence page | `/confluence-project <link> <change>` |
-| Continue in a new chat | `/handoff` |
+| [AGENTS.md](AGENTS.md) | Core rules for every chat |
+| `_ai/agents/` | Helper and `orchestrator` definitions; `_core.md` is prepended to each helper |
+| `_ai/skills/` | The 6 skills above |
+| `_ai/rules/` | Path-scoped rules for Python, SQL and reports |
+| `_ai/profiles/` | `home` and `work` |
+| `_ai/tools/` | Per-tool notes: Claude Code (added to `CLAUDE.local.md`), Kiro (name map) |
+| `_ai/templates/` | Project skeletons (`common`, `app`, `data-eng`) and `report.md` |
+| [_ai/sync.mjs](_ai/sync.mjs) | Generates `.claude/`, `.kiro/` and the local profile files; `--check` verifies they are current and every link resolves |
+| [_ai/report.mjs](_ai/report.mjs) | Markdown → one HTML report; `--edit <file.html>` restores the Markdown |
+| [_ai/new-project.mjs](_ai/new-project.mjs) | Creates a project folder from a template; never overwrites |
+| [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) | Pre-tool guard for Claude Code and Kiro |
+| `docs/` | Plans and reports about this setup |
+| `.claude/`, `.kiro/`, `CLAUDE.local.md` | Generated and gitignored; never edit |
 
 ## Change the setup
 
-1. Edit [AGENTS.md](AGENTS.md) or `_ai/` (never `.claude/` or `.kiro/`).
-2. Run `node _ai/sync.mjs`, `node _ai/sync.mjs --check`, and `node --test "_ai/**/*.test.mjs"`.
-3. Start a new chat, then commit.
+1. Edit `AGENTS.md` or `_ai/`, never `.claude/` or `.kiro/`.
+2. Run:
+   ```powershell
+   node _ai/sync.mjs
+   node _ai/sync.mjs --check          # prints "in sync"
+   node --test "_ai/**/*.test.mjs"
+   ```
+3. Start a new chat so the tools reload, then commit.
 
-New skill: `_ai/skills/<name>/SKILL.md` (`name` = folder name, `description`); link shared files by workspace path (`_ai/...`). New PRODUCTION host: add it to the hard stops in [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs).
+- **New skill:** `_ai/skills/<name>/SKILL.md` with `name` (same as the folder) and `description` (when to use it); link shared files by workspace path (`_ai/...`).
+- **New PRODUCTION host:** add it to the hard stops in [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) and its test.
 
 ## Sources
 
-The Code rules in `AGENTS.md`, the `reviewer` checklist and the `debt` mode of `review` adapt [Ponytail](https://github.com/DietrichGebert/ponytail) 5.3.3 (`96608e0`, MIT, Copyright (c) 2026 DietrichGebert). Not taken: levels, hooks, the band, `gain`, `help`. Re-sync: diff upstream `skills/ponytail/SKILL.md` against the Code section.
+The Code rules in `AGENTS.md`, the `reviewer` checklist and the `debt` mode of `review` adapt [Ponytail](https://github.com/DietrichGebert/ponytail) 5.3.3 (`96608e0`, MIT, Copyright (c) 2026 DietrichGebert). Not taken: levels, hooks, the band, `gain`, `help`. To re-sync, diff upstream `skills/ponytail/SKILL.md` against the Code section.
+
+The decision **Review** column in `memory.md` comes from the decision log in [chief-of-staff](https://github.com/alirezarezvani/claude-skills/tree/main/c-level-advisor/skills/chief-of-staff) (MIT); its routing and board-meeting parts were not taken.

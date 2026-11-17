@@ -7,7 +7,7 @@ argument-hint: "<goal or feature>"
 
 A plan is cheap to fix; code built on a wrong plan is not. Keep it to one screen.
 
-1. Read what the goal touches: code, `project.md`, `context.md`, `memory.md` decisions. Unknowns across many files or the web: one `scout` per question, in parallel.
+1. Read what the goal touches: code, `project.md`, `context.md`, `memory.md` decisions; skip `superseded` rows; one whose Review date passed or trigger is met goes to Open questions (re-confirm or supersede) before the plan builds on it. Unknowns across many files or the web: one `scout` per question, in parallel.
 2. Write `<project>/docs/ai/plans/YYYY-MM-DD-<topic>.md`:
    ```
    # Plan: <topic>
