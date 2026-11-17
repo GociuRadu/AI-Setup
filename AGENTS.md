@@ -1,6 +1,6 @@
 # Workspace rules
 
-Rules for Claude Code and Kiro. Project files add facts, never weaker rules.
+Rules for Claude Code, Kiro and GitHub Copilot. Project files add facts, never weaker rules.
 
 ## Replies
 
@@ -13,7 +13,7 @@ Rules for Claude Code and Kiro. Project files add facts, never weaker rules.
 
 ## Workspace
 
-- One folder per project; `<project>/code/` is its Git repo. `.claude/` and `.kiro/` are generated from `_ai/` by `node _ai/sync.mjs`; never edit them. Never touch `personal/`.
+- One folder per project; `<project>/code/` is its Git repo. `.claude/`, `.kiro/` and the Copilot files in `.github/` are generated from `_ai/` by `node _ai/sync.mjs`; never edit them. Never touch `personal/`.
 - Active project = folder of the files in scope; if unclear, ask once. Before project work read `<project>/docs/ai/project.md`. Any `code/AGENTS.md` also applies; the stricter rule wins.
 - `docs/ai/context.md` = current state and open work (under 40 lines): read it when continuing work. When a task starts, finishes or blocks, or a decision changes the state, replace its stale lines in the same turn; never list that as left to do.
 - `docs/ai/memory.md` = decisions and non-obvious bugs: check it before a design choice or a bug hunt; merge into existing rows; mark a replaced decision `superseded`, never delete it. A decision resting on an assumption gets a Review date or trigger.
@@ -29,7 +29,7 @@ Rules for Claude Code and Kiro. Project files add facts, never weaker rules.
 ## Helpers and models
 
 - Subagents: only `scout`, `tester`, `worker`, `reviewer` and `challenger`, through the `delegate` skill; never a built-in subagent. A large task (3+ files, risky path, several steps) starts with the `plan` skill.
-- Opus (the `orchestrator` agent) only where choices are expensive to change: design, data models, migrations, public interfaces, hard debugging. Chats run on Sonnet; on Opus without `orchestrator`, suggest Sonnet once before routine work.
+- Opus only where choices are expensive to change: switch the chat model for design, data models, migrations, public interfaces, hard debugging. Chats run on Sonnet; on Opus, suggest Sonnet once before routine work.
 - **Stuck:** after 2 failed fixes change the approach; after 3, stop and report a likely design problem.
 
 ## Code

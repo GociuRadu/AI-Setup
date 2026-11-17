@@ -1,4 +1,4 @@
-// PreToolUse guard for Claude Code and Kiro. Blocks (exit 2 plus a deny decision):
+// PreToolUse guard for Claude Code, Kiro and GitHub Copilot. Blocks (exit 2 plus a deny decision):
 // - shell commands that send writing SQL (DML, DDL, EXEC, ...) through a database client, inline, piped or
 //   from a script, and tools that only write databases;
 // - hard stops: force-push, deleting Docker volumes, production compose files, release scripts, SSH;
@@ -122,7 +122,7 @@ if (process.argv[1]?.endsWith('guard.mjs')) run();
 function decide() {
   let input;
   try { input = JSON.parse(readFileSync(0, 'utf8')); } catch { process.exit(0); }
-  let args = input?.tool_input ?? {};
+  let args = input?.tool_input ?? input?.toolArgs ?? {};
   if (typeof args === 'string') { try { args = JSON.parse(args); } catch { args = { command: args }; } }
   const cwd = input?.cwd ?? process.cwd();
   const command = args.command ?? args.commandLine;

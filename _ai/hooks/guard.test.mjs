@@ -126,6 +126,8 @@ const payloads = [
   // shape captured from Kiro CLI 2.21 (inline agent hook)
   ['Kiro CLI', { hook_event_name: 'preToolUse', cwd: dir, session_id: 's', tool_name: 'shell', tool_tags: ['shell', '@builtin'], tool_input: { command: 'docker volume rm data', __tool_use_purpose: 'x' } }, 2],
   ['Kiro', { hook_event_name: 'PreToolUse', tool_name: 'read_file', tool_input: { path: 'src/app.py' }, cwd: dir }, 0],
+  ['Copilot', { hook_event_name: 'PreToolUse', tool_name: 'readFile', tool_input: { filePath: join(dir, '.env') }, cwd: dir, session_id: 's', tool_use_id: 't' }, 2],
+  ['Copilot', { toolName: 'runInTerminal', toolArgs: JSON.stringify({ command: 'git push -f' }), cwd: dir }, 2],
 ];
 for (const [tool, payload, code] of payloads) {
   const r = spawnSync(process.execPath, [script], { input: JSON.stringify(payload) });

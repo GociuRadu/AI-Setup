@@ -1,11 +1,12 @@
 # AI setup
 
-One set of rules, skills and helper agents for a workspace with several projects. The source lives in `AGENTS.md` and `_ai/`; `node _ai/sync.mjs` generates the files Claude Code and Kiro read.
+One set of rules, skills and helper agents for a workspace with several projects. The source lives in `AGENTS.md` and `_ai/`; `node _ai/sync.mjs` generates the files Claude Code, Kiro and GitHub Copilot read, for the tools each device uses.
 
 ```mermaid
 flowchart LR
   S["AGENTS.md + _ai/ (source, in Git)"] -->|node _ai/sync.mjs| C[".claude/ + CLAUDE.local.md (Claude Code)"]
   S -->|node _ai/sync.mjs| K[".kiro/ (Kiro)"]
+  S -->|node _ai/sync.mjs| G[".github/ agents, skills, instructions, hooks (Copilot)"]
   S -->|node _ai/new-project.mjs| P["&lt;project&gt;/docs/ai"]
 ```
 
@@ -15,16 +16,25 @@ Requires Git and Node.js 22+ (the test command uses `node --test` globs).
 
 ```powershell
 git clone https://github.com/GociuRadu/AI-Setup work; cd work
-node _ai/sync.mjs home      # or: work. Writes .claude/, .kiro/, CLAUDE.local.md and prints "synced ..."
+node _ai/sync.mjs home --tools claude,kiro     # home PC
+node _ai/sync.mjs work --tools copilot,kiro    # work laptop
 node --test "_ai/**/*.test.mjs"
 ```
 
-Open the `work` folder (not a project folder) in VS Code, Claude Code or Kiro. Later `sync` runs remember the profile.
+Open the `work` folder (not a project folder) in VS Code, Claude Code or Kiro. The profile and tool list are saved in `.ai-device.json` (local), so later runs need no arguments; pass them again to change. Dropping a tool removes its generated files. Your own files under `.github/` (workflows, for example) are kept, but `.github/agents/`, `skills/`, `instructions/` and `copilot-instructions.md` are fully generated: a sync replaces anything you put there.
 
-| Profile | Approvals | Kiro mode |
-|---|---|---|
-| `home` | None, except the hard limits below | Autopilot |
-| `work` | Every action except reads asks first; no Git writes unless asked, never push | Supervised |
+| Profile | Approvals | Kiro mode | Copilot |
+|---|---|---|---|
+| `home` | None, except the hard limits below | Autopilot | Your choice |
+| `work` | Every action except reads asks first; no Git writes unless asked, never push | Supervised | Approvals on, no auto-approve |
+
+| Tool | Generated files |
+|---|---|
+| `claude` | `.claude/`, `CLAUDE.local.md` |
+| `kiro` | `.kiro/` |
+| `copilot` | `.github/agents/`, `.github/skills/`, `.github/instructions/`, `.github/hooks/guard.json`, `.github/copilot-instructions.md` |
+
+Do not select `claude` and `copilot` on the same device: Copilot also reads `.claude/` and `CLAUDE.md` files.
 
 ## Start a project
 
@@ -47,14 +57,13 @@ Each project gets `docs/ai/`, which the AI reads and keeps current:
 
 ## Daily use
 
-Chats run on Sonnet. Type a skill as `/<name>` or just describe the task; the description routes it.
+Chats run on Sonnet; switch the chat model to Opus for design, data models, migrations and hard debugging. Type a skill as `/<name>` or just describe the task; the description routes it.
 
 | You want to | Use |
 |---|---|
 | Ask a question, make a small change | Normal chat |
 | Design something or build a large task (3+ files, schema, auth, migration) | `/plan <goal>` |
 | Split work across helpers from a normal chat | `/delegate <task>` |
-| Long design or multi-step work on Opus | `claude --agent orchestrator` |
 | Review code, find a bug, explain a flow, list shortcuts | `/review [review \| bug \| analyze \| debt] <scope>` |
 | Tables, DDL, loads, pipelines, Spark notebooks | `/data <task>` |
 | Read or update a project Confluence page | `/confluence-project <link> <change>` |
@@ -73,7 +82,7 @@ Chats run on Sonnet. Type a skill as `/<name>` or just describe the task; the de
 
 ### Helpers
 
-Helpers are subagents that start without this chat's context; you or `orchestrator` brief them through `delegate`. Built-in subagents are denied.
+Helpers are subagents that start without this chat's context; the chat briefs them through `delegate`. Built-in subagents are denied.
 
 | Helper | Model | Does | Edits files |
 |---|---|---|---|
@@ -82,7 +91,6 @@ Helpers are subagents that start without this chat's context; you or `orchestrat
 | `worker` | Sonnet | Implements a precise spec and its tests; makes no design choices | Yes |
 | `reviewer` | Sonnet | Fresh-eyes review of a change, folder or plan | No |
 | `challenger` | Sonnet | Second opinion on one expensive choice; picks its own option before reading yours | No |
-| `orchestrator` | Opus | Designs, writes specs, verifies; the only helper that can start other helpers | Yes |
 
 ## Rules and safety
 
@@ -92,7 +100,9 @@ Helpers are subagents that start without this chat's context; you or `orchestrat
 - **Hard stops:** production or staging, deploys, SSH, force-push and `down -v` run only by you.
 - **Secrets:** no `.env`-style files or tokens; no customer data in docs or memory.
 
-[_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) enforces part of this before every shell, read and write tool call in both tools: it blocks writing SQL sent through a database client, the hard stops, `.env` files (even when you name one; open it yourself) and `personal/`. It only sees command text and paths, so code that opens its own connection is not checked. Claude Code settings also deny the Hostinger `execute` tools and Atlassian `executeDestructive`.
+[_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) enforces part of this before every shell, read and write tool call in all three tools: it blocks writing SQL sent through a database client, the hard stops, `.env` files (even when you name one; open it yourself) and `personal/`. It only sees command text and paths, so code that opens its own connection is not checked. Claude Code settings also deny the Hostinger `execute` tools and Atlassian `executeDestructive`.
+
+**Copilot is weaker:** it gets no deny list, only the guard hook (a Preview feature that allows the call when it times out) and the rules as text in [_ai/tools/copilot.md](_ai/tools/copilot.md). On `work`, keep Copilot's approvals on. The English-reply reminder runs as a prompt hook in Claude Code and Kiro; Copilot has only the rule in `AGENTS.md`.
 
 File rules in [_ai/rules/](_ai/rules/) load by path: [python.md](_ai/rules/python.md), [sql.md](_ai/rules/sql.md), [report.md](_ai/rules/report.md).
 
@@ -101,22 +111,22 @@ File rules in [_ai/rules/](_ai/rules/) load by path: [python.md](_ai/rules/pytho
 | Path | Purpose |
 |---|---|
 | [AGENTS.md](AGENTS.md) | Core rules for every chat |
-| `_ai/agents/` | Helper and `orchestrator` definitions; `_core.md` is prepended to each helper |
+| `_ai/agents/` | Helper definitions; `_core.md` is prepended to each |
 | `_ai/skills/` | The 6 skills above |
 | `_ai/rules/` | Path-scoped rules for Python, SQL and reports |
 | `_ai/profiles/` | `home` and `work` |
-| `_ai/tools/` | Per-tool notes: Claude Code (added to `CLAUDE.local.md`), Kiro (name map) |
+| `_ai/tools/` | Per-tool notes: Claude Code (added to `CLAUDE.local.md`), Kiro (name map), Copilot (name map and safety, in `copilot-instructions.md`) |
 | `_ai/templates/` | Project skeletons (`common`, `app`, `data-eng`) and `report.md` |
-| [_ai/sync.mjs](_ai/sync.mjs) | Generates `.claude/`, `.kiro/` and the local profile files; `--check` verifies they are current and every link resolves |
+| [_ai/sync.mjs](_ai/sync.mjs) | Generates the selected tools' files and the local profile files; `--check` verifies they are current, flags files of dropped tools and checks every link |
 | [_ai/report.mjs](_ai/report.mjs) | Markdown → one HTML report; `--edit <file.html>` restores the Markdown |
 | [_ai/new-project.mjs](_ai/new-project.mjs) | Creates a project folder from a template; never overwrites |
-| [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) | Pre-tool guard for Claude Code and Kiro |
+| [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) | Pre-tool guard for Claude Code, Kiro and Copilot |
 | `docs/` | Plans and reports about this setup |
-| `.claude/`, `.kiro/`, `CLAUDE.local.md` | Generated and gitignored; never edit |
+| `.claude/`, `.kiro/`, `.github/`, `CLAUDE.local.md`, `.ai-device.json` | Generated and gitignored; never edit |
 
 ## Change the setup
 
-1. Edit `AGENTS.md` or `_ai/`, never `.claude/` or `.kiro/`.
+1. Edit `AGENTS.md` or `_ai/`, never the generated files.
 2. Run:
    ```powershell
    node _ai/sync.mjs
