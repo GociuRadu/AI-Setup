@@ -13,11 +13,11 @@ Data-engineering project. Stable facts only. Created {{DATE}}. Mark unverified i
 
 ## Guardrails
 
-- Databases: the core rules in `AGENTS.md` (Databases section). DEV: <server/db>.
-- PRODUCTION <server/db>: never, not even reads.
-- Tests: synthetic data only; they write only to their disposable local container, database name ending in `_test`.
+- DEV: <server/db>.
+- PRODUCTION: <server/db>.
+- Tests: test database `{{project}}_test` in the disposable local container.
 - Never open: <secret files, e.g. local.env, .test.env>; input workbooks in `code/Data/`.
-- Never run: loaders, notebooks, pipelines, triggers <and other writers or endpoints>; the agent drafts their run steps.
+- Never run: <project-specific writers or endpoints>.
 
 ## Commands
 
@@ -34,7 +34,6 @@ Run from `{{PROJECT}}/code`. Local runner: [local/README.md](../../code/local/RE
 
 - The tiers the change touches pass locally; a wrong-data fix has a test with the failing case.
 - A new or changed load: rerun is idempotent, `docs/ai/runbooks/<name>.md` exists and is linked in the Asset index, and decisions are recorded in `memory.md`.
-- DDL, repairs and DEV runs are drafts for the user with expected rows and a rollback; `context.md` matches the new state.
 
 ## Glossary
 

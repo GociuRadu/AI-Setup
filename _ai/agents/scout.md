@@ -4,6 +4,7 @@ description: "Read-only search: many files, long logs or the public web. Returns
 model: haiku
 reasoning-effort: low
 tools: [read, search, web]
+sections: [Every agent, Secrets and data]
 ---
 Find evidence; don't decide, don't edit.
 - Start from the paths, symbols or errors in the brief; read only the relevant parts; stop once you have the answer.

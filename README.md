@@ -1,11 +1,12 @@
 # AI setup
 
-One set of rules, skills and helper agents for a workspace with several projects. The source lives in `AGENTS.md` and `_ai/`; `node _ai/sync.mjs` generates the files Claude Code and Kiro read.
+One set of rules, skills and helper agents for a workspace with several projects. The source is `AGENTS.md` and `_ai/`; `node _ai/sync.mjs` generates the files Claude Code, Kiro and GitHub Copilot read, for the tools each device uses.
 
 ```mermaid
 flowchart LR
   S["AGENTS.md + _ai/ (source, in Git)"] -->|node _ai/sync.mjs| C[".claude/ + CLAUDE.local.md (Claude Code)"]
   S -->|node _ai/sync.mjs| K[".kiro/ (Kiro)"]
+  S -->|node _ai/sync.mjs| G[".github/ agents, skills, instructions, hooks (Copilot)"]
   S -->|node _ai/new-project.mjs| P["&lt;project&gt;/docs/ai"]
 ```
 
@@ -15,16 +16,25 @@ Requires Git and Node.js 22+ (the test command uses `node --test` globs).
 
 ```powershell
 git clone https://github.com/GociuRadu/AI-Setup work; cd work
-node _ai/sync.mjs home      # or: work. Writes .claude/, .kiro/, CLAUDE.local.md and prints "synced ..."
+node _ai/sync.mjs home --tools claude,kiro     # home PC
+node _ai/sync.mjs work --tools copilot,kiro    # work laptop
 node --test "_ai/**/*.test.mjs"
 ```
 
-Open the `work` folder (not a project folder) in VS Code, Claude Code or Kiro. Later `sync` runs remember the profile.
+Open the `work` folder (not a project folder) in VS Code, Claude Code or Kiro. `.ai-device.json` (local) remembers the profile and tools, so later runs need no arguments; pass them again to change. Dropping a tool deletes its generated files, `.claude/settings.local.json` included.
 
-| Profile | Approvals | Kiro mode |
+| Profile | Agent behavior | Set in the tools |
 |---|---|---|
-| `home` | None, except the hard limits below | Autopilot |
-| `work` | Every action except reads asks first; no Git writes unless asked, never push | Supervised |
+| `home` | Acts without asking, within `AGENTS.md` ([home.md](_ai/profiles/home.md)) | Kiro: Autopilot |
+| `work` | Asks before anything but reads ([work.md](_ai/profiles/work.md)) | Kiro: Supervised; Claude Code and Copilot: approvals on |
+
+| Tool | Generated files |
+|---|---|
+| `claude` | `.claude/`, `CLAUDE.local.md` |
+| `kiro` | `.kiro/` |
+| `copilot` | `.github/agents/`, `.github/skills/`, `.github/instructions/`, `.github/hooks/guard.json`, `.github/copilot-instructions.md` |
+
+A sync replaces these paths whole; your other files under `.github/` (workflows, for example) stay. Do not select `claude` and `copilot` on the same device: Copilot also reads `.claude/` and `CLAUDE.md` files.
 
 ## Start a project
 
@@ -33,90 +43,56 @@ node _ai/new-project.mjs <Name> --template app        # docs/ai only; clone the 
 node _ai/new-project.mjs <Name> --template data-eng   # also a local data-engineering skeleton in code/; run git init there
 ```
 
-`--dest <dir>` creates the folder elsewhere; an existing folder is never overwritten.
-
-Each project gets `docs/ai/`, which the AI reads and keeps current:
-
-| File | Holds | Who updates it |
-|---|---|---|
-| `project.md` | Stack, commands, guardrails, asset index | You, once; the AI when assets change |
-| `context.md` | Current state and open work, under 40 lines | The AI, whenever a task starts, finishes or blocks |
-| `memory.md` | Decisions (with a **Review** date or trigger), lessons, non-obvious bugs | The AI; `plan` flags decisions whose review is due |
-| `plans/` | One plan file per large task | The `plan` skill |
-| `reports/` | HTML reports built by `node _ai/report.mjs` | The `review` and `data` skills, on request |
+`--dest <dir>` creates the folder elsewhere; an existing folder is never overwritten. Fill `docs/ai/project.md` once (stack, commands, DEV and PRODUCTION names); the AI keeps the rest of `docs/ai/` current: `context.md` (state and open work), `memory.md` (decisions and non-obvious bugs), `plans/` and `reports/`.
 
 ## Daily use
 
-Chats run on Sonnet. Type a skill as `/<name>` or just describe the task; the description routes it.
+Type a skill as `/<name>` or describe the task; the skill's description routes it. For design work, switch the chat model to Opus.
 
-| You want to | Use |
+| Skill | Use it to |
 |---|---|
-| Ask a question, make a small change | Normal chat |
-| Design something or build a large task (3+ files, schema, auth, migration) | `/plan <goal>` |
-| Split work across helpers from a normal chat | `/delegate <task>` |
-| Long design or multi-step work on Opus | `claude --agent orchestrator` |
-| Review code, find a bug, explain a flow, list shortcuts | `/review [review \| bug \| analyze \| debt] <scope>` |
-| Tables, DDL, loads, pipelines, Spark notebooks | `/data <task>` |
-| Read or update a project Confluence page | `/confluence-project <link> <change>` |
-| Continue in a new chat | `/handoff` |
+| `/plan <goal>` | Design something or start a large task; writes a plan file |
+| `/delegate <task>` | Split work across the helpers |
+| `/review [review \| bug \| analyze \| debt] <scope>` | Review code, find a bug, explain a flow, list shortcuts |
+| `/data <task>` | Tables, DDL, loads, pipelines, Spark notebooks |
+| `/confluence-project <link> <change>` | Read or update a project Confluence page |
+| `/handoff` | Continue in a new chat |
 
-### Skills
+Helpers are subagents the chat starts through `delegate`, each defined in [_ai/agents/](_ai/agents/): `scout` searches, `tester` runs tests, `worker` implements a spec, `reviewer` reviews, `challenger` gives a second opinion on a design choice.
 
-| Skill | What it does |
-|---|---|
-| `plan` | Reads the code and `memory.md`, writes `docs/ai/plans/YYYY-MM-DD-<topic>.md` (goal, Done when, options, steps, risks), runs `reviewer` on risky plans and `challenger` on expensive choices, then asks only the questions that change the design. |
-| `delegate` | Sends the token-heavy work to helpers and runs each step through do → check → review → mark done from real output. 2 failed fix rounds stop the loop. |
-| `review` | 4 modes. `review`: findings only, fixes nothing. `bug`: reproduces first, then tests ranked hypotheses. `analyze`: explains a file, flow or question. `debt`: lists shortcuts. Answers in chat; writes an HTML report when asked. |
-| `data` | Data models, DDL, migrations, ingestion and load pipelines on Azure SQL, Synapse Spark or local SQL Server/PySpark. Drafts every write for you to run; records decisions and runbooks. |
-| `handoff` | Prints one paste-ready brief for a new chat or another agent. Writes no files. |
-| `confluence-project` | Reads, answers about or writes the project's Confluence pages. |
+## Safety layers
 
-### Helpers
+The rules are in [AGENTS.md](AGENTS.md). What enforces them:
 
-Helpers are subagents that start without this chat's context; you or `orchestrator` brief them through `delegate`. Built-in subagents are denied.
-
-| Helper | Model | Does | Edits files |
+| Layer | Claude Code | Kiro | Copilot |
 |---|---|---|---|
-| `scout` | Haiku | Searches many files, long logs or the web; returns evidence | No |
-| `tester` | Haiku | Runs tests and lint from `project.md`; returns pass/fail counts | No |
-| `worker` | Sonnet | Implements a precise spec and its tests; makes no design choices | Yes |
-| `reviewer` | Sonnet | Fresh-eyes review of a change, folder or plan | No |
-| `challenger` | Sonnet | Second opinion on one expensive choice; picks its own option before reading yours | No |
-| `orchestrator` | Opus | Designs, writes specs, verifies; the only helper that can start other helpers | Yes |
+| Guard hook | Yes | Yes | Yes; Preview, a timeout allows the call |
+| Deny list | Yes | No | No |
+| Safety rules as text | `AGENTS.md` | `AGENTS.md` | `AGENTS.md`, copied into `copilot-instructions.md` |
+| English reminder on each prompt | Hook | Hook | Rule text only |
 
-## Rules and safety
-
-[AGENTS.md](AGENTS.md) holds the rules every chat follows: replies, workspace files, autonomy, models, code, databases, hard stops and secrets. The **Databases**, **Hard stops** and **Secrets** sections apply in both profiles:
-
-- **Databases:** read-only queries on local Docker and DEV only; every write, DDL or load is a draft with expected rows and a rollback. PRODUCTION: nothing, not even reads.
-- **Hard stops:** production or staging, deploys, SSH, force-push and `down -v` run only by you.
-- **Secrets:** no `.env`-style files or tokens; no customer data in docs or memory.
-
-[_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) enforces part of this before every shell, read and write tool call in both tools: it blocks writing SQL sent through a database client, the hard stops, `.env` files (even when you name one; open it yourself) and `personal/`. It only sees command text and paths, so code that opens its own connection is not checked. Claude Code settings also deny the Hostinger `execute` tools and Atlassian `executeDestructive`.
-
-File rules in [_ai/rules/](_ai/rules/) load by path: [python.md](_ai/rules/python.md), [sql.md](_ai/rules/sql.md), [report.md](_ai/rules/report.md).
+[_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) runs before every shell, read and write tool call. It blocks writing SQL sent through a database client, the hard stops, `.env`-style files and `personal/`; if it cannot load, it blocks (fails closed). It sees only command text and paths, so code that opens its own connection is not checked, and an inline script whose text names a hard stop or `personal` is blocked too: put such a script in a file. Copilot is the weakest layer: on `work`, keep its approvals on.
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Core rules for every chat |
-| `_ai/agents/` | Helper and `orchestrator` definitions; `_core.md` is prepended to each helper |
+| [AGENTS.md](AGENTS.md) | Rules for every chat; helpers get the sections they list |
+| `_ai/agents/` | Helpers; `_core.md` starts each one, `sections:` names the `AGENTS.md` sections it gets |
 | `_ai/skills/` | The 6 skills above |
-| `_ai/rules/` | Path-scoped rules for Python, SQL and reports |
+| `_ai/rules/` | Rules loaded by file path: Python, SQL, reports |
 | `_ai/profiles/` | `home` and `work` |
-| `_ai/tools/` | Per-tool notes: Claude Code (added to `CLAUDE.local.md`), Kiro (name map) |
-| `_ai/templates/` | Project skeletons (`common`, `app`, `data-eng`) and `report.md` |
-| [_ai/sync.mjs](_ai/sync.mjs) | Generates `.claude/`, `.kiro/` and the local profile files; `--check` verifies they are current and every link resolves |
+| `_ai/tools/` | What differs per tool: Claude Code (in `CLAUDE.local.md`), Kiro, Copilot (in `copilot-instructions.md`) |
+| `_ai/templates/` | Project skeletons (`common`, `app`, `data-eng`) and the report skeleton |
+| [_ai/sync.mjs](_ai/sync.mjs) | Generates the selected tools' files; `--check` verifies they are current and every link resolves |
 | [_ai/report.mjs](_ai/report.mjs) | Markdown → one HTML report; `--edit <file.html>` restores the Markdown |
-| [_ai/new-project.mjs](_ai/new-project.mjs) | Creates a project folder from a template; never overwrites |
-| [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) | Pre-tool guard for Claude Code and Kiro |
+| [_ai/new-project.mjs](_ai/new-project.mjs) | Creates a project folder from a template |
 | `docs/` | Plans and reports about this setup |
-| `.claude/`, `.kiro/`, `CLAUDE.local.md` | Generated and gitignored; never edit |
+| `.claude/`, `.kiro/`, `.github/`, `CLAUDE.local.md`, `.ai-device.json` | Generated and gitignored |
 
 ## Change the setup
 
-1. Edit `AGENTS.md` or `_ai/`, never `.claude/` or `.kiro/`.
+1. Edit `AGENTS.md` or `_ai/`.
 2. Run:
    ```powershell
    node _ai/sync.mjs
@@ -126,6 +102,8 @@ File rules in [_ai/rules/](_ai/rules/) load by path: [python.md](_ai/rules/pytho
 3. Start a new chat so the tools reload, then commit.
 
 - **New skill:** `_ai/skills/<name>/SKILL.md` with `name` (same as the folder) and `description` (when to use it); link shared files by workspace path (`_ai/...`).
+- **New helper:** `_ai/agents/<name>.md` with `name`, `description`, `model` (`haiku`, `sonnet`, `opus`), `tools` (`read`, `search`, `web`, `edit`, `execute`) and `sections`; add it to the `delegate` table.
+- **`AGENTS.md` sections** copied into helpers must read right without the chat (a test rejects "this chat"). Renaming a section: update every `sections:` list (sync fails on an unknown name); keep `Databases`, whose anchor the `data` skill links.
 - **New PRODUCTION host:** add it to the hard stops in [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) and its test.
 
 ## Sources
