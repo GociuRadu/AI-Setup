@@ -1,8 +1,8 @@
 // Generates the Claude Code, Kiro and GitHub Copilot setup from one source (AGENTS.md + _ai/).
 //   node _ai/sync.mjs [home|work] [--tools claude,kiro,copilot]   write the chosen tools' files (profile and tools: remembered in .ai-device.json)
 //   node _ai/sync.mjs --check       exit 1 when a generated file is missing, stale or extra, or a link is broken
-// Source: _ai/agents (all get _core.md first), _ai/skills, _ai/rules (applyTo), _ai/tools/<tool>.md, _ai/profiles.
-// Local, gitignored: .ai-device.json (profile and tools of this device), CLAUDE.local.md, .claude/settings.local.json (permission mode; other keys kept), .kiro/steering/profile.md.
+// A source's `sections: [...]` frontmatter copies those `## ` sections of AGENTS.md into its output, for readers that do not load AGENTS.md.
+// .claude/settings.local.json is local: sync sets the permission mode and keeps its other keys.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -47,6 +47,16 @@ export function parse(text) {
   }
   return { meta, body: text.slice(m[0].length) };
 }
+// The named `## ` sections of AGENTS.md, in the order given; an unknown name throws so a renamed section cannot drop rules.
+export function sections(names = [], src) {
+  const all = read('AGENTS.md').split(/^(?=## )/m);
+  return names.map((n) => {
+    const s = all.find((p) => p.startsWith(`## ${n}\n`));
+    if (!s) throw new Error(`${src}: AGENTS.md has no section "${n}"`);
+    return s.trimEnd() + '\n';
+  }).join('\n');
+}
+
 const yaml = (meta) => `---\n${Object.entries(meta).map(([k, v]) => `${k}: ${Array.isArray(v) || !/^[\w.-]+$/.test(v) ? JSON.stringify(v) : v}`).join('\n')}\n---\n`;
 
 // Rewrites relative links from a source file so they resolve from its generated copy.
@@ -105,7 +115,9 @@ export function build(profile, tools = TOOL_NAMES) {
   const agents = walk('_ai/agents').filter((f) => f.endsWith('.md') && !f.endsWith('/_core.md'));
   for (const src of agents) {
     const { meta, body } = parse(read(src));
-    const prompt = `${core}\n${body}`;
+    const shared = sections(meta.sections, src);
+    const from = meta.sections ? `${src} and AGENTS.md` : src;
+    const prompt = (dest, tool) => relink(`${core}\n${body.trimEnd()}\n`, src, dest, tool) + (shared && `\n${relink(shared, 'AGENTS.md', dest, tool)}`);
     const toolList = (tool) => [...new Set((meta.tools ?? []).flatMap((t) => {
       if (!(t in TOOLS[tool])) throw new Error(`${src}: unknown tool ${t}`);
       return TOOLS[tool][t];
@@ -115,16 +127,16 @@ export function build(profile, tools = TOOL_NAMES) {
     if (on('claude')) {
       const cdest = `.claude/agents/${meta.name}.md`;
       out[cdest] = yaml({ name: meta.name, description: meta.description, model: MODELS.claude[meta.model], ...(effort && { effort }), tools: toolList('claude').join(', '),
-        // agents get _core.md instead of AGENTS.md and CLAUDE.local.md: about 1,400 fewer words per agent start
+        // helpers get _core.md and their `sections:` of AGENTS.md, not all of AGENTS.md and CLAUDE.local.md
         omitClaudeMd: 'true' })
-        + note(src) + relink(prompt, src, cdest, 'claude');
+        + note(from) + prompt(cdest, 'claude');
     }
     if (on('kiro')) {
       const has = (t) => (meta.tools ?? []).includes(t);
       const kdest = `.kiro/agents/${meta.name}.json`;
       out[kdest] = JSON.stringify({
         name: meta.name, description: meta.description, model: MODELS.kiro[meta.model], tools: toolList('kiro'),
-        prompt: relink(prompt, src, kdest, 'kiro'),
+        prompt: prompt(kdest, 'kiro'),
         hooks: [['execute', 'shell'], ['read', 'read'], ['search', 'read'], ['edit', 'write']].filter(([t]) => has(t))
           .map(([, matcher]) => matcher).filter((m, i, a) => a.indexOf(m) === i)
           .map((matcher) => ({ name: `guard ${matcher}`, trigger: 'PreToolUse', matcher, action: { type: 'command', command: GUARD }, timeout: 10 })),
@@ -133,7 +145,7 @@ export function build(profile, tools = TOOL_NAMES) {
     if (on('copilot')) {
       const gdest = `.github/agents/${meta.name}.agent.md`;
       out[gdest] = yaml({ name: meta.name, description: meta.description, tools: toolList('copilot'), model: MODELS.copilot[meta.model], ...(effort && { 'reasoning-effort': effort }) })
-        + note(src) + relink(prompt, src, gdest, 'copilot');
+        + note(from) + prompt(gdest, 'copilot');
     }
   }
 
@@ -169,15 +181,17 @@ export function build(profile, tools = TOOL_NAMES) {
   }
   if (on('copilot')) {
     out['.github/hooks/guard.json'] = JSON.stringify({ hooks: { PreToolUse: [{ type: 'command', command: GUARD, timeout: 10 }] } }, null, 2) + '\n';
-    out['.github/copilot-instructions.md'] = note('_ai/tools/copilot.md') + read('_ai/tools/copilot.md');
+    const src = '_ai/tools/copilot.md', dest = '.github/copilot-instructions.md';
+    const { meta, body } = parse(read(src));
+    out[dest] = note(`${src} and AGENTS.md`) + body + `\n${relink(sections(meta.sections, src), 'AGENTS.md', dest, 'copilot')}`;
   }
 
   if (profile) {
-    const body = read(`_ai/profiles/${profile}.md`);
-    const mark = (tool) => `<!-- profile: ${profile}. Generated by node _ai/sync.mjs from _ai/tools/${tool}.md and _ai/profiles/${profile}.md; edit those. -->\n`;
-    if (on('claude')) out['CLAUDE.local.md'] = `${mark('claude-code')}@AGENTS.md\n\n${read('_ai/tools/claude-code.md')}\n${body}`;
-    if (on('kiro')) out['.kiro/steering/profile.md'] = `---\ninclusion: always\n---\n${mark('claude-code')}${body}`;
-    if (on('copilot')) out['.github/copilot-instructions.md'] += `\n${mark('copilot')}${body}`;
+    const p = `_ai/profiles/${profile}.md`, body = read(p);
+    const mark = (...srcs) => `<!-- profile: ${profile}. Generated by node _ai/sync.mjs from ${srcs.join(' and ')}; edit those. -->\n`;
+    if (on('claude')) out['CLAUDE.local.md'] = `${mark('_ai/tools/claude-code.md', p)}@AGENTS.md\n\n${read('_ai/tools/claude-code.md')}\n${body}`;
+    if (on('kiro')) out['.kiro/steering/profile.md'] = `---\ninclusion: always\n---\n${mark(p)}${body}`;
+    if (on('copilot')) out['.github/copilot-instructions.md'] += `\n${mark(p)}${body}`;
   }
   return out;
 }

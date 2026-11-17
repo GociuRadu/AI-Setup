@@ -9,7 +9,7 @@ Print one brief the user copies into a new chat (Claude Code, Kiro or Copilot). 
 
 - **Self-contained:** the next agent sees none of this chat. Workspace-relative paths; no pasted file content, only the key error line or command.
 - **Facts only:** done means verified, with the command or test that showed it; everything else goes under Not verified.
-- **Short:** at most 40 lines, in English, wrapped in a ````markdown fence so inner code blocks survive.
+- **Short:** at most 40 lines, wrapped in a ````markdown fence so inner code blocks survive.
 
 ```
 # Handoff: <topic>

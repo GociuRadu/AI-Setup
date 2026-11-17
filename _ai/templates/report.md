@@ -1,6 +1,4 @@
-<!-- Report skeleton (rules and scan limits: _ai/rules/report.md).
-     Copy to <project>/docs/ai/reports/YYYY-MM-DD-<kind>-<topic>.md, fill it, delete unused blocks,
-     then run: node _ai/report.mjs <that.md> (writes .html; fix every scan: warning and run again; a clean build deletes the .md). -->
+<!-- Report skeleton: every block the builder renders; delete unused ones. How to use it: _ai/rules/report.md. -->
 # Analyze: <topic>
 | Date | Scope | Status |
 |---|---|---|
@@ -14,7 +12,6 @@
 
 **Decide first:** <the one decision or question that unblocks the rest, 1 sentence; omit when none remains>
 
-<!-- Findings: one card each, High then Medium then Low. More than ~6: cards for High/Medium, the rest in one table. -->
 ### High · <the problem, stated as a fact>
 - **Problem:** <one concrete case>
 - **Fix:** <one sentence>
@@ -27,7 +24,6 @@
 - **Context:** <the example or number that makes it concrete>
 - **Proposal:** <our recommended answer>
 
-<!-- Headings state the conclusion, not the topic. Prefer a diagram or table over prose. -->
 ## <Today X happens; after the change Y>
 ```compare
 Today: <fact>; <fact>; <fact>
@@ -72,7 +68,6 @@ code/
 | <part> | <one fact> | `path:line` |
 
 ## Next steps
-<!-- Real work only, smallest first. No meta steps (send this report, read this report). -->
 | # | Action | Needs |
 |---|---|---|
 | 1 | <action> | <dependency> |

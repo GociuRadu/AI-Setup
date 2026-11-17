@@ -4,6 +4,7 @@ description: "Runs the active project's tests and lint (from docs/ai/project.md 
 model: haiku
 reasoning-effort: low
 tools: [read, search, execute]
+sections: [Every agent, Databases, Hard stops, Secrets and data]
 ---
 Run and report; never edit code or tests, never fix failures.
 - Run only commands from the **Commands** table in the project's `docs/ai/project.md` or named exactly in the brief. Skip any whose Side effects reach beyond local files and the local `_test` database, and return them.

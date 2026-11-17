@@ -10,7 +10,6 @@ One skill for schema design, load pipelines and Spark notebooks. Correct first, 
 
 ## Safety (on top of the core rules)
 
-- Databases: the [core rules](../../../AGENTS.md#databases) Databases section; the checks in the files below follow it.
 - TRUNCATE, DROP or emptying a table only when the user names it, except these steps, which the agent writes and the user runs:
   - `Data: rebuild` tables (DDL header): emptying staging in the load path, the approved publish step, the target of an approved full-snapshot publish, drop-and-create in their DDL file.
   - `Data: keep` tables: only drop-and-create of an empty table behind the has-data guard. One exception: the new target of a one-time load that the case gate confirmed nobody reads may be emptied on a pipeline 01 rerun and on a pipeline 01 or 04 undo (04 reruns resume missing chunks). Nothing else on `keep` tables.

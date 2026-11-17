@@ -13,6 +13,6 @@ Readers scan, they do not read: the first screen must answer the question.
 - `##` headings state the conclusion and its first 2 words carry it (`## The index runs on SDK defaults`, not `## Index` or `## Overview`). Every section has a picture: a diagram block, a table or numbered steps. Paragraphs: at most 2 sentences and 50 words.
 - Cut restated facts, meta steps ("send this report"), empty sections and options nobody asked about.
 - Findings: `### High · <statement>` with `**Problem:**`, `**Fix:**`, `**If skipped:**`, `**Where:**`. High = wrong or lost data, security, outage with no workaround; Medium = degraded, workaround exists; Low = minor. More than ~6: cards for High and Medium, the rest in a `| # | Sev | Where | Problem | Fix |` table.
-- One fact per table row with evidence (`path:line`, URL, command); key column first, at most 5 columns. Unverified: `**U**` and what would confirm it.
+- One fact per table row with evidence (`path:line`, URL, command). Unverified: `**U**` and what would confirm it.
 - Diagrams only through the template's blocks (`graph`, `flow`, `bars`, `compare`, `seq`, `tree`), not Mermaid.
 - Next steps: `| # | Action | Needs |`, real work only, smallest first.

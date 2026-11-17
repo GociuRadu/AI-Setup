@@ -13,9 +13,9 @@ Application/service project. Stable facts only. Created {{DATE}}. Mark unverifie
 
 ## Guardrails
 
-- Databases: the core rules in `AGENTS.md` (Databases section). DEV: <server/db>.
-- PRODUCTION <servers, databases, hosting>: never, not even reads.
-- Tests: isolated settings <required local services>; they write only to their disposable local container, database name ending in `_test`.
+- DEV: <server/db>.
+- PRODUCTION: <servers, databases, hosting>.
+- Tests: isolated settings <required local services>; test database `<name>_test` in a disposable local container.
 - Never open: <secret files, private data>
 - Never run: <state-changing endpoints, live integrations, deploy and release scripts>
 
@@ -34,11 +34,11 @@ Run from `{{PROJECT}}/code`.
 
 - Unit tests and lint pass; a bug fix has a test that failed before it.
 - API or schema change: callers and migrations updated, backward compatible or the break named.
-- `context.md` matches the new state; a commit message and any run steps are ready (who commits: the device profile).
+- A commit message and any run steps are ready (who commits: the device profile).
 
 ## Release and rollback
 
-- Release: <who deploys, how, where it is described>; the agent never deploys.
+- Release: <who deploys, how, where it is described>.
 - Rollback: <previous version, feature flag or down migration>; a migration without a rollback is named in the change.
 
 ## Glossary
