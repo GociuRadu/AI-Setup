@@ -16,7 +16,7 @@ Rules for Claude Code and Kiro. Project files add facts, never weaker rules.
 - One folder per project; `<project>/code/` is its Git repo. `.claude/` and `.kiro/` are generated from `_ai/` by `node _ai/sync.mjs`; never edit them. Never touch `personal/`.
 - Active project = folder of the files in scope; if unclear, ask once. Before project work read `<project>/docs/ai/project.md`. Any `code/AGENTS.md` also applies; the stricter rule wins.
 - `docs/ai/context.md` = current state and open work (under 40 lines): read it when continuing work. When a task starts, finishes or blocks, or a decision changes the state, replace its stale lines in the same turn; never list that as left to do.
-- `docs/ai/memory.md` = decisions and non-obvious bugs: check it before a design choice or a bug hunt; merge into existing rows.
+- `docs/ai/memory.md` = decisions and non-obvious bugs: check it before a design choice or a bug hunt; merge into existing rows; mark a replaced decision `superseded`, never delete it. A decision resting on an assumption gets a Review date or trigger.
 - Reports are HTML files built per [_ai/rules/report.md](_ai/rules/report.md), never by hand.
 
 ## Autonomy
