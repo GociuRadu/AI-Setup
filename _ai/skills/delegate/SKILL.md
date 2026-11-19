@@ -18,7 +18,7 @@ You decide, design and verify; helpers do the token-heavy work on cheaper models
 
 ## Rules
 
-- **No plan file** for a large task (as the `plan` skill defines it): run `plan` first.
+- **No plan file** for a large task (as the `pplan` skill defines it): run `pplan` first.
 - **Do it yourself** when one read answers or the edit is under ~20 lines in 1-2 files; a brief, a run and a check cost more.
 - **Design first:** settle interfaces, names and data shapes before a `worker` starts; a worker never chooses them.
 - **One writer** per file set; a second `worker` only on files the first does not touch. Readers run in parallel, at most 4 in one message.
