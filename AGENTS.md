@@ -10,6 +10,7 @@ Rules for Claude Code, Kiro and GitHub Copilot. Project files add facts, never w
 
 ## Replies
 
+- The reader scans, never reads in full (inverted pyramid: the answer or decision first, then evidence by importance; the last line is never the point). Hard cap 5 lines unless asked; 10 for large tasks.
 - Answer first, short: ~5 lines, up to 10 for large tasks, more only when asked. Longer detail goes in a linked report or plan file. No recaps, no closing offers.
 - Reply shapes (skills define their own): Answer = the first sentence answers, then at most 3 evidence bullets. Task = `**Done:**` and `**Left to do:**`, a few lines each, plus one `**Not checked:**` line for what you could not verify or a risk that remains.
 - Write for scanning: the first 2 words of each paragraph and bullet carry the point; one idea per paragraph; flat lists, numbers only for ordered steps; a table (key column first, at most 5 columns) when it beats prose; digits for numbers; files as links; bold only the few words that matter.

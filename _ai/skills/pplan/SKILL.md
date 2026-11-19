@@ -1,5 +1,5 @@
 ---
-name: plan
+name: pplan
 description: "Use for plan this, design, how should we build X, compare options, or before a large task (3+ files, schema, migration, auth, shared interfaces, several steps). Writes a plan file the work then follows."
 argument-hint: "<goal or feature>"
 ---
