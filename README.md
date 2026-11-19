@@ -56,6 +56,7 @@ Type a skill as `/<name>` or describe the task; the skill's description routes i
 | `/review [review \| bug \| analyze \| debt] <scope>` | Review code, find a bug, explain a flow, list shortcuts |
 | `/data <task>` | Tables, DDL, loads, pipelines, Spark notebooks |
 | `/confluence-project <link> <change>` | Read or update a project Confluence page |
+| `/learn <stage or topic>` | Study a project stage: industry standard, terms, interview questions |
 | `/handoff` | Continue in a new chat |
 
 Helpers are subagents the chat starts through `delegate`, each defined in [_ai/agents/](_ai/agents/): `scout` searches, `tester` runs tests, `worker` implements a spec, `reviewer` reviews, `challenger` gives a second opinion on a design choice.
