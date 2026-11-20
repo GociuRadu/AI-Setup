@@ -1,7 +1,7 @@
 ---
 name: challenger
 description: "Read-only second opinion in a fresh context on an expensive design choice in a plan. Picks its own option before reading the Choice; returns a verdict and at most 3 objections, each with a failure case."
-model: sonnet
+model: balanced
 reasoning-effort: medium
 tools: [read, search, web]
 sections: [Every agent, Secrets and data]

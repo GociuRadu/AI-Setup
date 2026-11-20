@@ -4,7 +4,9 @@
 // A source's `sections: [...]` frontmatter copies those `## ` sections of AGENTS.md into its output, for readers that do not load AGENTS.md.
 // .claude/settings.local.json is local: sync sets the permission mode and keeps its other keys.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { join, dirname, resolve, relative, posix } from 'node:path';
+import { join, dirname, resolve, posix } from 'node:path';
+import { createHash } from 'node:crypto';
+import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,6 +17,8 @@ const walk = (d, base = ROOT) => existsSync(join(base, d))
 const note = (src) => `<!-- Generated from ${src} by node _ai/sync.mjs; edit the source. -->\n`;
 
 const TOOL_NAMES = ['claude', 'kiro', 'copilot'];
+const CLAUDE_ISOLATION = ['worktree'];
+const CLAUDE_MEMORY = ['user', 'project', 'local'];
 // Generated paths per tool; sync replaces them whole, --check flags extra files in them. Never .github itself: user files live there.
 const MANAGED = {
   claude: ['.claude/agents', '.claude/skills', '.claude/rules', '.claude/settings.json', 'CLAUDE.local.md'],
@@ -22,16 +26,54 @@ const MANAGED = {
   copilot: ['.github/agents', '.github/skills', '.github/instructions', '.github/hooks/guard.json', '.github/copilot-instructions.md'],
 };
 const PROFILES = ['home', 'work'];
-const MODELS = {
-  claude: { haiku: 'haiku', sonnet: 'sonnet', opus: 'opus' },
-  kiro: { haiku: 'claude-haiku-5.5', sonnet: 'claude-sonnet-5.5', opus: 'claude-opus-5.5' },
-  copilot: { haiku: 'Claude Haiku 5.5 (copilot)', sonnet: 'Claude Sonnet 5.5 (copilot)', opus: 'Claude Opus 5.5 (copilot)' },
-};
+const TIERS = ['fast', 'balanced', 'deep'];
 const TOOLS = {
   claude: { read: ['Read'], search: ['Grep', 'Glob'], web: ['WebSearch', 'WebFetch'], edit: ['Edit', 'Write'], execute: ['Bash', 'PowerShell'] },
   kiro: { read: ['read'], search: ['glob', 'grep'], web: ['web_search', 'web_fetch'], edit: ['write'], execute: ['shell'] },
   copilot: { read: ['read'], search: ['search'], web: ['web'], edit: ['edit'], execute: ['execute'] },
 };
+
+function mergeModels(base, override) {
+  const out = {};
+  for (const t of TOOL_NAMES) {
+    const b = base?.[t] ?? {}, o = override?.[t] ?? {};
+    out[t] = {
+      tiers: { ...b.tiers, ...o.tiers },
+      agents: { ...b.agents, ...o.agents },
+      ...((o.default ?? b.default) && { default: o.default ?? b.default }),
+      ...((o.subagentDefault ?? b.subagentDefault) && { subagentDefault: o.subagentDefault ?? b.subagentDefault }),
+    };
+  }
+  return out;
+}
+
+// Loads per-tool model profiles from _ai/models.json and merges optional local overrides (e.g. from .ai-device.json).
+export function loadModels(override) {
+  let base;
+  try { base = JSON.parse(read('_ai/models.json')); }
+  catch { throw new Error('_ai/models.json is not valid JSON'); }
+  const merged = mergeModels(base, override);
+  for (const t of TOOL_NAMES) {
+    for (const tier of TIERS) {
+      if (typeof merged[t].tiers[tier] !== 'string' || !merged[t].tiers[tier].trim()) {
+        throw new Error(`_ai/models.json: ${t}.tiers.${tier} must be a non-empty string`);
+      }
+    }
+    for (const [agent, val] of Object.entries(merged[t].agents)) {
+      if (typeof val !== 'string' || !val.trim()) throw new Error(`_ai/models.json: ${t}.agents.${agent} must be a non-empty string`);
+    }
+  }
+  return merged;
+}
+
+// Resolves a tier name (fast|balanced|deep) or literal model ID for one tool, honoring per-agent overrides.
+export function resolveModel(models, tool, tier, agentName, src = '_ai/models.json') {
+  const cfg = models[tool];
+  const raw = agentName && cfg.agents?.[agentName] ? cfg.agents[agentName] : tier;
+  if (raw in cfg.tiers) return cfg.tiers[raw];
+  if (agentName && cfg.agents?.[agentName]) return raw;
+  throw new Error(`${src}: unknown model tier ${tier} (expected ${TIERS.join(', ')})`);
+}
 
 // frontmatter: `key: value`, "quoted" strings and [a, b] lists only
 export function parse(text) {
@@ -72,22 +114,20 @@ export function relink(text, src, dest, tool) {
   });
 }
 
-// blocks (exit 2) when guard.mjs cannot load: the guard fails closed
-const GUARD = `node -e "import(require('url').pathToFileURL(require('path').resolve(process.env.CLAUDE_PROJECT_DIR||'','_ai/hooks/guard.mjs')).href).then(m=>m.run(),e=>{console.error('Blocked: the guard hook could not load ('+e.message+'). Fix _ai/hooks/guard.mjs.');process.exit(2)})"`;
-// prompt hook: both tools add its stdout to the context, so the AGENTS.md language rule is repeated on every prompt
-const LANG = `node -e "console.log('Reply in English, even if this message is in Romanian or another language.')"`;
-
-function claudeSettings() {
+function claudeSettings(models) {
   const sh = (p) => [`Bash(${p})`, `PowerShell(${p})`];
   const hostinger = ['vps', 'hosting', 'agency-hosting', 'dns', 'domains', 'wordpress', 'billing', 'reach'].flatMap((s) => [`mcp__hostinger-${s}__execute`, `mcp__hostinger-${s}__multi-execute`]);
+  const c = models.claude;
+  const pick = (v, fallback) => (v && v in c.tiers ? c.tiers[v] : v || c.tiers[fallback]);
   return {
     $schema: 'https://json.schemastore.org/claude-code-settings.json',
-    model: 'sonnet',
-    env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '50', CLAUDE_CODE_SUBAGENT_MODEL: 'haiku' },
+    model: pick(c.default, 'balanced'),
+    env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '60', CLAUDE_CODE_SUBAGENT_MODEL: pick(c.subagentDefault, 'fast') },
     permissions: {
       allow: ['Read', 'Grep', 'Glob'],
       deny: [
-        'Read(**/.env)', 'Read(**/*.env)', 'Edit(**/.env)', 'Edit(**/*.env)', 'Read(./personal/**)', 'Edit(./personal/**)',
+        'Read(**/.env)', 'Read(**/.env.*)', 'Read(**/*.env)', 'Edit(**/.env)', 'Edit(**/.env.*)', 'Edit(**/*.env)',
+        'Read(./personal/**)', 'Edit(./personal/**)', 'Read(**/personal/**)', 'Edit(**/personal/**)',
         'Agent(general-purpose)', 'Agent(Explore)', 'Agent(Plan)',
         ...['git *push*--force*', 'git *push* -f*', 'docker volume rm *', 'docker volume prune*', 'docker system prune*',
           'docker*compose*down*-v*', 'docker*compose*prod*', 'ssh *', 'scp *', 'sftp *'].flatMap(sh),
@@ -95,22 +135,54 @@ function claudeSettings() {
       ],
     },
     hooks: {
-      UserPromptSubmit: [{ hooks: [{ type: 'command', command: LANG }] }],
-      PreToolUse: [{ matcher: 'Bash|PowerShell|Read|Edit|Write|NotebookEdit|Grep|Glob', hooks: [{ type: 'command', command: GUARD }] }],
+      UserPromptSubmit: [{
+        hooks: [{
+          type: 'command',
+          command: 'node',
+          args: ['${CLAUDE_PROJECT_DIR}/_ai/hooks/lang.mjs'],
+          timeout: 10,
+        }],
+      }],
+      PreToolUse: [{
+        matcher: 'Bash|PowerShell|Read|Edit|Write|NotebookEdit|Grep|Glob',
+        hooks: [{
+          type: 'command',
+          command: 'node',
+          args: ['${CLAUDE_PROJECT_DIR}/_ai/hooks/run-guard.mjs'],
+          onFailure: 'block',
+          timeout: 10,
+        }],
+      }],
     },
   };
 }
 
 const kiroHooks = {
-  '.kiro/hooks/guard.json': { version: 'v1', hooks: [['shell', 'Guard shell commands', 'Blocks writing SQL, hard stops and secret reads'], ['read', 'Guard file reads', 'Blocks reading secret files and personal/'], ['write', 'Guard file writes', 'Blocks writing secret files and personal/']]
-    .map(([matcher, name, what]) => ({ name, description: `${what} (_ai/hooks/guard.mjs).`, trigger: 'PreToolUse', matcher, action: { type: 'command', command: GUARD }, timeout: 10 })) },
-  '.kiro/hooks/lang.json': { version: 'v1', hooks: [{ name: 'Reply in English', description: 'Adds a one-line reminder to reply in English to every prompt.', trigger: 'UserPromptSubmit', action: { type: 'command', command: LANG }, timeout: 10 }] },
+  // no `matcher`: Kiro then matches every PreToolUse event (shell, read, grep, glob, write, subagent, mcp)
+  '.kiro/hooks/guard.json': { version: 'v1', hooks: [{ name: 'Guard tool calls', description: 'Blocks hard stops, writing SQL, secret files and personal/; asks on deletes, Git writes, external CLI and mutating MCP (_ai/hooks/guard.mjs).', trigger: 'PreToolUse', action: { type: 'command', command: 'node _ai/hooks/run-guard.mjs' }, timeout: 10 }] },
+  '.kiro/hooks/lang.json': { version: 'v1', hooks: [{ name: 'Reply in English', description: 'Adds a one-line reminder to reply in English to every prompt.', trigger: 'UserPromptSubmit', action: { type: 'command', command: 'node _ai/hooks/lang.mjs' }, timeout: 10 }] },
 };
 
+export function claudeAgentMeta(meta, tools, src, models = loadModels()) {
+  const effort = meta['reasoning-effort'];
+  if (meta.isolation && !CLAUDE_ISOLATION.includes(meta.isolation)) throw new Error(`${src}: unknown isolation ${meta.isolation}`);
+  if (meta.memory && !CLAUDE_MEMORY.includes(meta.memory)) throw new Error(`${src}: unknown memory ${meta.memory}`);
+  return {
+    name: meta.name, description: meta.description, model: resolveModel(models, 'claude', meta.model, meta.name, src),
+    ...(effort && { effort }),
+    ...(meta.isolation && { isolation: meta.isolation }),
+    ...(meta.memory && { memory: meta.memory }),
+    tools: tools.join(', '),
+    // helpers get _core.md and their `sections:` of AGENTS.md, not all of AGENTS.md and CLAUDE.local.md
+    omitClaudeMd: 'true',
+  };
+}
+
 // Every generated file as { path: text }.
-export function build(profile, tools = TOOL_NAMES) {
+export function build(profile, tools = TOOL_NAMES, modelOverrides) {
   const out = {};
   const on = (t) => tools.includes(t);
+  const models = loadModels(modelOverrides);
   const core = read('_ai/agents/_core.md');
   const agents = walk('_ai/agents').filter((f) => f.endsWith('.md') && !f.endsWith('/_core.md'));
   for (const src of agents) {
@@ -122,29 +194,23 @@ export function build(profile, tools = TOOL_NAMES) {
       if (!(t in TOOLS[tool])) throw new Error(`${src}: unknown tool ${t}`);
       return TOOLS[tool][t];
     }))];
-    if (!MODELS.claude[meta.model]) throw new Error(`${src}: unknown model ${meta.model}`);
+    if (!TIERS.includes(meta.model)) throw new Error(`${src}: unknown model ${meta.model}`);
     const effort = meta['reasoning-effort'];
     if (on('claude')) {
       const cdest = `.claude/agents/${meta.name}.md`;
-      out[cdest] = yaml({ name: meta.name, description: meta.description, model: MODELS.claude[meta.model], ...(effort && { effort }), tools: toolList('claude').join(', '),
-        // helpers get _core.md and their `sections:` of AGENTS.md, not all of AGENTS.md and CLAUDE.local.md
-        omitClaudeMd: 'true' })
-        + note(from) + prompt(cdest, 'claude');
+      out[cdest] = yaml(claudeAgentMeta(meta, toolList('claude'), src, models)) + note(from) + prompt(cdest, 'claude');
     }
     if (on('kiro')) {
-      const has = (t) => (meta.tools ?? []).includes(t);
       const kdest = `.kiro/agents/${meta.name}.json`;
       out[kdest] = JSON.stringify({
-        name: meta.name, description: meta.description, model: MODELS.kiro[meta.model], tools: toolList('kiro'),
+        name: meta.name, description: meta.description, model: resolveModel(models, 'kiro', meta.model, meta.name, src), tools: toolList('kiro'),
         prompt: prompt(kdest, 'kiro'),
-        hooks: [['execute', 'shell'], ['read', 'read'], ['search', 'read'], ['edit', 'write']].filter(([t]) => has(t))
-          .map(([, matcher]) => matcher).filter((m, i, a) => a.indexOf(m) === i)
-          .map((matcher) => ({ name: `guard ${matcher}`, trigger: 'PreToolUse', matcher, action: { type: 'command', command: GUARD }, timeout: 10 })),
+        hooks: [{ name: 'guard', trigger: 'PreToolUse', action: { type: 'command', command: 'node _ai/hooks/run-guard.mjs' }, timeout: 10 }],
       }, null, 2) + '\n';
     }
     if (on('copilot')) {
       const gdest = `.github/agents/${meta.name}.agent.md`;
-      out[gdest] = yaml({ name: meta.name, description: meta.description, tools: toolList('copilot'), model: MODELS.copilot[meta.model], ...(effort && { 'reasoning-effort': effort }) })
+      out[gdest] = yaml({ name: meta.name, description: meta.description, tools: toolList('copilot'), model: resolveModel(models, 'copilot', meta.model, meta.name, src), ...(effort && { 'reasoning-effort': effort }) })
         + note(from) + prompt(gdest, 'copilot');
     }
   }
@@ -174,13 +240,20 @@ export function build(profile, tools = TOOL_NAMES) {
     if (on('copilot')) out[`.github/instructions/${name.replace(/\.md$/, '.instructions.md')}`] = `---\napplyTo: ${JSON.stringify(meta.applyTo)}\n---\n${note(src)}${body}`;
   }
 
-  if (on('claude')) out['.claude/settings.json'] = JSON.stringify(claudeSettings(), null, 2) + '\n';
+  if (on('claude')) out['.claude/settings.json'] = JSON.stringify(claudeSettings(models), null, 2) + '\n';
   if (on('kiro')) {
     for (const [f, v] of Object.entries(kiroHooks)) out[f] = JSON.stringify(v, null, 2) + '\n';
     out['.kiro/steering/kiro.md'] = `---\ninclusion: always\n---\n${note('_ai/tools/kiro.md')}${read('_ai/tools/kiro.md')}`;
   }
   if (on('copilot')) {
-    out['.github/hooks/guard.json'] = JSON.stringify({ hooks: { PreToolUse: [{ type: 'command', command: GUARD, timeout: 10 }] } }, null, 2) + '\n';
+    // no quotes in the commands: Windows PowerShell -Command turns exit 2 into 1 unless `exit $LASTEXITCODE` follows
+    out['.github/hooks/guard.json'] = JSON.stringify({
+      hooks: {
+        // --allow lets the guard auto-confirm safe calls; it still answers ask on sensitive ones and exits 2 on hard stops
+        PreToolUse: [{ type: 'command', command: 'node _ai/hooks/run-guard.mjs --allow', windows: 'node _ai/hooks/run-guard.mjs --allow; exit $LASTEXITCODE', cwd: '.', timeout: 10 }],
+        UserPromptSubmit: [{ type: 'command', command: 'node _ai/hooks/lang.mjs --json', cwd: '.', timeout: 10 }],
+      },
+    }, null, 2) + '\n';
     const src = '_ai/tools/copilot.md', dest = '.github/copilot-instructions.md';
     const { meta, body } = parse(read(src));
     out[dest] = note(`${src} and AGENTS.md`) + body + `\n${relink(sections(meta.sections, src), 'AGENTS.md', dest, 'copilot')}`;
@@ -258,6 +331,79 @@ function localSettings(profile, dir) {
   return JSON.stringify(s, null, 2) + '\n';
 }
 
+const MANAGED_VSCODE = {
+  'chat.useAgentsMdFile': true,
+  'chat.useHooks': true,
+  'chat.agent.maxRequests': 250,
+  'chat.tools.terminal.autoApprove': {
+    '/.*/': true,
+    '/(^|[\\s;|&(])(rm|del|erase|rmdir|rd|ri|Remove-Item|Clear-Content|Clear-Item)(\\s|$)/i': false,
+    '/(^|[\\s;|&(])git\\s+(?!(-C\\s+\\S+\\s+|--no-pager\\s+|-c\\s+\\S+\\s+)*(status|log|diff|show|ls-files|blame|rev-parse|grep|remote\\s+-v|branch\\s+(--show-current|-a|-r|--list)|--version|merge-base|stash\\s+list|config\\s+(--get|--list)|describe|shortlog)\\b)/i': false,
+    '/(^|[\\s;|&(])(az|gh|curl(\\.exe)?|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr|kubectl|helm|terraform)\\s/i': false,
+  },
+  'chat.tools.urls.autoApprove': { 'https://*': true },
+  'chat.tools.edits.autoApprove': { '**/*': true, '**/.env': false, '**/.env.*': false, '**/*.env': false, 'personal/**': false },
+  'github.copilot.chat.executionSubagent.enabled': false,
+  'github.copilot.chat.searchSubagent.enabled': false,
+  'github.copilot.chat.cli.customAgents.enabled': true,
+  'kiroAgent.agentAutonomy': 'Autopilot',
+};
+
+// .vscode/settings.json with our managed keys set and the user's other keys kept
+export function vscodeSettings(dir) {
+  const f = join(dir, '.vscode/settings.json');
+  let s = {};
+  if (existsSync(f)) {
+    try { s = JSON.parse(readFileSync(f, 'utf8')); }
+    catch { throw new Error(`${f} is not valid JSON; fix or delete it, then run again`); }
+  }
+  return JSON.stringify({ ...s, ...MANAGED_VSCODE }, null, 2) + '\n';
+}
+
+export function kiroWorkspacePermissionsPath(dir, home = homedir()) {
+  const p = resolve(dir).replace(/\\/g, '/').replace(/\/+$/, '');
+  const hash = createHash('sha256').update(process.platform === 'win32' ? p.toLowerCase() : p).digest('hex').slice(0, 16);
+  return join(home, '.kiro', 'workspace-roots', hash, 'permissions.yaml');
+}
+
+const KIRO_BEGIN = '# >>> generated by node _ai/sync.mjs; add your own rules outside this block';
+const KIRO_END = '# <<< generated by node _ai/sync.mjs';
+
+function kiroRules() {
+  const cases = (w) => [...new Set([w, w.toLowerCase(), w[0].toUpperCase() + w.slice(1).toLowerCase()])];
+  const ask = (words) => ({ capability: 'shell', match: words.flatMap((w) => cases(w).map((c) => `${c} *`)), effect: 'ask' });
+  const reads = ['status', 'log', 'diff', 'show', 'ls-files', 'blame', 'rev-parse', 'grep', 'remote -v', 'branch --show-current', 'branch -a', 'branch -r', 'branch --list',
+    '--version', 'merge-base', 'stash list', 'config --get', 'config --list', 'describe', 'shortlog'];
+  const gits = ['git', 'Git', 'GIT'];
+  const writes = ['add', 'am', 'apply', 'branch', 'checkout', 'cherry-pick', 'clean', 'clone', 'commit', 'config', 'fetch', 'init', 'merge', 'mv', 'pull', 'push', 'rebase',
+    'reset', 'restore', 'revert', 'rm', 'stash', 'submodule', 'switch', 'tag', 'worktree', 'gc', 'update-ref', 'reflog', 'notes', 'bisect', 'prune', 'sparse-checkout', 'symbolic-ref'];
+  const mcp = ['create', 'update', 'delete', 'remove', 'add', 'edit', 'transition', 'comment', 'send', 'post', 'put', 'patch', 'register', 'rename', 'restore', 'set_', 'log_', 'link_', 'evaluate', 'write', 'execute', 'apply', 'upload', 'insert', 'merge', 'push', 'deploy'].flatMap((w) => [`*${w}*`, `*${w[0].toUpperCase() + w.slice(1)}*`]);
+  return [
+    { capability: 'all', effect: 'allow' },
+    { capability: 'filesystem', match: ['**'], effect: 'allow' },
+    ask(['rm', 'del', 'erase', 'rmdir', 'rd', 'ri', 'Remove-Item', 'az', 'gh', 'curl', 'curl.exe', 'wget', 'Invoke-RestMethod', 'Invoke-WebRequest', 'irm', 'iwr', 'kubectl', 'helm', 'terraform']),
+    { capability: 'shell', match: gits.map((g) => `${g} *`), exclude: gits.flatMap((g) => reads.flatMap((r) => g === 'git' ? [`git ${r}*`, `git -C * ${r}*`, `git --no-pager ${r}*`] : [`${g} ${r}*`])), effect: 'ask' },
+    { capability: 'shell', match: writes.map((w) => `git -C * ${w}*`), effect: 'ask' },
+    { capability: 'mcp', match: mcp, effect: 'ask' },
+    { capability: 'filesystem', match: ['**/.env', '**/.env.*', '**/*.env', 'personal/**'], exclude: ['**/*.example', '**/*.sample', '**/*.template', '**/*.dist'], effect: 'deny' },
+  ];
+}
+
+// Writes the generated block of the Kiro workspace permissions, keeping any rules outside it.
+export function syncKiroPermissions(dir, home = homedir()) {
+  const f = kiroWorkspacePermissionsPath(dir, home);
+  const block = [`  ${KIRO_BEGIN}`, ...kiroRules().map((r) => `  - ${JSON.stringify(r)}`), `  ${KIRO_END}`].join('\n');
+  let text = existsSync(f) ? readFileSync(f, 'utf8').replace(/\r\n/g, '\n') : '';
+  const start = text.indexOf(KIRO_BEGIN), end = text.indexOf(KIRO_END);
+  if (start >= 0 && end > start) {
+    const from = text.lastIndexOf('\n', start) + 1;
+    text = text.slice(0, from) + block + text.slice(end + KIRO_END.length);
+  } else if (/^rules:[ \t]*$/m.test(text)) text = text.replace(/^rules:[ \t]*$/m, () => `rules:\n${block}`);
+  else text = `${text}${text && !text.endsWith('\n') ? '\n' : ''}rules:\n${block}\n`;
+  mkdirSync(dirname(f), { recursive: true });
+  writeFileSync(f, text);
+}
+
 export function main(args, dir = ROOT) {
   const usage = 'usage: node _ai/sync.mjs [home|work] [--tools claude,kiro,copilot] [--check]';
   let check = false, argProfile, argTools;
@@ -278,22 +424,27 @@ export function main(args, dir = ROOT) {
     else console.error('first run: node _ai/sync.mjs home|work --tools claude,kiro,copilot');
     return 1;
   }
-  const out = build(profile, tools);
+  const out = build(profile, tools, saved.models);
   const broken = [...brokenLinks(out).map((b) => `broken link: ${b}`), ...missingPaths().map((b) => `missing path: ${b}`)];
   const localFile = '.claude/settings.local.json';
+  if (tools.includes('claude') && tools.includes('copilot')) {
+    console.warn('warning: claude and copilot are both enabled; Copilot also reads .claude/ hooks and agents, which can double-fire hooks.');
+  }
 
   if (check) {
     const problems = [
       ...Object.entries(out).filter(([f, t]) => !existsSync(join(dir, f)) || readFileSync(join(dir, f), 'utf8') !== t).map(([f]) => `stale or missing: ${f}`),
       ...managedFiles(dir).filter((f) => !(f in out)).map((f) => `extra: ${f}`),
       ...(!tools.includes('claude') && existsSync(join(dir, localFile)) ? [`extra: ${localFile}`] : []),
+      ...(tools.includes('copilot') && (!existsSync(join(dir, '.vscode/settings.json'))
+        || readFileSync(join(dir, '.vscode/settings.json'), 'utf8').replace(/\r\n/g, '\n') !== vscodeSettings(dir)) ? ['stale or missing: .vscode/settings.json'] : []),
       ...broken,
     ];
     console.log(problems.length ? `${problems.join('\n')}\nnot synced: run node _ai/sync.mjs` : 'in sync');
     return problems.length ? 1 : 0;
   }
 
-  writeFileSync(join(dir, '.ai-device.json'), JSON.stringify({ profile, tools }, null, 2) + '\n');
+  writeFileSync(join(dir, '.ai-device.json'), JSON.stringify({ profile, tools, ...(saved.models && { models: saved.models }) }, null, 2) + '\n');
   for (const p of MANAGED_ALL) rmSync(join(dir, p), { recursive: true, force: true });
   for (const [f, text] of Object.entries(out)) {
     mkdirSync(dirname(join(dir, f)), { recursive: true });
@@ -303,8 +454,13 @@ export function main(args, dir = ROOT) {
     mkdirSync(join(dir, '.claude'), { recursive: true });
     writeFileSync(join(dir, localFile), localSettings(profile, dir));
   } else rmSync(join(dir, localFile), { force: true });
+  if (tools.includes('copilot')) {
+    mkdirSync(join(dir, '.vscode'), { recursive: true });
+    writeFileSync(join(dir, '.vscode/settings.json'), vscodeSettings(dir));
+  }
+  if (tools.includes('kiro') && dir === ROOT && existsSync(join(homedir(), '.kiro'))) syncKiroPermissions(dir);
   const hints = profile === 'home' ? { kiro: 'Kiro: use Autopilot.' }
-    : { kiro: 'Kiro: use Supervised.', claude: 'Claude Code: keep approvals on.', copilot: 'Copilot: keep approvals on.' };
+    : { kiro: 'Kiro: Autopilot + guard hook.', claude: 'Claude Code: keep approvals on.', copilot: 'Copilot: hooks + auto-approve synced.' };
   if (broken.length) console.log(broken.join('\n'));
   console.log([`synced ${Object.keys(out).length} files, profile ${profile}, tools ${tools.join(',')}.`, ...tools.map((t) => hints[t]).filter(Boolean)].join(' '));
   return broken.length ? 1 : 0;

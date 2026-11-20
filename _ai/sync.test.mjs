@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parse, relink, sections, build, brokenLinks, missingPaths, main, ROOT } from './sync.mjs';
+import { parse, relink, sections, loadModels, resolveModel, claudeAgentMeta, build, brokenLinks, missingPaths, main, vscodeSettings, kiroWorkspacePermissionsPath, syncKiroPermissions, ROOT } from './sync.mjs';
 
 test('parse reads quoted strings and lists', () => {
   const { meta, body } = parse('---\nname: x\ndescription: "a: b"\ntools: [read, search]\n---\nhi\n');
@@ -76,8 +76,73 @@ test('Copilot gets every skill, every rule as .instructions.md and the same guar
   for (const f of readdirSync(join(ROOT, '_ai/rules')).filter((n) => n.endsWith('.md'))) {
     assert.ok(out[`.github/instructions/${f.replace(/\.md$/, '.instructions.md')}`].startsWith('---\napplyTo: '), f);
   }
-  const claudeGuard = JSON.parse(out['.claude/settings.json']).hooks.PreToolUse[0].hooks[0].command;
-  assert.equal(JSON.parse(out['.github/hooks/guard.json']).hooks.PreToolUse[0].command, claudeGuard);
+  const hooks = JSON.parse(out['.github/hooks/guard.json']).hooks;
+  assert.deepEqual(hooks.PreToolUse, [{ type: 'command', command: 'node _ai/hooks/run-guard.mjs --allow', windows: 'node _ai/hooks/run-guard.mjs --allow; exit $LASTEXITCODE', cwd: '.', timeout: 10 }]);
+  assert.deepEqual(hooks.UserPromptSubmit, [{ type: 'command', command: 'node _ai/hooks/lang.mjs --json', cwd: '.', timeout: 10 }]);
+  const text = spawnSync('node', ['_ai/hooks/lang.mjs'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim();
+  const json = JSON.parse(spawnSync('node', ['_ai/hooks/lang.mjs', '--json'], { cwd: ROOT, encoding: 'utf8' }).stdout);
+  assert.equal(json.hookSpecificOutput.additionalContext, text);
+});
+
+test('Kiro guard is one catch-all PreToolUse hook, in the hook file and in every helper', () => {
+  const out = build('work');
+  const hooks = JSON.parse(out['.kiro/hooks/guard.json']).hooks;
+  assert.equal(hooks.length, 1);
+  assert.equal(hooks[0].trigger, 'PreToolUse');
+  assert.ok(!('matcher' in hooks[0]));
+  assert.equal(hooks[0].action.command, 'node _ai/hooks/run-guard.mjs');
+  for (const a of ['challenger', 'reviewer', 'scout', 'tester', 'worker']) {
+    assert.deepEqual(JSON.parse(out[`.kiro/agents/${a}.json`]).hooks, [{ name: 'guard', trigger: 'PreToolUse', action: { type: 'command', command: 'node _ai/hooks/run-guard.mjs' }, timeout: 10 }], a);
+  }
+});
+
+test('vscodeSettings sets the managed keys and keeps the user keys', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'sync-'));
+  mkdirSync(join(tmp, '.vscode'));
+  writeFileSync(join(tmp, '.vscode/settings.json'), JSON.stringify({ 'editor.tabSize': 2, 'chat.useHooks': false }));
+  const s = JSON.parse(vscodeSettings(tmp));
+  assert.equal(s['editor.tabSize'], 2);
+  assert.equal(s['chat.useHooks'], true);
+  assert.equal(s['kiroAgent.agentAutonomy'], 'Autopilot');
+  assert.equal(s['chat.tools.edits.autoApprove']['personal/**'], false);
+  writeFileSync(join(tmp, '.vscode/settings.json'), '{');
+  assert.throws(() => vscodeSettings(tmp), /not valid JSON/);
+});
+
+test('Kiro permissions: workspace hash, generated block replaced, user rules kept, valid rule keys', () => {
+  if (process.platform === 'win32') assert.match(kiroWorkspacePermissionsPath('C:\\Users\\GOCIURDU\\work', 'H'), /workspace-roots[\\/]1d32d89549232862[\\/]permissions\.yaml$/);
+  const home = mkdtempSync(join(tmpdir(), 'home-'));
+  const dir = mkdtempSync(join(tmpdir(), 'ws-'));
+  const f = kiroWorkspacePermissionsPath(dir, home);
+  mkdirSync(join(f, '..'), { recursive: true });
+  const user = '  - {"capability":"shell","match":["mine *"],"effect":"deny"}';
+  writeFileSync(f, `rules:\n${user}\n`);
+  syncKiroPermissions(dir, home);
+  syncKiroPermissions(dir, home);
+  const text = readFileSync(f, 'utf8');
+  assert.equal(text.split('# >>> generated').length, 2);
+  assert.ok(text.includes(user));
+  const rules = text.split('\n').filter((l) => l.startsWith('  - ')).map((l) => JSON.parse(l.slice(4)));
+  assert.ok(rules.length > 5);
+  for (const r of rules) {
+    assert.ok(Object.keys(r).every((k) => ['capability', 'effect', 'match', 'exclude'].includes(k)), JSON.stringify(r));
+    assert.ok(['allow', 'ask', 'deny'].includes(r.effect));
+  }
+  assert.deepEqual(rules.find((r) => r.effect === 'deny' && r.capability === 'filesystem').match, ['**/.env', '**/.env.*', '**/*.env', 'personal/**']);
+});
+
+test('generated output has no broken links or missing paths', () => {
+  assert.deepEqual(brokenLinks(build('work')), []);
+  assert.deepEqual(missingPaths(), []);
+});
+
+test('README slash commands and skill count match _ai/skills', () => {
+  const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+  const skills = readdirSync(join(ROOT, '_ai/skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  const cmds = [...readme.matchAll(/^\| `\/([\w-]+)/gm)].map((m) => m[1]);
+  assert.ok(cmds.length > 0);
+  for (const c of cmds) assert.ok(skills.includes(c), `/${c} has no skill`);
+  assert.equal(/The (\d+) skills above/.exec(readme)?.[1], String(skills.length));
 });
 
 test('build writes only the chosen tools', () => {
@@ -123,11 +188,76 @@ test('main rejects a broken device file and a first run without settings', (t) =
   assert.equal(main(['--tools', 'vim'], tmp3), 1);
 });
 
-test('the language reminder is one inline command, the same for both tools', () => {
-  const out = build('work');
-  const cmd = JSON.parse(out['.claude/settings.json']).hooks.UserPromptSubmit[0].hooks[0].command;
-  assert.equal(JSON.parse(out['.kiro/hooks/lang.json']).hooks[0].action.command, cmd);
-  assert.equal(spawnSync(cmd, { shell: true, encoding: 'utf8' }).stdout.trim(), 'Reply in English, even if this message is in Romanian or another language.');
+test('Claude settings use exec-form hooks, onFailure block, 60% autocompact and .env.* deny rules', () => {
+  const settings = JSON.parse(build('work', ['claude'])['.claude/settings.json']);
+  assert.equal(settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, '60');
+  for (const rule of ['Read(**/.env.*)', 'Edit(**/.env.*)', 'Read(**/personal/**)', 'Edit(**/personal/**)']) {
+    assert.ok(settings.permissions.deny.includes(rule), `missing deny rule: ${rule}`);
+  }
+  const pre = settings.hooks.PreToolUse[0].hooks[0];
+  assert.deepEqual(pre, {
+    type: 'command',
+    command: 'node',
+    args: ['${CLAUDE_PROJECT_DIR}/_ai/hooks/run-guard.mjs'],
+    onFailure: 'block',
+    timeout: 10,
+  });
+  const lang = settings.hooks.UserPromptSubmit[0].hooks[0];
+  assert.deepEqual(lang, {
+    type: 'command',
+    command: 'node',
+    args: ['${CLAUDE_PROJECT_DIR}/_ai/hooks/lang.mjs'],
+    timeout: 10,
+  });
+  assert.equal(JSON.parse(build('work', ['kiro'])['.kiro/hooks/lang.json']).hooks[0].action.command, 'node _ai/hooks/lang.mjs');
+  const expected = 'Reply in English, even if this message is in Romanian or another language.';
+  assert.equal(spawnSync(lang.command, lang.args.map((a) => a.replace('${CLAUDE_PROJECT_DIR}', ROOT)), { encoding: 'utf8' }).stdout.trim(), expected);
+});
+
+test('claudeAgentMeta passes valid isolation and memory and rejects invalid values', () => {
+  const base = { name: 'w', description: 'd', model: 'balanced' };
+  assert.deepEqual(claudeAgentMeta({ ...base, isolation: 'worktree', memory: 'project' }, ['Read'], 'w.md'), {
+    name: 'w', description: 'd', model: 'sonnet', isolation: 'worktree', memory: 'project', tools: 'Read', omitClaudeMd: 'true',
+  });
+  assert.throws(() => claudeAgentMeta({ ...base, isolation: 'docker' }, ['Read'], 'w.md'), /w\.md: unknown isolation docker/);
+  assert.throws(() => claudeAgentMeta({ ...base, memory: 'global' }, ['Read'], 'w.md'), /w\.md: unknown memory global/);
+});
+
+test('models.json supports per-tool tiers, per-agent overrides and local device overrides', (t) => {
+  t.mock.method(console, 'log', () => {});
+  t.mock.method(console, 'error', () => {});
+  const models = loadModels({
+    copilot: { tiers: { fast: 'Gemini 4 Neon (copilot)' }, agents: { tester: 'GPT-5 mini (copilot)', worker: 'deep' } },
+    kiro: { agents: { tester: 'claude-sonnet-5.5' } },
+  });
+  assert.equal(resolveModel(models, 'copilot', 'fast', 'scout'), 'Gemini 4 Neon (copilot)');
+  assert.equal(resolveModel(models, 'copilot', 'fast', 'tester'), 'GPT-5 mini (copilot)');
+  assert.equal(resolveModel(models, 'copilot', 'balanced', 'worker'), 'Claude Opus 5.5 (copilot)');
+  assert.equal(resolveModel(models, 'kiro', 'fast', 'tester'), 'claude-sonnet-5.5');
+  assert.equal(resolveModel(models, 'kiro', 'fast', 'scout'), 'claude-haiku-5.5');
+  assert.throws(() => resolveModel(models, 'claude', 'turbo', 'scout', 's.md'), /s\.md: unknown model tier turbo/);
+  assert.throws(() => loadModels({ kiro: { tiers: { fast: ' ' } } }), /kiro\.tiers\.fast must be a non-empty string/);
+
+  const tmp = mkdtempSync(join(tmpdir(), 'sync-'));
+  const device = { profile: 'work', tools: ['copilot', 'kiro'], models: { copilot: { agents: { tester: 'Gemini 4 Neon (copilot)' } } } };
+  writeFileSync(join(tmp, '.ai-device.json'), JSON.stringify(device));
+  assert.equal(main([], tmp), 0);
+  assert.match(readFileSync(join(tmp, '.github/agents/tester.agent.md'), 'utf8'), /model: "Gemini 4 Neon \(copilot\)"/);
+  assert.equal(JSON.parse(readFileSync(join(tmp, '.kiro/agents/tester.json'), 'utf8')).model, 'claude-haiku-5.5');
+  assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')).models, device.models);
+  assert.equal(main(['--check'], tmp), 0);
+});
+
+test('main warns when both claude and copilot are enabled (write and --check)', (t) => {
+  t.mock.method(console, 'log', () => {});
+  t.mock.method(console, 'error', () => {});
+  const warn = t.mock.method(console, 'warn', () => {});
+  const tmp = mkdtempSync(join(tmpdir(), 'sync-'));
+  assert.equal(main(['work', '--tools', 'claude,copilot'], tmp), 0);
+  assert.ok(warn.mock.calls.some((c) => /double-fire/.test(String(c.arguments[0]))));
+  warn.mock.resetCalls();
+  assert.equal(main(['--check'], tmp), 0);
+  assert.ok(warn.mock.calls.some((c) => /double-fire/.test(String(c.arguments[0]))));
 });
 
 test('missingPaths names an _ai path that does not exist and accepts real ones and placeholders', () => {

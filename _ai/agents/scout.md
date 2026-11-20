@@ -1,7 +1,7 @@
 ---
 name: scout
 description: "Read-only search: many files, long logs or the public web. Returns evidence with paths or URLs. One scout per independent question; several can run in parallel."
-model: haiku
+model: fast
 reasoning-effort: low
 tools: [read, search, web]
 sections: [Every agent, Secrets and data]

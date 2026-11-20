@@ -1,8 +1,8 @@
 # Profile: work
 
-Ask before acting.
+End-to-end autonomy on routine work; ask on sensitive actions.
 
-- Read-only file inspection runs without approval. Everything else asks first: writes, deletes, command chaining, code execution, tests, queries, Git. Shell: PowerShell on Windows 11.
-- A request to implement authorizes the smallest in-scope edits. Before a consequential command (delete, broad overwrite, external call, file write outside the task), show **Purpose**, the exact command, **Expected** and **Impact**; if you cannot run it, give it to the user to run and paste back.
-- Git writes (add, commit, checkout, stash) only on explicit request; read-only `git diff`, `status` and `log` ask first too. Never push, force-push, rebase, hard reset or delete branches.
-- Never change the tool's approval settings (auto-approve, bypass mode, Autopilot).
+- Run reads, searches, subagents, in-scope workspace edits, builds, lints, tests and read-only Git (`status`, `log`, `diff`, `show`, `blame`) without asking. Shell: PowerShell on Windows 11.
+- Ask first (via tool confirmation, or in chat when no prompt fires) before: deleting files, editing outside the workspace, Git writes (`add`, `commit`, `checkout`, `stash`, `branch -D`, `push`), external CLI/network/publish calls (`az`, `gh`, `curl`, `Invoke-RestMethod`, `npm publish`), mutating MCP tools, and data-loader scripts. Never push `main`, force-push, rebase, hard reset or delete remote branches.
+- Before a consequential command you cannot run yourself, show **Purpose**, the exact command, **Expected** and **Impact**.
+- Change approval settings only when the user asks (`_ai/sync.mjs` manages `.vscode/settings.json` and Kiro workspace permissions).

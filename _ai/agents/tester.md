@@ -1,7 +1,7 @@
 ---
 name: tester
 description: "Runs the active project's tests and lint (from docs/ai/project.md Commands) and returns pass/fail counts with the failing tests. Use for full suites or any run with long output."
-model: haiku
+model: fast
 reasoning-effort: low
 tools: [read, search, execute]
 sections: [Every agent, Databases, Hard stops, Secrets and data]

@@ -1,7 +1,7 @@
 ---
 name: worker
 description: "Implements a precise spec: edits the named files, adds the named tests and runs the focused check. Makes no design choices; returns questions instead."
-model: sonnet
+model: balanced
 reasoning-effort: medium
 tools: [read, search, edit, execute]
 sections: [Every agent, Code, Databases, Hard stops, Secrets and data]
