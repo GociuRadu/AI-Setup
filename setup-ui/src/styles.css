@@ -1,5 +1,5 @@
-/* Warm dark style, close to Claude's look: warm dark grey, cream text, terracotta accent, serif headings.
-   Contrast checked: body 13.4-14.7:1, muted text 7.9:1 and up, accent text 7.0:1, text on accent 6.8:1 (ui-ux-pro-max: >= 4.5:1, 16px body).
+/* Warm dark style: warm dark grey, cream text, Schaeffler green accent (#00893D; brand value from brand-color listings, not an official guide), serif headings.
+   Contrast checked: body 13.4-14.7:1, muted text 7.9:1 and up, accent text 7.6:1, white on accent 4.5:1, accent on background 4.0:1 (controls only, >= 3:1).
    System fonts only: the CSP allows no external requests. */
 :root {
   --bg: #181716;
@@ -9,9 +9,9 @@
   --line-strong: #504d46;
   --fg: #ece9e0;
   --muted-fg: #b7b5a9;
-  --accent: #ff6b35;
-  --accent-text: #ff8a5c;
-  --on-accent: #140d09;
+  --accent: #00893d;
+  --accent-text: #3fbf73;
+  --on-accent: #ffffff;
   --danger: #f08b80;
   --warn: #e9b96e;
   --ok: #8fc79a;
@@ -22,7 +22,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
-a { color: var(--accent-text); text-decoration-color: rgba(255, 138, 92, 0.45); text-underline-offset: 3px; transition: text-decoration-color 200ms; }
+a { color: var(--accent-text); text-decoration-color: rgba(63, 191, 115, 0.45); text-underline-offset: 3px; transition: text-decoration-color 200ms; }
 a:hover { text-decoration-color: var(--accent-text); }
 code, pre { font-family: var(--mono); font-size: 0.875rem; }
 code { color: var(--fg); background: var(--inset); padding: 0.1em 0.35em; border-radius: 5px; }
@@ -71,9 +71,9 @@ input::placeholder { color: var(--muted-fg); }
 button { cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--line-strong); background: #1e1d1b; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
-.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; padding: 0.5rem 1.6rem; box-shadow: 0 0 18px rgba(255, 107, 53, 0.35); }
-.primary:hover:not(:disabled) { background: #ff7d4d; border-color: #ff7d4d; box-shadow: 0 0 24px rgba(255, 107, 53, 0.5); }
-.destructive { background: var(--danger); color: var(--on-accent); border-color: var(--danger); font-weight: 600; }
+.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; padding: 0.5rem 1.6rem; box-shadow: 0 0 18px rgba(0, 137, 61, 0.35); }
+.primary:hover:not(:disabled) { background: #00a04a; border-color: #00a04a; box-shadow: 0 0 24px rgba(0, 137, 61, 0.5); }
+.destructive { background: var(--danger); color: #140d09; border-color: var(--danger); font-weight: 600; }
 .ghost { min-height: 36px; padding: 0.25rem 0.75rem; font-size: 0.875rem; color: var(--muted-fg); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -94,9 +94,9 @@ td code { background: none; padding: 0; color: var(--muted-fg); }
 
 .switch { display: inline-flex; align-items: center; gap: 0.65rem; min-height: 44px; cursor: pointer; font-weight: 500; }
 .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.switch .track { width: 38px; height: 22px; border-radius: 999px; background: var(--line); position: relative; transition: background-color 200ms; flex: none; }
+.switch .track { width: 38px; height: 22px; border-radius: 999px; background: var(--line-strong); position: relative; transition: background-color 200ms; flex: none; }
 .switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--fg); transition: transform 200ms; }
-.switch input:checked + .track { background: var(--accent); box-shadow: 0 0 10px rgba(255, 107, 53, 0.45); }
+.switch input:checked + .track { background: var(--accent); box-shadow: 0 0 10px rgba(0, 137, 61, 0.45); }
 .switch input:checked + .track::after { transform: translateX(16px); }
 .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -108,6 +108,14 @@ td code { background: none; padding: 0; color: var(--muted-fg); }
 .skill { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.25rem; transition: border-color 200ms; }
 .skill:hover { border-color: var(--line-strong); }
 .skill .note { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* MCP servers: one full-width row each, so the URL and description are never cut */
+.servers { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+.server { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 0.5rem 1rem 0.75rem; transition: border-color 200ms; }
+.server:hover { border-color: var(--line-strong); }
+.server-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 1rem; }
+.target { background: none; padding: 0; color: var(--muted-fg); font-size: 0.8rem; overflow-wrap: anywhere; }
+.server .note { margin: 0 0 0 calc(38px + 0.65rem); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }

@@ -246,12 +246,14 @@ export default function App() {
 
             <h3>MCP servers</h3>
             {setup.mcp.length ? (
-              <ul className="skills">
+              <ul className="servers">
                 {setup.mcp.map((m) => (
-                  <li key={m.name} className="skill">
-                    <Switch id={`mcp-${m.name}`} label={m.name} checked={!per.mcpOff?.includes(m.name)} onChange={(v) => setOff('mcpOff', m.name, v)} />
-                    <p className="note">{m.description}</p>
-                    <code>{m.target}</code>
+                  <li key={m.name} className="server">
+                    <div className="server-head">
+                      <Switch id={`mcp-${m.name}`} label={m.name} checked={!per.mcpOff?.includes(m.name)} onChange={(v) => setOff('mcpOff', m.name, v)} />
+                      <code className="target">{m.target}</code>
+                    </div>
+                    {m.description && <p className="note">{m.description}</p>}
                   </li>
                 ))}
               </ul>
