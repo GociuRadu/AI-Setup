@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "atlassian": {
+      "description": "Jira, Confluence and Compass through the Atlassian Rovo MCP server; sign-in with OAuth in each tool",
+      "type": "http",
+      "url": "https://mcp.atlassian.com/v2/mcp"
+    }
+  }
+}
