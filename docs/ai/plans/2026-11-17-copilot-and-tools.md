@@ -1,7 +1,7 @@
 # Plan: Copilot target, tool choice per device, no orchestrator
 | Date | Status | Owner |
 |---|---|---|
-| 2026-11-17 | steps 1-6 done; step 7 open (user, work laptop) | user |
+| 2026-11-17 | done (step 7 verified & fixed 2026-11-20 in 2026-11-20-setup-audit-and-fixes.md) | user |
 
 **Goal:** the setup works on the work laptop (Copilot + Kiro) and the personal PC (Claude Code + Kiro) from one `_ai/` source, without the `orchestrator` agent.
 **Done when:** `node --test "_ai/**/*.test.mjs"` passes with new tests for the Copilot output, tool choice and a Copilot-shaped guard payload; on this PC `node _ai/sync.mjs home --tools claude,kiro` then `--check` prints `in sync` and no `.github/` generated file exists; a test build with `--tools copilot,kiro` has no `.claude/` file and no `CLAUDE.local.md`; on the work laptop Copilot lists the 5 helpers and the guard blocks reading `.env`, reading `personal/` and `git push -f`.

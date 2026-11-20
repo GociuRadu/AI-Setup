@@ -1,0 +1,28 @@
+{
+  "claude": {
+    "tiers": {
+      "fast": "haiku",
+      "balanced": "sonnet",
+      "deep": "opus"
+    },
+    "default": "balanced",
+    "subagentDefault": "fast",
+    "agents": {}
+  },
+  "kiro": {
+    "tiers": {
+      "fast": "claude-haiku-5.5",
+      "balanced": "claude-sonnet-5.5",
+      "deep": "claude-opus-5.5"
+    },
+    "agents": {}
+  },
+  "copilot": {
+    "tiers": {
+      "fast": "Claude Haiku 5.5 (copilot)",
+      "balanced": "Claude Sonnet 5.5 (copilot)",
+      "deep": "Claude Opus 5.5 (copilot)"
+    },
+    "agents": {}
+  }
+}

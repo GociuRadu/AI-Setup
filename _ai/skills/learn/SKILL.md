@@ -8,7 +8,7 @@ argument-hint: "<stage or topic> [project]"
 Turn one stage or topic into a study report the user can scan in 2 minutes, learn in 30, and explain in a meeting or interview. Facts come from research done in this turn, never from memory alone.
 
 ## Steps
-1. **Context:** read `<project>/docs/ai/project.md`, `context.md`, the active plan, the decisions (ADRs, `memory.md`) for this stage, and earlier `*-learn-*` reports. The worked example and the questions must use this project's real decisions.
+1. **Context:** read `<project>/docs/ai/project.md`, `context.md`, the active plan, the decisions (ADRs, `memory.md`) for this stage, and earlier `learn/<project>/*.md` reports. The worked example and the questions must use this project's real decisions.
 2. **Research:** one `scout` per question, in parallel, each asked for primary sources with URL and year, at most 25 lines back:
    - **Standard:** how the body of knowledge and standards define the stage; its inputs, outputs, roles and the named techniques.
    - **Practice:** what teams use today and what is growing or fading (surveys, Technology Radar), with year and sample.

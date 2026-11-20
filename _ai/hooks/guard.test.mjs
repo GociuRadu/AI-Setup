@@ -1,11 +1,12 @@
 // Self-check: node _ai/hooks/guard.test.mjs (also run by node --test)
 import assert from 'node:assert/strict';
-import { writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { check, checkPaths } from './guard.mjs';
+import { check, checkPaths, checkToolHardStop, checkAsk, canAutoAllow } from './guard.mjs';
+import { build } from '../sync.mjs';
 
 const dir = mkdtempSync(join(tmpdir(), 'guard-'));
 writeFileSync(join(dir, 'read.sql'), 'SELECT TOP 10 item_id, name FROM dbo.item WHERE updated_at > @d;');
@@ -111,11 +112,15 @@ assert.notEqual(check('cat ../../personal/x.md', join(dir, 'Shop', 'code'), dir)
 assert.notEqual(check('type ' + join(dir, 'personal', 'x.md'), dir, dir), null, 'should block an absolute personal path');
 for (const c of blocked) assert.notEqual(check(c, dir, dir), null, `should block: ${c}`);
 
-const pathsAllowed = [{ pattern: '**/*.py' }, { file_path: 'src/app.py' }, { path: '.env.example' }, { filePath: 'docs/ai/project.md' }, { includePattern: '**/*.env' }, { path: 'personal-site/index.html' }];
-const pathsBlocked = [{ file_path: 'C:/proj/.env' }, { path: 'code/local.env' }, { filePath: 'x/.test.env' }, { paths: ['a.md', '.env.prod'] }, { path: 'personal/diary.md' }, { path: join(dir, 'personal') }, { operations: [{ mode: 'Line', path: 'Shop/code/.env' }] }, { pattern: 'personal/**' }];
+const pathsAllowed = [{ pattern: '**/*.py' }, { pattern: '**/*' }, { file_path: 'src/app.py' }, { path: '.env.example' }, { filePath: 'docs/ai/project.md' }, { includePattern: '**/.env.example' }, { glob: '**/*.py' }, { path: 'personal-site/index.html' }];
+const pathsBlocked = [{ file_path: 'C:/proj/.env' }, { path: 'code/local.env' }, { filePath: 'x/.test.env' }, { paths: ['a.md', '.env.prod'] }, { path: 'personal/diary.md' }, { path: join(dir, 'personal') }, { operations: [{ mode: 'Line', path: 'Shop/code/.env' }] }, { pattern: 'personal/**' }, { includePattern: '**/*.env' }, { includePattern: '**/.env*' }, { includePattern: '**/*.env.*' }, { includePattern: '**/.e?v' }, { includePattern: '**/.e*' }, { includePattern: '**/.*' }, { glob: '**/*.env' }, { pattern: '{.env,a.txt}' }];
 for (const a of pathsAllowed) assert.equal(checkPaths(a, dir, dir), null, `should allow path: ${JSON.stringify(a)}`);
 assert.notEqual(checkPaths({ path: '../personal/x.md' }, join(dir, 'Shop'), dir), null, 'should block ../personal from a project folder');
 for (const a of pathsBlocked) assert.notEqual(checkPaths(a, dir, dir), null, `should block path: ${JSON.stringify(a)}`);
+assert.equal(checkPaths({ pattern: 'Load .env file' }, dir, dir, 'Grep'), null, 'a grep regex is not a path');
+assert.equal(checkPaths({ query: '.env', includePattern: 'src/**' }, dir, dir, 'grep_search'), null, 'grep_search query is content');
+assert.notEqual(checkPaths({ query: '**/*.env' }, dir, dir, 'file_search'), null, 'file_search query is a glob');
+assert.notEqual(checkPaths({ query: '**/*.env' }, dir, dir, 'copilot_findFiles'), null, 'copilot_findFiles query is a glob');
 
 // wiring: the payload shape each tool sends on stdin, through the real script
 const script = fileURLToPath(new URL('./guard.mjs', import.meta.url));
@@ -135,12 +140,97 @@ for (const [tool, payload, code] of payloads) {
   if (code === 2) assert.match(r.stdout.toString(), /"permissionDecision":"deny"/);
 }
 
-// fail-closed: the exact wired command blocks, allows, and blocks when guard.mjs cannot be loaded
-const wired = JSON.parse(readFileSync(new URL('../../.kiro/hooks/guard.json', import.meta.url), 'utf8')).hooks[0].action.command;
+// fail-closed: the exact wired Claude exec-form hook blocks, allows, and sets onFailure: "block"
+const wired = JSON.parse(build('work', ['claude'])['.claude/settings.json']).hooks.PreToolUse[0].hooks[0];
+assert.equal(wired.onFailure, 'block', 'wired Claude hook must fail closed via onFailure: block');
 const root = fileURLToPath(new URL('../..', import.meta.url));
-const runWired = (payload, projectDir) => spawnSync(wired, { shell: true, cwd: root, input: JSON.stringify(payload), env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir ?? '' } }).status;
+const runWired = (payload, projectDir) => spawnSync(
+  wired.command,
+  wired.args.map((a) => a.replace('${CLAUDE_PROJECT_DIR}', projectDir ?? root)),
+  { cwd: root, input: JSON.stringify(payload) },
+).status;
 assert.equal(runWired({ tool_name: 'Bash', tool_input: { command: 'git push --force' }, cwd: dir }), 2, 'wired command should block');
 assert.equal(runWired({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }), 0, 'wired command should allow');
-assert.equal(runWired({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }, dir), 2, 'a missing guard.mjs should block');
+assert.notEqual(runWired({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }, dir), 0, 'a missing run-guard.mjs should fail non-zero (blocked by onFailure: block)');
+
+// run-guard.mjs: blocks, allows, and blocks when the guard cannot load
+const runGuard = (payload, { flag = '', env = process.env } = {}) => {
+  const input = JSON.stringify(payload);
+  const args = ['_ai/hooks/run-guard.mjs', ...(flag ? [flag] : [])];
+  return process.platform === 'win32'
+    ? spawnSync('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-NoLogo', '-Command', `node ${args.join(' ')}; exit $LASTEXITCODE`], { cwd: root, input, env })
+    : spawnSync(process.execPath, args, { cwd: root, input, env });
+};
+const blockedRun = runGuard({ tool_name: 'Bash', tool_input: { command: 'git push --force' }, cwd: dir });
+assert.equal(blockedRun.status, 2, 'run-guard should block');
+assert.match(blockedRun.stdout.toString(), /"permissionDecision":"deny"/);
+assert.equal(runGuard({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }).status, 0, 'run-guard should allow');
+assert.equal(runGuard({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }, { env: { ...process.env, AI_GUARD_PATH: join(dir, 'no-such-guard.mjs') } }).status, 0, 'AI_GUARD_PATH ignored without NODE_ENV=test');
+const missing = runGuard({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir }, { env: { ...process.env, NODE_ENV: 'test', AI_GUARD_PATH: join(dir, 'no-such-guard.mjs') } });
+assert.equal(missing.status, 2, 'a missing guard should block');
+assert.match(missing.stderr.toString(), /could not load/);
 
 console.log(`guard ok: ${payloads.length} tool payloads, ${allowed.length + pathsAllowed.length} allowed, ${blocked.length + pathsBlocked.length} blocked`);
+
+// tool hard stops
+for (const t of ['mcp_hostinger_execute', 'mcp_hostinger-mcp_multi-execute', 'mcp_hostinger_execute_site_tool', 'mcp_atlassian-mcp_executeDestructive']) {
+  assert.notEqual(checkToolHardStop(t), null, `hard stop: ${t}`);
+}
+for (const t of ['', 'mcp_atlassian-mcp_search', 'mcp_hostinger_list_sites', 'read_file']) assert.equal(checkToolHardStop(t), null, `not a hard stop: ${t}`);
+
+// ask layer
+const ask = (command, args = {}, toolName = '') => checkAsk(command, args, dir, dir, toolName);
+const asks = [
+  'rm -rf build', 'Remove-Item foo', 'cmd /c del a.txt', 'node -e "fs.rmSync(\'x\')"', 'node _ai/clean.mjs --apply',
+  'git add .', 'git commit -m "x"', 'git -C MCDT/code push', '& git checkout -b x', 'git branch -D x',
+  'az group list', 'gh pr create', 'curl https://x', 'Invoke-RestMethod https://x', 'npm publish', 'docker push img',
+  'python MCDT/code/local/run_notebook.py',
+  'echo a & rm -rf x', 'Get-ChildItem | ForEach-Object { Remove-Item $_ }', "find . -name '*.tmp' -delete", 'bash -c "rm foo"',
+];
+assert.equal(ask('echo a & rm -rf x'), 'deleting files requires approval');
+assert.equal(check('cd x & ssh user@host', dir, dir), 'SSH to a server is a hard stop');
+for (const c of ['& git push -f', 'powershell -Command "git push --force"', 'bash -c "git push --force"']) assert.equal(check(c, dir, dir), 'force-push is a hard stop', `should deny: ${c}`);
+for (const c of ['docker run --rm alpine echo ok', 'echo "git push -f"', 'grep "git push -f" x']) {
+  assert.equal(check(c, dir, dir), null, `not denied: ${c}`);
+  assert.equal(ask(c), null, `not asked: ${c}`);
+}
+for (const c of asks) assert.notEqual(ask(c), null, `should ask: ${c}`);
+const noAsks = [
+  'node --test "_ai/**/*.test.mjs"', 'pytest', 'pnpm test', 'git status --short', 'git -C MCDT/code diff', 'git log -n 5',
+  'grep -rn "rm -rf" src/', 'echo "git push"', 'node _ai/clean.mjs',
+];
+for (const c of noAsks) assert.equal(ask(c), null, `should not ask: ${c}`);
+assert.notEqual(ask(undefined, { filePath: 'c:/Outside/x.txt' }, 'replace_string_in_file'), null, 'outside edit asks');
+assert.equal(ask(undefined, { filePath: join(dir, 'a.txt') }, 'replace_string_in_file'), null, 'inside edit');
+assert.equal(ask(undefined, { filePath: '/memories/tooling.md' }, 'memory_create_file'), null);
+assert.equal(ask(undefined, { filePath: '/memories/tooling.md' }, 'create_file'), null, '/memories/ is fine');
+for (const t of ['mcp_atlassian-mcp_createConfluencePage', 'mcp_mlflow_mcp_delete_run', 'mcp_some_server_execute_action', 'mcp_some_server_upload_file', 'mcp_mlflow_mcp_set_trace_tag']) assert.notEqual(ask(undefined, {}, t), null, `should ask: ${t}`);
+for (const t of ['mcp_atlassian-mcp_getConfluencePage', 'mcp_atlassian-mcp_search', 'mcp_atlassian-mcp_lookupJiraAccountId', 'mcp_atlassian-mcp_atlassianUserInfo', 'mcp_nx_mcp_nx_docs', 'mcp_mlflow_mcp_describe_run', 'mcp_some_server_get_settings']) assert.equal(ask(undefined, {}, t), null, `should not ask: ${t}`);
+assert.notEqual(ask(undefined, { operation: 'apply_changes' }, 'mssql_dab'), null);
+assert.equal(ask(undefined, { operation: 'get_state' }, 'mssql_dab'), null);
+for (const t of ['read_file', 'runSubagent', 'run_in_terminal', 'mcp_atlassian-mcp_search', 'mssql_list_servers']) assert.equal(canAutoAllow(t), true, `auto-allow: ${t}`);
+for (const t of ['unknown_future_tool', 'vscode_askQuestions', 'send_to_terminal', 'kill_terminal', 'mssql_run_query', 'mssql_dab', 'mssql_query_store_plan_forcing', '']) assert.equal(canAutoAllow(t), false, `no auto-allow: ${t}`);
+
+// run-guard.mjs --allow
+const inWs = join(root, 'docs', 'x.md');
+const cases = [
+  [{ tool_name: 'read_file', tool_input: { filePath: join(dir, '.env') } }, 2, /"permissionDecision":"deny"/],
+  [{ tool_name: 'run_in_terminal', tool_input: { command: 'git push --force' } }, 2, /"permissionDecision":"deny"/],
+  [{ tool_name: 'mcp_hostinger_execute', tool_input: {} }, 2, /"permissionDecision":"deny"/],
+  [{ tool_name: 'mcp_atlassian-mcp_executeDestructive', tool_input: {} }, 2, /"permissionDecision":"deny"/],
+  [{ tool_name: 'run_in_terminal', tool_input: { command: 'git commit -m "x"' } }, 0, /"permissionDecision":"ask"/],
+  [{ tool_name: 'run_in_terminal', tool_input: { command: 'Remove-Item x' } }, 0, /"permissionDecision":"ask"/],
+  [{ tool_name: 'read_file', tool_input: { filePath: 'c:/Users/GOCIURDU/AppData/Roaming/Code/logs/x.log' } }, 0, /"permissionDecision":"allow"/],
+  [{ tool_name: 'runSubagent', tool_input: { prompt: 'x' } }, 0, /"permissionDecision":"allow"/],
+  [{ tool_name: 'run_in_terminal', tool_input: { command: 'node --test' } }, 0, /"permissionDecision":"allow"/],
+  [{ tool_name: 'replace_string_in_file', tool_input: { filePath: inWs } }, 0, /"permissionDecision":"allow"/],
+  [{ tool_name: 'unknown_future_tool', tool_input: {} }, 0, /^$/],
+];
+for (const [payload, code, out] of cases) {
+  const r = runGuard({ ...payload, cwd: root }, { flag: '--allow' });
+  assert.equal(r.status, code, `--allow ${JSON.stringify(payload)} exit ${r.status}`);
+  assert.match(r.stdout.toString(), out, `--allow ${JSON.stringify(payload)} stdout`);
+}
+const noFlag = runGuard({ tool_name: 'read_file', tool_input: { filePath: inWs }, cwd: root });
+assert.equal(noFlag.status, 0);
+assert.equal(noFlag.stdout.toString(), '', 'no --allow: no output on safe calls');

@@ -21,7 +21,8 @@ You decide, design and verify; helpers do the token-heavy work on cheaper models
 - **No plan file** for a large task (as the `pplan` skill defines it): run `pplan` first.
 - **Do it yourself** when one read answers or the edit is under ~20 lines in 1-2 files; a brief, a run and a check cost more.
 - **Design first:** settle interfaces, names and data shapes before a `worker` starts; a worker never chooses them.
-- **One writer** per file set; a second `worker` only on files the first does not touch. Readers run in parallel, at most 4 in one message.
+- **Parallel readers:** `scout`, `tester`, `reviewer` and `challenger` run in parallel in one turn, even across roles (at most 4 at once).
+- **Writers:** one `worker` per file set on a shared checkout. In Claude Code, overlapping edits or separate branches use `isolation: "worktree"` (or `claude -w <name>`) only inside a project's git repo (a workspace-root worktree omits gitignored `<project>/code/`), `/subtask` when parallel branches share the session cache, and `/batch` for 5-30 mechanical edits.
 - **Failed run:** fix the brief (missing fact, vague spec) and rerun once; after two failures do it yourself, or name the step as open when you have no tool for it.
 
 ## Task loop
@@ -32,7 +33,7 @@ Run each plan step (or the whole task when there is no plan) through:
 3. **Review:** risky step: `reviewer`. A Must fix goes back to 2 or is named as open; re-review once at most.
 4. **Mark:** set the step's Status to done from the real check output and the changed files you read; a helper's summary is not proof.
 
-Repeat until every Done when check passes. Limits: 2 fix rounds per step, then **Stuck** in `AGENTS.md`; the same failure twice also counts.
+Repeat until every Done when check passes. Follow **Stuck** in `AGENTS.md` (after 2 failed fixes change the approach; after 3, stop; the same failure twice counts).
 
 ## Brief
 

@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: "Read-only fresh-eyes review of a change, a folder audit or a plan against its Done when. Finds wrong results, data loss, unsafe actions, regressions, missing tests and bloat."
-model: sonnet
+model: balanced
 reasoning-effort: medium
 tools: [read, search, execute]
 sections: [Every agent, Code, Databases, Hard stops, Secrets and data]
