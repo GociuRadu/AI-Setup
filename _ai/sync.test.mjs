@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parse, relink, sections, loadModels, resolveModel, claudeAgentMeta, build, brokenLinks, missingPaths, main, vscodeSettings, kiroWorkspacePermissionsPath, syncKiroPermissions, ROOT } from './sync.mjs';
+import { parse, relink, sections, loadModels, resolveModel, claudeAgentMeta, build, brokenLinks, missingPaths, main, checkDevice, loadMcp, mcpEntry, mcpFiles, vscodeSettings, kiroWorkspacePermissionsPath, syncKiroPermissions, ROOT } from './sync.mjs';
 
 test('parse reads quoted strings and lists', () => {
   const { meta, body } = parse('---\nname: x\ndescription: "a: b"\ntools: [read, search]\n---\nhi\n');
@@ -237,6 +237,9 @@ test('models.json supports per-tool tiers, per-agent overrides and local device 
   assert.equal(resolveModel(models, 'kiro', 'fast', 'scout'), 'claude-haiku-5.5');
   assert.throws(() => resolveModel(models, 'claude', 'turbo', 'scout', 's.md'), /s\.md: unknown model tier turbo/);
   assert.throws(() => loadModels({ kiro: { tiers: { fast: ' ' } } }), /kiro\.tiers\.fast must be a non-empty string/);
+  assert.deepEqual(loadModels({ kiro: { available: ['a', 'b'] } }).kiro.available, ['a', 'b']);
+  assert.deepEqual(loadModels().claude.available, ['haiku', 'sonnet', 'opus']);
+  assert.throws(() => loadModels({ kiro: { available: 'a' } }), /kiro\.available must be a list of non-empty strings/);
 
   const tmp = mkdtempSync(join(tmpdir(), 'sync-'));
   const device = { profile: 'work', tools: ['copilot', 'kiro'], models: { copilot: { agents: { tester: 'Gemini 4 Neon (copilot)' } } } };
@@ -246,6 +249,100 @@ test('models.json supports per-tool tiers, per-agent overrides and local device 
   assert.equal(JSON.parse(readFileSync(join(tmp, '.kiro/agents/tester.json'), 'utf8')).model, 'claude-haiku-5.5');
   assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')).models, device.models);
   assert.equal(main(['--check'], tmp), 0);
+});
+
+test('perTool round-trips through main and an unknown skill or hook fails sync', (t) => {
+  t.mock.method(console, 'log', () => {});
+  const warn = t.mock.method(console, 'warn', () => {});
+  const tmp = mkdtempSync(join(tmpdir(), 'sync-'));
+  const device = { profile: 'work', tools: ['claude'], perTool: { claude: { hooks: { guard: false, lang: true }, skillsOff: ['learn'] }, kiro: { skillsOff: [] } } };
+  writeFileSync(join(tmp, '.ai-device.json'), JSON.stringify(device));
+  assert.equal(main([], tmp), 0);
+  assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')), device);
+  assert.ok(warn.mock.calls.some((c) => c.arguments[0] === 'guard: off for claude'));
+  assert.equal(main(['--check'], tmp), 0);
+
+  for (const [perTool, msg] of [
+    [{ kiro: { skillsOff: ['no-such-skill'] } }, /perTool\.kiro\.skillsOff: unknown skill no-such-skill/],
+    [{ claude: { hooks: { guard: 'off' } } }, /perTool\.claude\.hooks\.guard must be true or false/],
+    [{ claude: { hooks: { gaurd: false } } }, /perTool\.claude\.hooks: unknown hook gaurd/],
+    [{ vim: {} }, /perTool\.vim: unknown tool/],
+  ]) {
+    writeFileSync(join(tmp, '.ai-device.json'), JSON.stringify({ ...device, perTool }));
+    assert.throws(() => main([], tmp), msg);
+  }
+});
+
+test('perTool switches skills and hooks for one tool only', () => {
+  const both = ['claude', 'kiro', 'copilot'];
+  const out = build('work', both, { perTool: { kiro: { skillsOff: ['learn'] }, claude: { hooks: { lang: false } } } });
+  assert.ok(out['.claude/skills/learn/SKILL.md']);
+  assert.ok(out['.github/skills/learn/SKILL.md']);
+  assert.ok(!Object.keys(out).some((k) => k.startsWith('.kiro/skills/learn/')));
+  assert.ok(out['.kiro/hooks/lang.json']);
+  const claude = JSON.parse(out['.claude/settings.json']).hooks;
+  assert.deepEqual(Object.keys(claude), ['PreToolUse']);
+
+  const off = build('work', both, { perTool: Object.fromEntries(both.map((t) => [t, { hooks: { guard: false, lang: false } }])) });
+  assert.deepEqual(JSON.parse(off['.claude/settings.json']).hooks, {});
+  assert.ok(!off['.kiro/hooks/guard.json'] && !off['.kiro/hooks/lang.json'] && !off['.github/hooks/guard.json']);
+  assert.ok(!('hooks' in JSON.parse(off['.kiro/agents/scout.json'])));
+  const guardOnly = JSON.parse(build('work', ['copilot'], { perTool: { copilot: { hooks: { lang: false } } } })['.github/hooks/guard.json']).hooks;
+  assert.deepEqual(Object.keys(guardOnly), ['PreToolUse']);
+  // default toggles change nothing
+  assert.deepEqual(build('work', both, { perTool: { claude: { hooks: { guard: true }, skillsOff: [] } } }), build('work', both));
+});
+
+test('MCP servers go to each tool in its own format; mcpOff removes one for one tool, and Kiro gets it as disabled', () => {
+  const all = ['claude', 'kiro', 'copilot'];
+  const { url } = loadMcp().atlassian;
+  const empty = mkdtempSync(join(tmpdir(), 'mcp-'));
+  const out = mcpFiles(all, {}, empty);
+  assert.deepEqual(JSON.parse(out['.mcp.json']), { mcpServers: { atlassian: { type: 'http', url } } });
+  assert.deepEqual(JSON.parse(out['.kiro/settings/mcp.json']), { mcpServers: { atlassian: { url } } });
+  assert.deepEqual(JSON.parse(out['.vscode/mcp.json']), { servers: { atlassian: { type: 'http', url } } });
+  const off = mcpFiles(all, { perTool: { claude: { mcpOff: ['atlassian'] }, kiro: { mcpOff: ['atlassian'] } } }, empty);
+  assert.ok(!off['.mcp.json']);
+  assert.deepEqual(JSON.parse(off['.kiro/settings/mcp.json']), { mcpServers: { atlassian: { url, disabled: true } } });
+  assert.equal(off['.vscode/mcp.json'], out['.vscode/mcp.json']);
+  assert.throws(() => checkDevice({ profile: 'work', tools: ['kiro'], perTool: { kiro: { mcpOff: ['nope'] } } }), /unknown MCP server nope/);
+  // Claude Code's hook does not see MCP calls, so the hard stop is a deny rule per server
+  assert.ok(JSON.parse(build('work', ['claude'])['.claude/settings.json']).permissions.deny.includes('mcp__atlassian__executeDestructive'));
+});
+
+test('MCP files keep the servers and keys a tool wrote itself; only _ai/mcp.json servers are replaced or removed', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-'));
+  mkdirSync(join(dir, '.vscode'));
+  writeFileSync(join(dir, '.vscode/mcp.json'), JSON.stringify({ inputs: [{ id: 'k' }], servers: { mine: { type: 'stdio', command: 'x' }, atlassian: { type: 'http', url: 'https://old.test' } } }));
+  writeFileSync(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { mine: { command: 'y' }, atlassian: { type: 'http', url: 'https://old.test' } } }));
+  const { url } = loadMcp().atlassian;
+  const out = mcpFiles(['claude', 'copilot'], { perTool: { claude: { mcpOff: ['atlassian'] } } }, dir);
+  assert.deepEqual(JSON.parse(out['.vscode/mcp.json']), { inputs: [{ id: 'k' }], servers: { mine: { type: 'stdio', command: 'x' }, atlassian: { type: 'http', url } } });
+  assert.deepEqual(JSON.parse(out['.mcp.json']), { mcpServers: { mine: { command: 'y' } } });
+});
+
+test('loadMcp refuses secrets, bad names, types and keys; Copilot gets variables as ${env:NAME}', () => {
+  const one = (s, name = 'x') => loadMcp({ servers: { [name]: s } });
+  assert.throws(() => one({ type: 'http', url: 'https://a.test/mcp', headers: { Authorization: 'Bearer abc123' } }), /secrets never go in this file/);
+  assert.throws(() => one({ type: 'stdio', command: 'npx', env: { TOKEN: 'abc' } }), /secrets never go in this file/);
+  assert.throws(() => one({ type: 'http', url: 'https://a.test' }, 'My_Server'), /lowercase letters/);
+  assert.throws(() => one({ type: 'sse', url: 'https://a.test' }), /type must be http or stdio/);
+  assert.throws(() => one({ type: 'http', urll: 'https://a.test' }), /unknown key urll/);
+  assert.throws(() => one({ type: 'stdio' }), /command must be a non-empty string/);
+  assert.throws(() => one({ type: 'stdio', command: 'npx', env: { TOKEN: 'sk-live-123${X}' } }), /secrets never go in this file/);
+  assert.throws(() => one({ type: 'http', url: 'https://a.test/mcp?key=sk123' }), /must not carry credentials/);
+  assert.throws(() => one({ type: 'http', url: 'https://user:pw@a.test/mcp' }), /must not carry credentials/);
+  assert.throws(() => one(null), /servers\.x must be an object/);
+  assert.doesNotThrow(() => one({ type: 'http', url: 'https://a.test/mcp?key=${KEY}', headers: { Authorization: 'Bearer ${TOKEN}' } }));
+  const s = one({ type: 'stdio', command: 'npx', args: ['srv', '--site', '${SITE}'], env: { TOKEN: '${GH_TOKEN}' } }).x;
+  assert.deepEqual(mcpEntry(s, 'copilot'), { type: 'stdio', command: 'npx', args: ['srv', '--site', '${env:SITE}'], env: { TOKEN: '${env:GH_TOKEN}' } });
+  assert.deepEqual(mcpEntry(s, 'kiro'), { command: 'npx', args: ['srv', '--site', '${SITE}'], env: { TOKEN: '${GH_TOKEN}' } });
+});
+
+test('perTool for a tool that is not enabled is valid and changes nothing', () => {
+  const device = { profile: 'work', tools: ['claude'], perTool: { kiro: { hooks: { guard: false }, skillsOff: ['learn'] } } };
+  assert.doesNotThrow(() => checkDevice(device));
+  assert.deepEqual(build('work', ['claude'], device), build('work', ['claude']));
 });
 
 test('main warns when both claude and copilot are enabled (write and --check)', (t) => {

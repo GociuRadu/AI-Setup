@@ -5,6 +5,9 @@
 !/AGENTS.md
 !/README.md
 !/_ai/
+# Local setup page (React + Vite); its build output stays local
+!/setup-ui/
+setup-ui/dist/
 # Reports about the setup itself
 !/docs/
 
