@@ -121,6 +121,24 @@ test('a rejected save shows the server error and runs no sync', async () => {
   expect(screen.getByText('claude.agents.scout: (none) → "claude-custom-9"')).toBeTruthy();
 });
 
+test('after Apply the page shows the files as sync wrote them, so keys sync adds are not pending changes', async () => {
+  const base = readSetup(ROOT, sync);
+  let device: object = { profile: 'home', tools: ['claude'] };
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (url === '/api/session') return new Response(JSON.stringify({ token: 't' }));
+    if (url === '/api/setup') return new Response(JSON.stringify({ ...base, device }));
+    if (url === '/api/device' && method === 'PUT') { device = { ...JSON.parse(String(init?.body)), mcpSynced: ['atlassian'] }; return new Response('{}'); }
+    if (url === '/api/apply') return new Response(JSON.stringify({ code: 0, stdout: 'synced', stderr: '' }));
+    throw new Error(`unexpected ${method} ${url}`);
+  }));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('radio', { name: 'work' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(await screen.findByText('Sync exit code 0')).toBeTruthy();
+  expect(await screen.findByText('No changes.')).toBeTruthy();
+});
+
 test('a device file with a skill that no longer exists loads with its other keys; Apply drops only that name', async () => {
   const device = { profile: 'work', tools: ['kiro'], models: { kiro: { agents: { scout: 'm1' } } }, perTool: { kiro: { skillsOff: ['gone', 'learn'] } } };
   serve(device, 'perTool.kiro.skillsOff: unknown skill gone');

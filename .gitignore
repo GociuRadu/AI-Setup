@@ -10,6 +10,12 @@
 setup-ui/dist/
 # Reports about the setup itself
 !/docs/
+# CI only; the rest of .github/ is generated per device
+!/.github/
+/.github/*
+!/.github/workflows/
+# Search skip list (ripgrep, VS Code, Kiro): folders that are not AI context
+!/.ignore
 
 # Never commit secrets or caches anywhere
 .env

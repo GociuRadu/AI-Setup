@@ -158,7 +158,7 @@ test('main migrates the old profile mark, keeps user files in .github and checks
   const tmp = mkdtempSync(join(tmpdir(), 'sync-'));
   writeFileSync(join(tmp, 'CLAUDE.local.md'), '<!-- profile: work. old -->\n');
   assert.equal(main([], tmp), 0);
-  assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')), { profile: 'work', tools: ['claude', 'kiro'] });
+  assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')), { profile: 'work', tools: ['claude', 'kiro'], mcpSynced: Object.keys(loadMcp()) });
   assert.ok(existsSync(join(tmp, '.claude/agents/scout.md')));
   assert.ok(!existsSync(join(tmp, '.github/agents')));
 
@@ -258,7 +258,7 @@ test('perTool round-trips through main and an unknown skill or hook fails sync',
   const device = { profile: 'work', tools: ['claude'], perTool: { claude: { hooks: { guard: false, lang: true }, skillsOff: ['learn'] }, kiro: { skillsOff: [] } } };
   writeFileSync(join(tmp, '.ai-device.json'), JSON.stringify(device));
   assert.equal(main([], tmp), 0);
-  assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')), device);
+  assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')), { ...device, mcpSynced: Object.keys(loadMcp()) });
   assert.ok(warn.mock.calls.some((c) => c.arguments[0] === 'guard: off for claude'));
   assert.equal(main(['--check'], tmp), 0);
 
@@ -319,6 +319,10 @@ test('MCP files keep the servers and keys a tool wrote itself; only _ai/mcp.json
   const out = mcpFiles(['claude', 'copilot'], { perTool: { claude: { mcpOff: ['atlassian'] } } }, dir);
   assert.deepEqual(JSON.parse(out['.vscode/mcp.json']), { inputs: [{ id: 'k' }], servers: { mine: { type: 'stdio', command: 'x' }, atlassian: { type: 'http', url } } });
   assert.deepEqual(JSON.parse(out['.mcp.json']), { mcpServers: { mine: { command: 'y' } } });
+  // a server sync wrote last time and that is no longer in _ai/mcp.json is removed; the user's own stays
+  writeFileSync(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { mine: { command: 'y' }, gone: { type: 'http', url: 'https://gone.test' } } }));
+  assert.deepEqual(JSON.parse(mcpFiles(['claude'], { mcpSynced: ['gone'] }, dir)['.mcp.json']).mcpServers, { mine: { command: 'y' }, atlassian: { type: 'http', url } });
+  assert.throws(() => checkDevice({ profile: 'work', tools: ['claude'], mcpSynced: 'gone' }), /mcpSynced must be a list/);
 });
 
 test('loadMcp refuses secrets, bad names, types and keys; Copilot gets variables as ${env:NAME}', () => {

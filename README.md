@@ -1,232 +1,200 @@
 # AI Setup
 
-One source of rules, skills, helper subagents, MCP servers and safety guards for **Claude Code**, **Kiro** and **GitHub Copilot**. You edit [AGENTS.md](AGENTS.md) and `_ai/`; `node _ai/sync.mjs` generates the files for the tools installed on this device.
+One place to define how AI coding assistants work in this workspace: rules, skills, helper agents, models, MCP servers and safety checks. You edit [AGENTS.md](AGENTS.md) and `_ai/`; one command writes the matching files for **Claude Code**, **Kiro** and **GitHub Copilot**.
 
 ```mermaid
 flowchart LR
-  S["AGENTS.md + _ai/ (source, in Git)"] -->|node _ai/sync.mjs| C[".claude/ + CLAUDE.local.md + .mcp.json"]
-  S -->|node _ai/sync.mjs| K[".kiro/ + workspace permissions"]
-  S -->|node _ai/sync.mjs| G[".github/ + .vscode/"]
-  S -->|node _ai/new-project.mjs| P["&lt;project&gt;/docs/ai/"]
-  U["setup-ui (local page)"] -->|edits, then runs sync| S
+  S["AGENTS.md + _ai/<br/>(source, in Git)"] -->|node _ai/sync.mjs| C["Claude Code files"]
+  S -->|node _ai/sync.mjs| K["Kiro files"]
+  S -->|node _ai/sync.mjs| G["Copilot files"]
+  U["Setup page<br/>(setup-ui/)"] -->|edits settings, runs sync| S
 ```
 
-## Contents
+- [Start](#start) · [How it works](#how-it-works) · [Settings](#settings) · [Setup page](#setup-page) · [Skills and helpers](#skills-and-helpers) · [Projects](#projects) · [Safety](#safety) · [Maintain](#maintain) · [Credits](#credits)
 
-- [Quick start](#quick-start)
-- [How it works](#how-it-works)
-- [Configure](#configure): [models](#models), [per-tool switches](#per-tool-switches), [MCP servers](#mcp-servers), [setup page](#setup-page)
-- [Daily use](#daily-use): [skills](#skills), [helpers](#helpers), [projects](#projects)
-- [Safety](#safety)
-- [Repository layout](#repository-layout)
-- [Maintaining the setup](#maintaining-the-setup)
-- [Credits](#credits)
+## Start
 
-## Quick start
-
-Needs Git and Node.js 22+ (for `node --test` globs).
+Needs Git and Node.js 22 or newer.
 
 ```powershell
 git clone https://github.com/GociuRadu/AI-Setup work; cd work
-node _ai/sync.mjs home --tools claude,kiro     # home PC
-node _ai/sync.mjs work --tools copilot,kiro    # work laptop
-node --test "_ai/**/*.test.mjs"
+node _ai/sync.mjs home --tools claude,kiro     # e.g. home PC
+node _ai/sync.mjs work --tools copilot,kiro    # e.g. work laptop
 ```
 
-Open the root `work` folder, not a project subfolder, in VS Code, Claude Code or Kiro. The profile and tools are saved in `.ai-device.json` (gitignored), so later runs need only `node _ai/sync.mjs`. To change settings from a page instead of JSON, see [Setup page](#setup-page).
+Then open the `work` folder (not a project subfolder) in your editor. The choice is saved in `.ai-device.json`, so later runs are just `node _ai/sync.mjs`.
 
-> **Do not turn on `claude` and `copilot` together.** Copilot also reads `.claude/` and `CLAUDE.md`, so hooks can fire twice. Sync and `--check` warn when both are on.
+> Do not turn on `claude` and `copilot` together: Copilot also reads Claude's files, so hooks run twice. Sync warns when both are on.
 
 ## How it works
 
-**Source vs generated.** `AGENTS.md` and `_ai/` are versioned; everything a tool reads is generated from them and replaced whole on each sync. Never edit generated files.
+- **Source:** `AGENTS.md` and `_ai/` are the only files you edit; they are in Git.
+- **Generated:** sync writes each tool's files and replaces them whole on every run. Never edit them; `node _ai/sync.mjs --check` reports any that are missing, stale or extra.
+- **Kept:** your own files next to them stay: other files in `.github/`, your keys in `.vscode/settings.json`, MCP servers you added in a tool, and your rules in Kiro's `permissions.yaml`.
 
-| Tool | Generated paths |
+| Tool | Generated files |
 |---|---|
-| `claude` | `.claude/`, `CLAUDE.local.md`, `.mcp.json`, `.claude/settings.local.json` |
-| `kiro` | `.kiro/` (with `.kiro/settings/mcp.json`) and the generated rule block in `~/.kiro/workspace-roots/<hash>/permissions.yaml` |
-| `copilot` | `.github/agents/`, `.github/skills/`, `.github/instructions/`, `.github/hooks/guard.json`, `.github/copilot-instructions.md`, `.vscode/mcp.json` and managed keys in `.vscode/settings.json` |
+| `claude` | `.claude/`, `CLAUDE.local.md`, `.mcp.json` |
+| `kiro` | `.kiro/` and a rule block in `~/.kiro/workspace-roots/<hash>/permissions.yaml` |
+| `copilot` | `.github/agents/`, `.github/skills/`, `.github/instructions/`, `.github/hooks/guard.json`, `.github/copilot-instructions.md`, `.vscode/mcp.json`, keys in `.vscode/settings.json` |
 
-Kept on sync: other files under `.github/` (such as workflows), your own keys in `.vscode/settings.json`, servers you added to the 3 MCP files, and rules outside the generated markers in Kiro's `permissions.yaml`. Removing a tool from `--tools` removes its generated files.
+**Profiles** decide how much runs without asking:
 
-**Profiles** set how much runs without asking:
-
-| Profile | Autonomy | Enforced by |
+| Profile | Runs without asking | Asks first |
 |---|---|---|
-| `home` | Runs end to end without asking, within [AGENTS.md](AGENTS.md) ([home.md](_ai/profiles/home.md)) | Claude `bypassPermissions`; Kiro Autopilot; the guard hook still blocks secrets, `personal/`, writing SQL and hard stops |
-| `work` | Reads, searches, subagents, workspace edits and tests run; asks on deletes, outside edits, Git writes, external CLI/network calls and mutating MCP tools ([work.md](_ai/profiles/work.md)) | Claude approvals + deny list + guard (`onFailure: "block"`); Kiro Autopilot + workspace permissions + guard; Copilot `.vscode/settings.json` + Preview guard hook |
+| `home` ([home.md](_ai/profiles/home.md)) | Everything within [AGENTS.md](AGENTS.md) | Only what the guard asks about (deletes, Git writes, external CLI) |
+| `work` ([work.md](_ai/profiles/work.md)) | Reads, searches, helpers, edits in the workspace, tests | Deletes, edits outside the workspace, Git writes, external CLI and network, mutating MCP tools |
 
-## Configure
+## Settings
 
-All settings live in 3 files: [_ai/models.json](_ai/models.json) and [_ai/mcp.json](_ai/mcp.json) (shared, in Git) and `.ai-device.json` (this device only). Run `node _ai/sync.mjs` after a change, or use the [setup page](#setup-page).
+3 files hold every setting. After a change run `node _ai/sync.mjs`, or use the [setup page](#setup-page).
+
+| File | Shared? | Holds |
+|---|---|---|
+| [_ai/models.json](_ai/models.json) | Yes, in Git | Model per tier and per helper, per tool |
+| [_ai/mcp.json](_ai/mcp.json) | Yes, in Git | MCP servers |
+| `.ai-device.json` | No, this device | Profile, tools, per-tool switches, local model overrides |
 
 ### Models
 
-Helpers declare a tier (`fast`, `balanced`, `deep`), not a vendor model. Each tool maps tiers to its own model IDs:
+Helpers ask for a tier, not a model: `fast` (`scout`, `tester`), `balanced` (`worker`, `reviewer`, `challenger`) or `deep`. Each tool maps tiers to its own model IDs:
 
 ```json
-{
-  "copilot": {
+{ "copilot": {
     "tiers": { "fast": "Claude Haiku 5.5 (copilot)", "balanced": "Claude Sonnet 5.5 (copilot)", "deep": "Claude Opus 5.5 (copilot)" },
-    "agents": { "tester": "Gemini 4 Neon (copilot)" }
-  }
-}
+    "agents": { "tester": "Gemini 4 Neon (copilot)" } } }
 ```
 
-- **`tiers`:** `fast` runs `scout` and `tester`; `balanced` runs `worker`, `reviewer` and `challenger`.
-- **`agents`:** optional per-helper override, a tier name or an exact model ID.
-- **`available`:** model IDs the setup page suggests for that tool.
-- **`claude.default` / `claude.subagentDefault`:** Claude Code's chat model and `CLAUDE_CODE_SUBAGENT_MODEL`.
-- **This device only:** a `"models"` block with the same shape in `.ai-device.json`; it wins over `_ai/models.json`.
+- **`agents`:** a model for one helper, overriding its tier.
+- **`available`:** model IDs the setup page suggests.
+- **`claude.default` / `claude.subagentDefault`:** Claude Code's chat model and helper model.
+- **One device only:** a `"models"` block of the same shape in `.ai-device.json`.
 
 ### Per-tool switches
 
-`perTool` in `.ai-device.json` turns hooks, skills and MCP servers off for one tool. A missing key means on; sync rejects an unknown tool, hook, skill or server name.
+In `.ai-device.json`, `perTool` turns things off for one tool; anything not listed is on. Sync rejects unknown names.
 
 ```json
-{
-  "profile": "home",
-  "tools": ["claude", "kiro"],
+{ "profile": "home", "tools": ["claude", "kiro"],
   "perTool": {
-    "kiro": { "hooks": { "lang": false }, "skillsOff": ["learn"] },
-    "claude": { "mcpOff": ["atlassian"] }
-  }
-}
+    "kiro":   { "hooks": { "lang": false }, "skillsOff": ["learn"] },
+    "claude": { "mcpOff": ["atlassian"] } } }
 ```
 
-- **`hooks`:** `guard` and `lang` (`HOOKS` in [_ai/sync.mjs](_ai/sync.mjs)). With `guard` off, shell reads of `.env`/`personal/`, writing SQL and hard stops are no longer blocked for that tool; sync and `--check` print `guard: off for <tool>`.
-- **`skillsOff`:** skill folders left out of that tool.
-- **`mcpOff`:** MCP servers left out of that tool. Kiro gets them as `"disabled": true`, which also turns off a server with the same name in `~/.kiro/settings/mcp.json`.
+- **`hooks`:** `guard` (the safety check) and `lang` (reply in English). With `guard` off, that tool can read `.env` files and `personal/` through the shell, write SQL and run hard stops; sync prints `guard: off for <tool>`.
+- **`skillsOff`:** skills left out of that tool.
+- **`mcpOff`:** MCP servers left out of that tool.
 
 ### MCP servers
 
-[_ai/mcp.json](_ai/mcp.json) lists the MCP servers once; sync writes each tool's own format: `.mcp.json` (Claude Code), `.kiro/settings/mcp.json` (Kiro), `.vscode/mcp.json` (Copilot).
+[_ai/mcp.json](_ai/mcp.json) lists each MCP server once; sync writes it in each tool's format (`.mcp.json`, `.kiro/settings/mcp.json`, `.vscode/mcp.json`).
 
 ```json
-{
-  "servers": {
+{ "servers": {
     "atlassian": { "description": "Jira, Confluence and Compass", "type": "http", "url": "https://mcp.atlassian.com/v2/mcp" },
-    "example-local": { "type": "stdio", "command": "npx", "args": ["-y", "<package>"], "env": { "API_TOKEN": "${EXAMPLE_TOKEN}" } }
-  }
-}
+    "example":   { "type": "stdio", "command": "npx", "args": ["-y", "<package>"], "env": { "API_TOKEN": "${EXAMPLE_TOKEN}" } } } }
 ```
 
-- **Keys:** `type` (`http` or `stdio`), `url` for http, `command` and optional `args` for stdio, optional `env`, `headers` and `description`. A name is lowercase letters, digits and dashes.
-- **Merged, not replaced:** sync replaces or removes only the servers named in `_ai/mcp.json`; servers a tool added itself (Kiro, VS Code "MCP: Add Server", `claude mcp add`) stay. A server deleted from `_ai/mcp.json` stays in the tool files too: delete it there as well.
-- **No secrets:** an `env` or `headers` value is `${NAME}` or `<Scheme> ${NAME}` (such as `Bearer ${TOKEN}`), and a `url` carries no user, password or literal query value; sync refuses anything else. `args` are not checked: pass a secret through `env`. Copilot gets variables as `${env:NAME}`. Remote servers such as Atlassian sign in with OAuth inside each tool.
-- **Hard stop:** Claude Code denies `executeDestructive` on every server here, as AGENTS.md requires; in Kiro and Copilot the guard hook blocks it.
-- **claude.ai connectors** (Atlassian, Gmail, ... added in your claude.ai account) are not in this file; they reach Claude Code through your account. Turn a server off for `claude` in `mcpOff` when a connector already covers it.
+- **No secrets in the file:** an `env` or `headers` value must be `${NAME}` or `Bearer ${NAME}`, and a `url` has no password or literal query value; sync refuses anything else. `args` are not checked, so pass secrets through `env`. Atlassian signs in with OAuth inside each tool.
+- **Your servers stay:** sync changes only the servers it owns (listed in `_ai/mcp.json`, or written by its last run); servers you add in a tool are kept. Delete a server from `_ai/mcp.json` and the next sync removes it from the tools.
+- **claude.ai connectors** (Atlassian, Gmail, ... in your claude.ai account) reach Claude Code through your account, not this file. If a connector already covers a server, turn that server off for `claude`.
 - **First use:** Claude Code asks once to approve the servers in `.mcp.json`.
 
-### Setup page
+## Setup page
 
-A local page in [setup-ui/](setup-ui/) (React + Vite + TypeScript) shows the helpers, skills, rules, hooks and MCP servers, and sets tools, profile, per-tool models, hooks, skills and MCP servers. It writes only `_ai/models.json` and `.ai-device.json`; **Apply** runs `node _ai/sync.mjs` and shows its output.
+A local web page for the same settings: tools, profile, models, hooks, skills and MCP servers per tool. It shows what will change, saves `_ai/models.json` and `.ai-device.json`, then **Apply** runs sync and shows its output.
 
 ```powershell
 cd setup-ui; npm install
-npm run setup-ui   # build, then serve on http://127.0.0.1:4319 (PORT to change)
-npm test           # run from a C:\ path in PowerShell: vitest fails from Git Bash's /c/ path
-npm run api        # with npm run dev in a second terminal: Vite with hot reload, /api proxied
+npm run setup-ui   # build, then open http://127.0.0.1:4319
 ```
 
-The server binds `127.0.0.1`, accepts only a `127.0.0.1`/`localhost` Host on its port, needs a per-start token header and JSON bodies, and runs one Apply at a time. `setup-ui/` has no `AGENTS.md` or `CLAUDE.md`, so chats do not load it.
+- **Local only:** it listens on `127.0.0.1`, accepts only local addresses, and needs a per-start token, so other websites cannot call it.
+- **Not AI context:** searches skip `setup-ui/` (root `.ignore`), and the guard asks you before an agent reads it or runs anything in it.
+- **Develop it:** `npm test` (run from PowerShell with a `C:\` path; vitest fails from Git Bash's `/c/` path); `npm run api` plus `npm run dev` for hot reload.
 
-## Daily use
+## Skills and helpers
 
-### Skills
+Type `/<name>`, or describe the task and the matching skill starts. Use Opus for design, data models, migrations, public interfaces and hard debugging; Sonnet for the rest.
 
-Type `/<name>`, or describe the task and the skill's description routes it. Use Opus for design, data models, migrations, public interfaces or hard debugging; Sonnet for routine work.
-
-| Skill | Purpose |
+| Skill | Use it to |
 |---|---|
-| `/pplan <goal>` | Design and break down a large task (3+ files, schema, auth, shared interfaces); writes a plan file with an approval gate |
-| `/delegate <task>` | Split work across the helpers, with parallel readers and isolated writers |
-| `/review [review \| bug \| analyze \| debt] <scope>` | Review code or a PR, diagnose a bug, explain a flow or list shortcuts; optional HTML report |
-| `/data <task>` | Design or review data models, DDL, migrations, loads, pipelines and Spark notebooks |
-| `/confluence-project <link> <change>` | Read, answer questions about or update a project Confluence page |
-| `/learn <stage or topic>` | Research industry standards for a stage and write a study report with interview questions |
-| `/retro [project or topic]` | Find recurring mistakes or lessons in a session and propose 1-2 line rule or memory updates |
-| `/handoff` | Print one paste-ready brief to continue in a new chat |
-| `/clean [--days 7] [--reports]` | Dry-run list of stale logs, caches, transcripts and `.tmp` files; deletes only after confirmation |
-| `/ui-ux-pro-max <ui task>` | UI/UX guidance (styles, palettes, fonts, UX and accessibility rules, per-stack advice) from local data; needs Python 3 |
+| `/pplan <goal>` | Plan a large task (3+ files, schema, auth, shared interfaces) in a plan file |
+| `/delegate <task>` | Split work across the helpers below |
+| `/review [review \| bug \| analyze \| debt] <scope>` | Review a change, find a bug's cause, explain code or list shortcuts |
+| `/data <task>` | Design or review data models, DDL, migrations, loads and Spark notebooks |
+| `/confluence-project <link> <change>` | Read or update a project's Confluence page |
+| `/learn <stage or topic>` | Write a study report on what the industry uses, with interview questions |
+| `/retro [topic]` | Turn a session's mistakes or lessons into 1-2 line rule updates |
+| `/handoff` | Print a brief to continue in a new chat |
+| `/clean [--days 7] [--reports]` | List stale logs, caches and transcripts; delete after you confirm |
+| `/ui-ux-pro-max <ui task>` | Get UI/UX guidance (styles, colors, fonts, accessibility); needs Python 3 |
 
-### Helpers
+The 10 skills above hand work to 5 helpers, defined in `_ai/agents/` and started only through `/delegate`:
 
-The 10 skills above can hand work to 5 helper subagents, defined in `_ai/agents/` and started through `/delegate` (never built-in generic subagents):
-
-| Helper | Role | Access |
+| Helper | Does | Can edit? |
 |---|---|---|
-| `scout` | Search across files, logs or the public web | Read-only |
-| `tester` | Run tests, linters and long-output commands | Read-only (runs checks) |
-| `worker` | Implement a precise spec and its tests | Edits named files |
-| `reviewer` | Fresh-eyes review for bugs, regressions, data loss, bloat | Read-only |
-| `challenger` | Second opinion on an expensive plan choice | Read-only |
+| `scout` | Searches files, logs or the web | No |
+| `tester` | Runs tests, linters and long commands | No |
+| `worker` | Writes code and tests from a precise spec | Named files only |
+| `reviewer` | Reviews a change for bugs, data loss, bloat | No |
+| `challenger` | Gives a second opinion on a costly choice | No |
 
-### Projects
+## Projects
 
-Each project has its own folder: `<Name>/code/` is its Git repo, `<Name>/docs/ai/` its AI state.
+Each project has its own folder: `<Name>/code/` is its Git repo, `<Name>/docs/ai/` holds the AI's notes.
 
 ```powershell
-node _ai/new-project.mjs <Name> --template app        # docs/ai/ only; clone the repo into <Name>/code/
-node _ai/new-project.mjs <Name> --template data-eng   # docs/ai/ + a local data-engineering skeleton in code/
+node _ai/new-project.mjs <Name> --template app        # notes only; clone the repo into <Name>/code/
+node _ai/new-project.mjs <Name> --template data-eng   # notes + a local data-engineering skeleton
 ```
 
-`--dest <dir>` creates it elsewhere; existing folders are never overwritten. Fill `docs/ai/project.md` once (stack, commands, DEV/PRODUCTION names). The agent keeps `docs/ai/context.md` (current state, under 40 lines), `docs/ai/memory.md` (decisions and non-obvious bugs), `plans/` and `reports/`.
+Fill `docs/ai/project.md` once (stack, commands, DEV/PRODUCTION names). The AI keeps `context.md` (current state), `memory.md` (decisions and tricky bugs), `plans/` and `reports/` up to date. `--dest <dir>` creates the folder elsewhere; existing folders are never overwritten.
 
 ## Safety
 
-The rules in [AGENTS.md](AGENTS.md) are enforced in 4 layers:
+[AGENTS.md](AGENTS.md) sets the rules; 4 layers enforce them:
 
-| Layer | Claude Code | Kiro | Copilot |
-|---|---|---|---|
-| Guard hook (`_ai/hooks/run-guard.mjs`) | `node` exec form, `onFailure: "block"`, `timeout: 10` | Catch-all `PreToolUse` in the hook and every helper | Preview hook (`--allow`); a timeout allows the call |
-| Tool and path deny list | `**/.env*`, `personal/`, prod/destructive CLI, built-in agents, destructive MCP | File deny (`**/.env*`, `personal/**`) + ask rules in `permissions.yaml` | Auto-approve exclusions in `.vscode/settings.json` |
-| Written rules | `AGENTS.md` + `CLAUDE.local.md` | `AGENTS.md` + `.kiro/steering/` | `AGENTS.md` + `.github/copilot-instructions.md` |
-| English prompt hook (`_ai/hooks/lang.mjs`) | `UserPromptSubmit` | `UserPromptSubmit` | `UserPromptSubmit --json` |
-
-[_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) checks commands and paths before they run and fails closed if it cannot load. It blocks writing SQL sent through CLI clients, PRODUCTION/staging hard stops, `.env`-style files and `personal/`, and asks on mutating MCP tools. **Known limits:** a script that opens a DB connection itself is not inspected (only the command and path are); an inline command that mentions a hard stop or `personal` is blocked (put it in a file); Copilot hooks are still Preview.
-
-## Repository layout
-
-| Path | Purpose |
+| Layer | What it does |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Core rules for every chat; helpers get only the sections they list |
-| `_ai/agents/` | Helper specs (`_core.md` + 5 helpers) with a tier and optional Claude `isolation`/`memory` |
-| `_ai/skills/` | The skills above |
-| `_ai/rules/` | Path-scoped rules for Python, SQL and reports |
-| `_ai/profiles/` | `home` and `work` autonomy profiles |
-| `_ai/tools/` | Tool notes (`claude-code.md`, `kiro.md`, `copilot.md`) |
-| `_ai/hooks/` | Guard (`run-guard.mjs`, `guard.mjs`) and English prompt hook (`lang.mjs`) |
-| `_ai/templates/` | Project skeletons (`common`, `app`, `data-eng`) and the report template |
-| [_ai/models.json](_ai/models.json), [_ai/mcp.json](_ai/mcp.json) | Shared model profiles and MCP servers |
-| [_ai/sync.mjs](_ai/sync.mjs) | Generates the tool files; `--check` verifies files, links, paths and settings |
-| [_ai/new-project.mjs](_ai/new-project.mjs) | Creates a project folder from a template |
-| [_ai/report.mjs](_ai/report.mjs) | Markdown to self-contained HTML report; `--edit <file.html>` gets the Markdown back |
-| [_ai/clean.mjs](_ai/clean.mjs) | Dry-run list of stale logs, caches and scratch files; `--apply` deletes |
-| [setup-ui/](setup-ui/) | Local setup page and its API server (`server.mjs`) |
-| `docs/` | Plans and reports for this setup |
-| `.claude/`, `.kiro/`, `.github/`, `.vscode/`, `.mcp.json`, `CLAUDE.local.md`, `.ai-device.json` | Generated or per device; gitignored |
+| Guard hook ([_ai/hooks/guard.mjs](_ai/hooks/guard.mjs)) | Runs before each tool call in all 3 tools. Blocks writing SQL, PRODUCTION/staging commands, force-push, `.env` files and `personal/`; asks before deletes, Git writes, external CLI, mutating MCP tools and `setup-ui/`. If it cannot load, it blocks. |
+| Deny lists | Claude Code settings, Kiro `permissions.yaml` and Copilot auto-approve rules exclude the same files and commands; Claude Code also denies each MCP server's `executeDestructive`. |
+| Written rules | `AGENTS.md` plus each tool's own instructions file. |
+| English hook ([_ai/hooks/lang.mjs](_ai/hooks/lang.mjs)) | Reminds the AI to reply in English. |
 
-## Maintaining the setup
+**Known limits:** a script that opens a database connection itself is not inspected, only the command; a command that only mentions a hard stop or `personal` is blocked too (put it in a file); Copilot hooks are still a Preview feature.
 
-1. Edit [AGENTS.md](AGENTS.md) or `_ai/`, never the generated folders.
-2. Sync and verify:
+## Maintain
+
+1. Edit `AGENTS.md` or `_ai/`, never the generated files.
+2. Check:
    ```powershell
    node _ai/sync.mjs
    node _ai/sync.mjs --check
    node --test "_ai/**/*.test.mjs"
    ```
-3. Start a new chat so the tools reload the generated files, then commit.
+3. Start a new chat so the tools reload, then commit. GitHub Actions ([test.yml](.github/workflows/test.yml)) runs the same checks and the setup page tests on every push.
 
-- **Add a skill:** `_ai/skills/<name>/SKILL.md` with `name` equal to the folder and a routing `description`; add a row to [Skills](#skills) and update the skill count (both checked by tests).
-- **Add a helper:** `_ai/agents/<name>.md` with `name`, `description`, `model` (`fast`, `balanced`, `deep`), `tools` (`read`, `search`, `web`, `edit`, `execute`) and `sections`; optional Claude-only `isolation` (`worktree`) and `memory` (`user`, `project`, `local`); register it in `/delegate`.
-- **Add an MCP server:** add it to [_ai/mcp.json](_ai/mcp.json) with secrets as `${NAME}` variables, then sync.
-- **Change models:** [_ai/models.json](_ai/models.json) for every device, or a `"models"` block in `.ai-device.json` for one.
-- **Rename an `AGENTS.md` section:** update every `sections:` list in `_ai/agents/` and `_ai/tools/` (sync fails on unknown names) and keep `Databases` (linked by `/data`).
-- **Add a PRODUCTION host:** add it to [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) and [_ai/hooks/guard.test.mjs](_ai/hooks/guard.test.mjs).
+| To | Do |
+|---|---|
+| Add a skill | `_ai/skills/<name>/SKILL.md` with `name` = folder name and a `description` that says when to use it; add a row to the skills table and update the count (tests check both) |
+| Add a helper | `_ai/agents/<name>.md` with `name`, `description`, `model` (tier), `tools` (`read`, `search`, `web`, `edit`, `execute`), `sections`; register it in `/delegate` |
+| Add an MCP server | An entry in [_ai/mcp.json](_ai/mcp.json), secrets as `${NAME}` |
+| Change models | [_ai/models.json](_ai/models.json), or `"models"` in `.ai-device.json` for one device |
+| Rename an `AGENTS.md` section | Update every `sections:` list in `_ai/agents/` and `_ai/tools/` (sync fails on unknown names) |
+| Add a PRODUCTION host | [_ai/hooks/guard.mjs](_ai/hooks/guard.mjs) and its test |
+
+| Path | Holds |
+|---|---|
+| `_ai/agents/`, `_ai/skills/`, `_ai/rules/`, `_ai/profiles/`, `_ai/tools/` | Helpers, skills, file-type rules, profiles, per-tool notes |
+| `_ai/hooks/` | Guard and English hook |
+| `_ai/templates/` | Project skeletons and the report template |
+| [_ai/sync.mjs](_ai/sync.mjs), [_ai/new-project.mjs](_ai/new-project.mjs), [_ai/report.mjs](_ai/report.mjs), [_ai/clean.mjs](_ai/clean.mjs) | Sync, new project, Markdown-to-HTML report, cleanup |
+| [setup-ui/](setup-ui/) | Setup page |
+| `docs/` | Plans and reports about this setup |
 
 ## Credits
 
-- Code rules in [AGENTS.md](AGENTS.md), the `reviewer` checklist and `/review debt` adapt [Ponytail](https://github.com/DietrichGebert/ponytail) 5.3.3 (`96608e0`, MIT, Copyright (c) 2026 DietrichGebert); levels, hooks, the band, `gain` and `help` were omitted.
-- The decision **Review** column in `memory.md` is adapted from [chief-of-staff](https://github.com/alirezarezvani/claude-skills/tree/main/c-level-advisor/skills/chief-of-staff) (MIT); routing and board-meeting flows were omitted.
-- `_ai/skills/ui-ux-pro-max/` is [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) (`2de1134`, MIT, Copyright (c) 2024 Next Level Builder); only that skill was copied, without `scripts/tests/`, and its script paths point to `_ai/skills/ui-ux-pro-max/scripts/`.
+- Code rules in [AGENTS.md](AGENTS.md), the `reviewer` checklist and `/review debt` adapt [Ponytail](https://github.com/DietrichGebert/ponytail) 5.3.3 (`96608e0`, MIT, Copyright (c) 2026 DietrichGebert).
+- The decision **Review** column in `memory.md` is adapted from [chief-of-staff](https://github.com/alirezarezvani/claude-skills/tree/main/c-level-advisor/skills/chief-of-staff) (MIT).
+- `_ai/skills/ui-ux-pro-max/` is [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) (`2de1134`, MIT, Copyright (c) 2024 Next Level Builder), without `scripts/tests/`.
