@@ -224,6 +224,15 @@ function claudeSettings(models, hookOn) {
         ...Object.keys(loadMcp()).map((n) => `mcp__${n}__executeDestructive`),
       ],
     },
+    // context: off-topic account connectors and skills cost tokens every turn; names as `claude mcp list` and the skill listing show them
+    deniedMcpServers: ['claude.ai Atlassian Rovo', 'claude.ai Vanguard Advisor Tools', 'claude.ai BlackRock Advisor Center', 'claude.ai Links Connect']
+      .map((serverName) => ({ serverName })),
+    // hidden from the model, still typable as /name
+    skillOverrides: Object.fromEntries([
+      'interview-prep-generator', 'job-description-analyzer', 'linkedin-profile-optimizer', 'resume-ats-optimizer', 'resume-bullet-writer',
+      'resume-cover-letter', 'resume-quantifier', 'resume-tailor', 'tech-resume-optimizer',
+      ...['morning', 'import-memory', 'computer-use', 'built-in-browser', 'google-workspace'].map((s) => `anthropic-skills:${s}`),
+    ].map((s) => [s, 'user-invocable-only'])),
     hooks: {
       ...(hookOn('lang') && { UserPromptSubmit: [{
         hooks: [{

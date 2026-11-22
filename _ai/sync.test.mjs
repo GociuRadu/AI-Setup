@@ -194,6 +194,8 @@ test('Claude settings use exec-form hooks, onFailure block, 60% autocompact and 
   for (const rule of ['Read(**/.env.*)', 'Edit(**/.env.*)', 'Read(**/personal/**)', 'Edit(**/personal/**)']) {
     assert.ok(settings.permissions.deny.includes(rule), `missing deny rule: ${rule}`);
   }
+  assert.ok(settings.deniedMcpServers.some((s) => s.serverName === 'claude.ai Atlassian Rovo'));
+  assert.equal(settings.skillOverrides['anthropic-skills:morning'], 'user-invocable-only');
   const pre = settings.hooks.PreToolUse[0].hooks[0];
   assert.deepEqual(pre, {
     type: 'command',
