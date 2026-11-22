@@ -1,0 +1,4 @@
+# Not AI context. Searches (ripgrep, VS Code, Kiro) skip these folders; the guard hook asks the user
+# before an agent reads or runs anything in setup-ui/ (_ai/hooks/guard.mjs, ON_REQUEST).
+/setup-ui/
+/_ai/skills/ui-ux-pro-max/data/

@@ -234,3 +234,19 @@ for (const [payload, code, out] of cases) {
 const noFlag = runGuard({ tool_name: 'read_file', tool_input: { filePath: inWs }, cwd: root });
 assert.equal(noFlag.status, 0);
 assert.equal(noFlag.stdout.toString(), '', 'no --allow: no output on safe calls');
+
+// setup-ui/ is not AI context: any read, search or command there asks first; a mention in search text does not
+const onRequest = 'setup-ui/ is not AI context: reading or running it requires approval';
+for (const [command, args, tool] of [
+  [undefined, { file_path: join(dir, 'setup-ui/src/App.tsx') }, 'Read'],
+  [undefined, { pattern: 'setup-ui/**/*.tsx' }, 'Glob'],
+  [undefined, { pattern: 'x', path: 'setup-ui' }, 'Grep'],
+  ['cd setup-ui; npm test', {}, 'Bash'],
+  ['cat setup-ui/server.mjs', {}, 'Bash'],
+]) assert.equal(ask(command, args, tool), onRequest, `should ask: ${command ?? JSON.stringify(args)}`);
+assert.equal(checkAsk('npm test', {}, join(dir, 'setup-ui'), dir, 'Bash'), onRequest, 'a command run inside setup-ui/ asks');
+for (const [command, args, tool] of [
+  [undefined, { pattern: 'setup-ui', path: '.' }, 'Grep'],
+  [undefined, { file_path: join(dir, 'README.md') }, 'Read'],
+  ['node --test "_ai/**/*.test.mjs"', {}, 'Bash'],
+]) assert.equal(ask(command, args, tool), null, `not asked: ${command ?? JSON.stringify(args)}`);

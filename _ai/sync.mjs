@@ -130,9 +130,9 @@ export function mcpEntry(s, tool) {
 const MCP_FILES = { claude: ['.mcp.json', 'mcpServers'], kiro: ['.kiro/settings/mcp.json', 'mcpServers'], copilot: ['.vscode/mcp.json', 'servers'] };
 
 // Each enabled tool's MCP file as { path: text }, merged into the file in `dir`: the tools write their own servers there
-// (Kiro, VS Code "MCP: Add Server", claude mcp add), so only the servers named in _ai/mcp.json are replaced or removed.
+// (Kiro, VS Code "MCP: Add Server", claude mcp add), so only servers sync owns are replaced or removed: those in _ai/mcp.json
+// and those it wrote last time (`mcpSynced` in .ai-device.json), so a server deleted from _ai/mcp.json leaves the tools too.
 // Kiro gets an off server as disabled: the workspace file wins, so a same-name server in ~/.kiro is off too.
-// shortcut: a server deleted from _ai/mcp.json stays in the tool files as the user's own; delete it there too, until sync records what it wrote.
 export function mcpFiles(tools, device = {}, dir = ROOT) {
   const mcp = Object.entries(loadMcp());
   const out = {};
@@ -145,7 +145,8 @@ export function mcpFiles(tools, device = {}, dir = ROOT) {
       catch { throw new Error(`${p} is not valid JSON; fix or delete it, then run again`); }
     }
     const off = (n) => device.perTool?.[tool]?.mcpOff?.includes(n);
-    const own = Object.entries(cur[key] ?? {}).filter(([n]) => !mcp.some(([m]) => m === n));
+    const owned = new Set([...mcp.map(([n]) => n), ...(device.mcpSynced ?? [])]);
+    const own = Object.entries(cur[key] ?? {}).filter(([n]) => !owned.has(n));
     const ours = mcp.filter(([n]) => tool === 'kiro' || !off(n)).map(([n, s]) => [n, { ...mcpEntry(s, tool), ...(tool === 'kiro' && off(n) && { disabled: true }) }]);
     if (!existsSync(p) && !ours.length) continue;
     out[f] = JSON.stringify({ ...cur, [key]: Object.fromEntries([...own, ...ours]) }, null, 2) + '\n';
@@ -223,6 +224,15 @@ function claudeSettings(models, hookOn) {
         ...Object.keys(loadMcp()).map((n) => `mcp__${n}__executeDestructive`),
       ],
     },
+    // context: off-topic account connectors and skills cost tokens every turn; names as `claude mcp list` and the skill listing show them
+    deniedMcpServers: ['claude.ai Atlassian Rovo', 'claude.ai Vanguard Advisor Tools', 'claude.ai BlackRock Advisor Center', 'claude.ai Links Connect']
+      .map((serverName) => ({ serverName })),
+    // hidden from the model, still typable as /name
+    skillOverrides: Object.fromEntries([
+      'interview-prep-generator', 'job-description-analyzer', 'linkedin-profile-optimizer', 'resume-ats-optimizer', 'resume-bullet-writer',
+      'resume-cover-letter', 'resume-quantifier', 'resume-tailor', 'tech-resume-optimizer',
+      ...['morning', 'import-memory', 'computer-use', 'built-in-browser', 'google-workspace'].map((s) => `anthropic-skills:${s}`),
+    ].map((s) => [s, 'user-invocable-only'])),
     hooks: {
       ...(hookOn('lang') && { UserPromptSubmit: [{
         hooks: [{
@@ -399,6 +409,7 @@ export function checkDevice(d, f = '.ai-device.json') {
     throw new Error(`${f}: profile must be home|work and tools a list of claude, kiro, copilot`);
   }
   if (d.models !== undefined) loadModels(d.models);
+  if (d.mcpSynced !== undefined && !(Array.isArray(d.mcpSynced) && d.mcpSynced.every((n) => typeof n === 'string'))) throw new Error(`${f}: mcpSynced must be a list of names`);
   if (d.perTool === undefined) return;
   const isObj = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
   if (!isObj(d.perTool)) throw new Error(`${f}: perTool must be an object`);
@@ -570,8 +581,10 @@ export function main(args, dir = ROOT) {
     return problems.length ? 1 : 0;
   }
 
-  // keeps the device file's other keys (models, perTool)
-  writeFileSync(join(dir, '.ai-device.json'), JSON.stringify({ ...saved, profile, tools }, null, 2) + '\n');
+  // keeps the device file's other keys (models, perTool); mcpSynced: the MCP servers sync now owns in the tool files
+  const { mcpSynced, ...rest } = saved;
+  const synced = Object.keys(loadMcp());
+  writeFileSync(join(dir, '.ai-device.json'), JSON.stringify({ ...rest, profile, tools, ...(synced.length && { mcpSynced: synced }) }, null, 2) + '\n');
   for (const p of MANAGED_ALL) rmSync(join(dir, p), { recursive: true, force: true });
   for (const [f, text] of Object.entries({ ...out, ...mcp })) {
     mkdirSync(dirname(join(dir, f)), { recursive: true });

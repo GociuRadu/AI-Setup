@@ -121,15 +121,23 @@ export default function App() {
 
   async function apply() {
     setBusy(true); setError(undefined); setResult(undefined);
+    let saved = false;
     try {
       // device first: it is checked against the saved models, and a rejected device then leaves both files as they were
       if (deviceChanges.length) await api.saveDevice(device);
       if (modelChanges.length) await api.saveModels(models!);
       setResult(await api.apply());
-      setDrafts({});
+      saved = true;
     } catch (e) { setError((e as Error).message); }
-    // only the saved state is reloaded: edits stay, and the diff then shows what is still unsaved
-    finally { await api.setup().then(setSetup).catch((e: Error) => setError(e.message)); setBusy(false); }
+    // after a failed save only the saved state is reloaded: edits stay, and the diff shows what is still unsaved;
+    // after Apply the page takes the files as sync wrote them (sync adds keys such as mcpSynced)
+    finally {
+      await api.setup().then((s) => {
+        setSetup(s);
+        if (saved) { setDevice(editable(s)); setModels(clone(s.models)); setDrafts({}); }
+      }).catch((e: Error) => setError(e.message));
+      setBusy(false);
+    }
   }
 
   const tm = models[activeTab];

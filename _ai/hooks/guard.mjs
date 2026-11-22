@@ -36,10 +36,15 @@ const SECRETS = new RegExp(SECRET.source, 'gi');
 const isSecret = (text) => [...String(text).matchAll(SECRETS)].some((m) => !EXAMPLE.test(m[2]));
 // words of a command with quotes removed, to test each one as a path
 const tokens = (s) => [...s.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
-function isPersonal(path, cwd, root = ROOT) {
+// a path inside the workspace folder that `re` matches (relative to the root)
+const inside = (re) => (path, cwd, root = ROOT) => {
   const rel = relative(root, resolve(cwd, String(path))).replace(/\\/g, '/');
-  return !rel.startsWith('..') && !isAbsolute(rel) && /^personal(\/|$)/i.test(rel);
-}
+  return !rel.startsWith('..') && !isAbsolute(rel) && re.test(rel);
+};
+const isPersonal = inside(/^personal(\/|$)/i);
+// not AI context: read or run only after the user approves (searches skip it through the root .ignore)
+const ON_REQUEST = 'setup-ui';
+const isOnRequest = inside(new RegExp(`^${ON_REQUEST}(\\/|$)`, 'i'));
 
 // split on && || ; and newlines outside quotes, so `-Q "SELECT 1; DELETE ..."` stays one command
 function parts(command) {
@@ -124,10 +129,14 @@ function pathArgs(value, key = '', isContentGrep = false, queryIsGlob = false) {
   if (value && typeof value === 'object') return Object.entries(value).flatMap(([k, v]) => pathArgs(v, k, isContentGrep, queryIsGlob));
   return [];
 }
-export function checkPaths(args, cwd = process.cwd(), root = ROOT, toolName = '') {
+// the paths and globs a file tool call names; a content search's text is not one
+function filePaths(args, toolName = '') {
   const isContentGrep = /(^|_)(grep|grep_search|grepSearch|findTextInFiles)$/i.test(String(toolName));
   const queryIsGlob = /(^|_)(file_search|fileSearch|findFiles|glob)$/i.test(String(toolName));
-  for (const p of pathArgs(args ?? {}, '', isContentGrep, queryIsGlob)) {
+  return pathArgs(args ?? {}, '', isContentGrep, queryIsGlob);
+}
+export function checkPaths(args, cwd = process.cwd(), root = ROOT, toolName = '') {
+  for (const p of filePaths(args, toolName)) {
     if (isSecret(p)) return 'secret files (.env and similar) are never opened by the agent';
     if (isPersonal(p, cwd, root)) return 'personal/ is private';
   }
@@ -156,6 +165,10 @@ const MUTATING_MCP = /(?:^|_|-|[a-z])(create|Create|update|Update|delete|Delete|
 
 // calls that VS Code or the tool should confirm with the user (permissionDecision ask); null = no objection
 export function checkAsk(command, args = {}, cwd = process.cwd(), root = ROOT, toolName = '') {
+  const onRequest = `${ON_REQUEST}/ is not AI context: reading or running it requires approval`;
+  if (typeof command === 'string' && (isOnRequest('.', cwd, root) || parts(command).some((part) => tokens(part)
+    .some((t) => t.toLowerCase().includes(ON_REQUEST) && isOnRequest(t.replace(/^[\w-]+[=:](?![\\/])/, ''), cwd, root))))) return onRequest;
+  if (filePaths(args, toolName).some((p) => isOnRequest(p, cwd, root))) return onRequest;
   if (typeof command === 'string') {
     for (const part of parts(command)) {
       if (/\$\(\s*(git|rm|del|erase|rmdir|rd|ri|Remove-Item|az|gh|curl|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr|kubectl|helm|terraform)\b/i.test(part)) {
