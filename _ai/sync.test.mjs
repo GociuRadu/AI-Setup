@@ -156,7 +156,7 @@ test('obsidian.vault: shape checked in the device file, folder checked against t
   const plain = mkdtempSync(join(tmpdir(), 'plain-'));
   assert.throws(() => checkVault(plain), /no \.obsidian folder/);
   // a vault that holds the workspace, or sits inside it, would open or hide workspace files
-  for (const v of [ROOT, join(ROOT, 'docs'), dirname(ROOT)]) assert.throws(() => checkVault(v), /must be outside the workspace/, v);
+  for (const v of [ROOT, join(ROOT, '_ai'), dirname(ROOT)]) assert.throws(() => checkVault(v), /must be outside the workspace/, v);
 });
 
 test('a vault gives Claude and Kiro access with its private folder and encrypted notes denied; without one nothing changes', () => {

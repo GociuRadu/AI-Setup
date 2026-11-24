@@ -1,6 +1,6 @@
 // Self-check: node _ai/hooks/guard.test.mjs (also run by node --test)
 import assert from 'node:assert/strict';
-import { writeFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -307,6 +307,12 @@ for (const [command, args, tool] of [
   for (const c of ["sed -n '/{/p' a.md", "awk '/[0-9]/' a.md"]) assert.equal(check(c, root, root), null, c);
   assert.equal(check('grep ".*error" a.log', join(vault, '..'), root), null);
   assert.equal(check(`cat ${fwd}/../*/Personal/a.md`, root, root), whole);
+  // a file that does not exist yet, reached through a link to the vault (a short Windows name behaves the same)
+  const link = join(mkdtempSync(join(tmpdir(), 'link-')), 'v');
+  symlinkSync(vault, link, 'junction');
+  assert.equal(checkPaths({ file_path: join(link, 'Personal', 'new.md'), content: 'x' }, root, root, 'Write'), why);
+  assert.equal(check(`cat "${join(link, 'Personal', 'new.md')}"`, root, root), why);
+  assert.equal(checkAsk(undefined, { file_path: join(link, 'Learn', 'new.md'), content: 'x' }, root, root, 'Write'), null);
   // Obsidian runs what is in .obsidian, so those edits are asked about
   assert.match(checkAsk(undefined, { file_path: `${fwd}/.obsidian/plugins/x/main.js`, content: 'x' }, root, root, 'Write'), /outside the workspace/);
   assert.equal(checkAsk(undefined, { file_path: `${fwd}/..x.md`, content: 'x' }, root, root, 'Write'), null);

@@ -8,7 +8,7 @@
 // with --allow it lets read-only tools skip VS Code's own prompt.
 // shortcut: matches command text and path arguments only; code that opens its own connection (pytest, a loader) is not seen.
 import { readFileSync, existsSync, realpathSync } from 'node:fs';
-import { resolve, relative, isAbsolute, join } from 'node:path';
+import { resolve, relative, isAbsolute, join, dirname, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -60,8 +60,8 @@ function vaultOf(root) {
 }
 const VAULT_PRIVATE = 'the private folder of the Obsidian vault and its .mdenc notes are never opened by the agent';
 const VAULT_WHOLE = 'this reads the whole Obsidian vault, private folder included; name one folder, for example Learn';
-// the real path when it exists, so a short Windows name or a link is seen
-const real = (p) => { try { return realpathSync.native(p); } catch { return p; } };
+// the real path, so a short Windows name or a link is seen; for a file that does not exist yet, that of its nearest folder
+const real = (p) => { try { return realpathSync.native(p); } catch { const up = dirname(p); return up === p ? p : join(real(up), basename(p)); } };
 // a path as the shell would see it: home folder, file:, \\?\, Git Bash drive
 const plain = (path) => String(path).replace(/^(~|\$HOME|\$\{HOME\}|\$env:USERPROFILE|\$\{env:USERPROFILE\}|\$USERPROFILE|%USERPROFILE%)(?=[\\/]|$)/i, () => homedir())
   .replace(/^file:\/+(?=[A-Za-z]:)/i, '').replace(/^[\\/]{2}[?.][\\/]/, '').replace(/^\/([A-Za-z])(?=\/|$)/, '$1:/');
@@ -271,7 +271,7 @@ export function checkAsk(command, args = {}, cwd = process.cwd(), root = ROOT, t
     for (const p of pathArgs(args ?? {}, '', false, false)) {
       const rel = relative(root, resolve(cwd, String(p))).replace(/\\/g, '/');
       // the vault's own files; dot folders hold settings and plugin code, so those edits are asked about
-      const note = vault && relative(vault, resolve(cwd, plain(p)));
+      const note = vault && relative(real(vault), real(resolve(cwd, plain(p))));
       if (vault && !outside(note) && !/^\.(?!\.)/.test(note)) continue;
       if (outside(rel) && !String(p).startsWith('untitled:') && !String(p).startsWith('/memories/')) return 'editing files outside the workspace requires approval';
     }
