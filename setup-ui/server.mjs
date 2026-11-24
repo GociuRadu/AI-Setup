@@ -45,11 +45,14 @@ export function readSetup(root, sync) {
       if (typeof device !== 'object' || Array.isArray(device)) device = null;
     }
   }
+  let vaultError;
+  const vault = device?.obsidian?.vault;
+  if (vault && !deviceError) try { sync.checkVault(vault); } catch (e) { vaultError = e.message; }
   const mcp = Object.entries(sync.loadMcp()).map(([name, s]) => ({ name, description: s.description, target: s.url ?? s.command }));
   return {
     tools: sync.TOOL_NAMES, profiles: sync.PROFILES, hooks: sync.HOOKS, agents, skills, rules, mcp,
     models: JSON.parse(text('_ai/models.json')),
-    device, ...(deviceError && { deviceError }),
+    device, ...(deviceError && { deviceError }), ...(vaultError && { vaultError }),
   };
 }
 
@@ -115,7 +118,10 @@ export function createServer({ root = resolve(HERE, '..'), dist = join(HERE, 'di
       return { saved: '_ai/models.json' };
     }
     if (path === '/api/device' && req.method === 'PUT') {
-      try { sync.checkDevice(body); } catch (e) { throw new HttpError(400, e.message); }
+      try {
+        sync.checkDevice(body);
+        if (body.obsidian) sync.checkVault(body.obsidian.vault);
+      } catch (e) { throw new HttpError(400, e.message); }
       writeFileSync(join(root, '.ai-device.json'), JSON.stringify(body, null, 2) + '\n');
       return { saved: '.ai-device.json' };
     }

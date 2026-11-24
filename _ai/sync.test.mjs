@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { parse, relink, sections, loadModels, resolveModel, claudeAgentMeta, build, brokenLinks, missingPaths, main, checkDevice, loadMcp, mcpEntry, mcpFiles, vscodeSettings, kiroWorkspacePermissionsPath, syncKiroPermissions, ROOT } from './sync.mjs';
+import { join, dirname } from 'node:path';
+import { parse, relink, sections, loadModels, resolveModel, claudeAgentMeta, build, brokenLinks, missingPaths, main, checkDevice, checkVault, claudePath, loadMcp, mcpEntry, mcpFiles, vscodeSettings, kiroWorkspacePermissionsPath, syncKiroPermissions, ROOT } from './sync.mjs';
 
 test('parse reads quoted strings and lists', () => {
   const { meta, body } = parse('---\nname: x\ndescription: "a: b"\ntools: [read, search]\n---\nhi\n');
@@ -129,6 +129,71 @@ test('Kiro permissions: workspace hash, generated block replaced, user rules kep
     assert.ok(['allow', 'ask', 'deny'].includes(r.effect));
   }
   assert.deepEqual(rules.find((r) => r.effect === 'deny' && r.capability === 'filesystem').match, ['**/.env', '**/.env.*', '**/*.env', 'personal/**']);
+});
+
+// a vault folder as Obsidian makes it
+function makeVault() {
+  const vault = mkdtempSync(join(tmpdir(), 'vault-'));
+  mkdirSync(join(vault, '.obsidian'));
+  return vault;
+}
+
+test('obsidian.vault: shape checked in the device file, folder checked against the disk and the workspace', () => {
+  const base = { profile: 'home', tools: ['claude'] };
+  const vault = makeVault();
+  checkDevice({ ...base, obsidian: { vault } });
+  for (const [obsidian, msg] of [
+    ['C:/v', /obsidian must be an object/],
+    [{}, /obsidian\.vault must be a full path/],
+    [{ vault: 'notes/me' }, /obsidian\.vault must be a full path/],
+    [{ vault: `${vault}\n` }, /obsidian\.vault must be a full path/],
+    [{ vault: `"${vault}"` }, /obsidian\.vault must be a full path/],
+    [{ vault, folder: 'x' }, /obsidian: unknown key folder/],
+  ]) assert.throws(() => checkDevice({ ...base, obsidian }), msg, JSON.stringify(obsidian));
+
+  checkVault(vault);
+  assert.throws(() => checkVault(join(vault, 'gone')), /does not exist/);
+  const plain = mkdtempSync(join(tmpdir(), 'plain-'));
+  assert.throws(() => checkVault(plain), /no \.obsidian folder/);
+  // a vault that holds the workspace, or sits inside it, would open or hide workspace files
+  for (const v of [ROOT, join(ROOT, '_ai'), dirname(ROOT)]) assert.throws(() => checkVault(v), /must be outside the workspace/, v);
+});
+
+test('a vault gives Claude and Kiro access with its private folder and encrypted notes denied; without one nothing changes', () => {
+  const vault = makeVault();
+  const out = build('work', ['claude', 'kiro'], { obsidian: { vault } });
+  const { permissions } = JSON.parse(out['.claude/settings.json']);
+  assert.deepEqual(permissions.additionalDirectories, [vault]);
+  const p = claudePath(vault);
+  for (const rule of [`Read(${p}/Personal/**)`, `Edit(${p}/Personal/**)`, `Read(${p}/**/*.mdenc)`, `Edit(${p}/**/*.mdenc)`]) {
+    assert.ok(permissions.deny.includes(rule), `missing ${rule}`);
+  }
+  const none = JSON.parse(build('work', ['claude'])['.claude/settings.json']).permissions;
+  assert.ok(!('additionalDirectories' in none) && !none.deny.some((r) => /mdenc/.test(r)));
+  if (process.platform === 'win32') assert.equal(claudePath('C:\\Users\\me\\vault\\'), '//c/Users/me/vault');
+
+  const home = mkdtempSync(join(tmpdir(), 'home-')), dir = mkdtempSync(join(tmpdir(), 'ws-'));
+  syncKiroPermissions(dir, home, vault);
+  const rules = readFileSync(kiroWorkspacePermissionsPath(dir, home), 'utf8').split('\n').filter((l) => l.startsWith('  - ')).map((l) => JSON.parse(l.slice(4)));
+  const fwd = vault.replace(/\\/g, '/');
+  assert.deepEqual(rules.at(-1), { capability: 'filesystem', match: [`${fwd}/Personal/**`, `${fwd}/**/*.mdenc`], effect: 'deny' });
+});
+
+test('main keeps the vault in the device file, and only warns when the folder is gone', (t) => {
+  t.mock.method(console, 'log', () => {});
+  const warn = t.mock.method(console, 'warn', () => {});
+  const dir = mkdtempSync(join(tmpdir(), 'sync-'));
+  const gone = join(tmpdir(), 'no-such-vault');
+  for (const [vault, on] of [[makeVault(), true], [gone, false]]) {
+    const device = { profile: 'work', tools: ['claude'], obsidian: { vault } };
+    writeFileSync(join(dir, '.ai-device.json'), JSON.stringify(device));
+    assert.equal(main([], dir), 0);
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, '.ai-device.json'), 'utf8')).obsidian, { vault });
+    const { permissions } = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
+    assert.equal('additionalDirectories' in permissions, on);
+    assert.equal(main(['--check'], dir), 0);
+  }
+  assert.ok(warn.mock.calls.some((c) => /^obsidian: .*does not exist; no vault access/.test(String(c.arguments[0]))));
 });
 
 test('generated output has no broken links or missing paths', () => {

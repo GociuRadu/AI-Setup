@@ -54,6 +54,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 details { margin-top: 1rem; }
 summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--muted-fg); }
 
+.field { display: block; margin-bottom: 0.35rem; font-weight: 500; }
+.wide { width: 100%; }
+
 .note { color: var(--muted-fg); margin: 0.25rem 0; font-size: 0.95rem; }
 .warn { color: var(--warn); }
 .error { color: var(--danger); }

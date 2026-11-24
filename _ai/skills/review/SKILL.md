@@ -34,7 +34,7 @@ Every finding has a concrete case ("this input gives this wrong result") and `pa
 | `analyze` of numbers (runs, metrics, loads, counts) | Result (per-item table), What it means (the limit or risk the numbers imply), Next steps; ids, sources and the calculation in Evidence | `bars` of the headline values; `compare` for the two readings |
 
 **Style:** the report should scan in 30 seconds.
-- **First screen:** the bottom line gives the answer and what it changes ("…, so compare means, not single repeats"). Below it, 3-4 headline numbers in 1 table row; when one is computed (mean, rate, delta), show the calculation in Evidence.
+- **First screen:** the bottom line gives the answer and what it changes ("…, so compare means, not single repeats"). When a number is computed (mean, rate, delta), show the calculation in Evidence.
 - **One point per `##`:** the heading states the conclusion, then 1 picture, at most 1 table of up to 5 short columns (labels like `A1`, `B2`), and at most 2 sentences. A second table on the same point goes into Evidence.
 - **The "so what":** add at least 1 finding the data implies but does not show (noise wider than the decision margin, a threshold missed, the stage that loses rows). Never only restate the numbers.
 - **Size:** about 300 visible words; cut every line that does not change a decision. Long ids, digests and sources go only into Evidence.

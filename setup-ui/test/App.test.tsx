@@ -15,7 +15,7 @@ const md = (d: string) => readdirSync(join(ROOT, d)).filter((f) => f.endsWith('.
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 function serve(device: object, deviceError?: string) {
-  const setup = { ...readSetup(ROOT, sync), device, ...(deviceError && { deviceError }) };
+  const setup = { ...readSetup(ROOT, sync), device, vaultError: undefined, ...(deviceError && { deviceError }) };
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/session' ? { token: 't' } : setup), { status: 200 })));
   return setup;
 }
@@ -83,6 +83,35 @@ test('a helper model is free text: shows the tier model, any typed ID overrides 
   fireEvent.change(field, { target: { value: 'x' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset scout to the fast tier model' }));
   expect(field.value).toBe(setup.models.claude.tiers.fast);
+  expect(screen.getByText('No changes.')).toBeTruthy();
+});
+
+test('the Obsidian vault: a pasted path is cleaned, shown as a change, and emptying it removes the setting', async () => {
+  serve({ profile: 'home', tools: ['claude'] });
+  render(<App />);
+  const field = (await screen.findByLabelText('Vault folder')) as HTMLInputElement;
+  expect(field.value).toBe('');
+  expect(screen.getByText('No vault set: /learn asks for it.')).toBeTruthy();
+  // Windows "Copy as path" adds quotes; a trailing separator is dropped
+  fireEvent.change(field, { target: { value: ' "C:\\Users\\me\\vault\\" ' } });
+  expect(screen.getByText('obsidian: (none) → {"vault":"C:\\\\Users\\\\me\\\\vault"}')).toBeTruthy();
+  fireEvent.change(field, { target: { value: '' } });
+  expect(screen.getByText('No changes.')).toBeTruthy();
+});
+
+test('a saved vault shows its path, and a problem with it is an alert', async () => {
+  const device = { profile: 'home', tools: ['claude'], obsidian: { vault: 'C:\\v' } };
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/session' ? { token: 't' }
+    : { ...readSetup(ROOT, sync), device, vaultError: 'C:\\v does not exist' }))));
+  render(<App />);
+  expect(((await screen.findByLabelText('Vault folder')) as HTMLInputElement).value).toBe('C:\\v');
+  expect(screen.getByRole('alert').textContent).toBe('C:\\v does not exist');
+  cleanup();
+  serve(device);
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/session' ? { token: 't' } : { ...readSetup(ROOT, sync), device, vaultError: undefined }))));
+  render(<App />);
+  await screen.findByLabelText('Vault folder');
+  expect(screen.getByText('Vault connected.')).toBeTruthy();
   expect(screen.getByText('No changes.')).toBeTruthy();
 });
 

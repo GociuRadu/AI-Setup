@@ -8,7 +8,7 @@ A report is one HTML file, `<project>/docs/ai/reports/YYYY-MM-DD-<kind>-<topic>.
 - Update (same scope = same file): `node _ai/report.mjs --edit <file.html>` restores the `.md`; edit it, build again.
 
 Readers scan, they do not read: the first screen must answer the question.
-- Order: title, meta table, **Bottom line** (1-2 sentences, at most 40 words), 2-5 headline numbers that measure the answer (not the writing process), **Decide first** (omit when no real decision remains), finding or question cards, then sections.
+- Order: title, meta table, **Bottom line** (1-2 sentences, at most 40 words), **Decide first** (omit when no real decision remains), finding or question cards, then sections.
 - About 2 screens, 600 visible words. Long tables, logs and "not checked" go into `<details><summary>Evidence</summary>`.
 - `##` headings state the conclusion and its first 2 words carry it (`## The index runs on SDK defaults`, not `## Index` or `## Overview`). Every section has a picture: a diagram block, a table or numbered steps. Paragraphs: at most 2 sentences and 50 words.
 - Cut restated facts, meta steps ("send this report"), empty sections and options nobody asked about.
