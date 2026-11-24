@@ -4,7 +4,7 @@
 // A source's `sections: [...]` frontmatter copies those `## ` sections of AGENTS.md into its output, for readers that do not load AGENTS.md.
 // .claude/settings.local.json is local: sync sets the permission mode and keeps its other keys.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { join, dirname, resolve, posix } from 'node:path';
+import { join, dirname, resolve, relative, isAbsolute, posix } from 'node:path';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -202,7 +202,20 @@ export function relink(text, src, dest, tool) {
   });
 }
 
-function claudeSettings(models, hookOn) {
+// Throws when an Obsidian vault folder cannot be used: missing, not a vault, or overlapping the workspace.
+export function checkVault(vault) {
+  if (!existsSync(vault) || !statSync(vault).isDirectory()) throw new Error(`${vault} does not exist`);
+  const within = (a, b) => { const r = relative(a, b); return !r.startsWith('..') && !isAbsolute(r); };
+  if (within(ROOT, vault) || within(vault, ROOT)) throw new Error(`${vault} must be outside the workspace`);
+  if (!existsSync(join(vault, '.obsidian'))) throw new Error(`${vault} has no .obsidian folder: open it as a vault in Obsidian first`);
+}
+
+// An absolute path in a Claude Code permission rule: //c/Users/... (Windows) or //home/...
+export const claudePath = (p) => '//' + p.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, d) => d.toLowerCase()).replace(/^\/+|\/+$/g, '');
+// What no tool may open in the vault
+const VAULT_DENY = ['Personal/**', '**/*.mdenc'];
+
+function claudeSettings(models, hookOn, vault) {
   const sh = (p) => [`Bash(${p})`, `PowerShell(${p})`];
   const hostinger = ['vps', 'hosting', 'agency-hosting', 'dns', 'domains', 'wordpress', 'billing', 'reach'].flatMap((s) => [`mcp__hostinger-${s}__execute`, `mcp__hostinger-${s}__multi-execute`]);
   const c = models.claude;
@@ -212,10 +225,12 @@ function claudeSettings(models, hookOn) {
     model: pick(c.default, 'balanced'),
     env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '60', CLAUDE_CODE_SUBAGENT_MODEL: pick(c.subagentDefault, 'fast') },
     permissions: {
+      ...(vault && { additionalDirectories: [vault] }),
       allow: ['Read', 'Grep', 'Glob'],
       deny: [
         'Read(**/.env)', 'Read(**/.env.*)', 'Read(**/*.env)', 'Edit(**/.env)', 'Edit(**/.env.*)', 'Edit(**/*.env)',
         'Read(./personal/**)', 'Edit(./personal/**)', 'Read(**/personal/**)', 'Edit(**/personal/**)',
+        ...(vault ? VAULT_DENY.flatMap((p) => [`Read(${claudePath(vault)}/${p})`, `Edit(${claudePath(vault)}/${p})`]) : []),
         'Agent(general-purpose)', 'Agent(Explore)', 'Agent(Plan)',
         ...['git *push*--force*', 'git *push* -f*', 'docker volume rm *', 'docker volume prune*', 'docker system prune*',
           'docker*compose*down*-v*', 'docker*compose*prod*', 'ssh *', 'scp *', 'sftp *'].flatMap(sh),
@@ -277,7 +292,7 @@ export function claudeAgentMeta(meta, tools, src, models = loadModels()) {
   };
 }
 
-// Every generated file as { path: text }. `device` is .ai-device.json: `models` overrides and `perTool` hook, skill and MCP switches.
+// Every generated file as { path: text }. `device` is .ai-device.json: `models` overrides, `perTool` hook, skill and MCP switches, `obsidian.vault`.
 export function build(profile, tools = TOOL_NAMES, device = {}) {
   const out = {};
   const on = (t) => tools.includes(t);
@@ -342,7 +357,7 @@ export function build(profile, tools = TOOL_NAMES, device = {}) {
     if (on('copilot')) out[`.github/instructions/${name.replace(/\.md$/, '.instructions.md')}`] = `---\napplyTo: ${JSON.stringify(meta.applyTo)}\n---\n${note(src)}${body}`;
   }
 
-  if (on('claude')) out['.claude/settings.json'] = JSON.stringify(claudeSettings(models, hookOn('claude')), null, 2) + '\n';
+  if (on('claude')) out['.claude/settings.json'] = JSON.stringify(claudeSettings(models, hookOn('claude'), device.obsidian?.vault), null, 2) + '\n';
   if (on('kiro')) {
     for (const [h, v] of Object.entries(kiroHooks)) if (hookOn('kiro')(h)) out[`.kiro/hooks/${h}.json`] = JSON.stringify(v, null, 2) + '\n';
     out['.kiro/steering/kiro.md'] = `---\ninclusion: always\n---\n${note('_ai/tools/kiro.md')}${read('_ai/tools/kiro.md')}`;
@@ -403,15 +418,22 @@ export function missingPaths(files = ['AGENTS.md', 'README.md', ...walk('_ai').f
 const MANAGED_ALL = Object.values(MANAGED).flat();
 const managedFiles = (dir) => MANAGED_ALL.flatMap((p) => !existsSync(join(dir, p)) ? [] : statSync(join(dir, p)).isDirectory() ? walk(p, dir) : [p]);
 
-// Throws when a parsed .ai-device.json is invalid: profile, tools, models and perTool.<tool>.{hooks, skillsOff, mcpOff}.
+// Throws when a parsed .ai-device.json is invalid: profile, tools, models, obsidian.vault (its shape; checkVault looks at the disk)
+// and perTool.<tool>.{hooks, skillsOff, mcpOff}.
 export function checkDevice(d, f = '.ai-device.json') {
   if (!PROFILES.includes(d?.profile) || !Array.isArray(d.tools) || !d.tools.length || !d.tools.every((t) => TOOL_NAMES.includes(t))) {
     throw new Error(`${f}: profile must be home|work and tools a list of claude, kiro, copilot`);
   }
   if (d.models !== undefined) loadModels(d.models);
   if (d.mcpSynced !== undefined && !(Array.isArray(d.mcpSynced) && d.mcpSynced.every((n) => typeof n === 'string'))) throw new Error(`${f}: mcpSynced must be a list of names`);
-  if (d.perTool === undefined) return;
   const isObj = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+  if (d.obsidian !== undefined) {
+    if (!isObj(d.obsidian)) throw new Error(`${f}: obsidian must be an object`);
+    for (const k of Object.keys(d.obsidian)) if (k !== 'vault') throw new Error(`${f}: obsidian: unknown key ${k} (expected vault)`);
+    const v = d.obsidian.vault;
+    if (typeof v !== 'string' || !isAbsolute(v) || /["'<>|?*\u0000-\u001f]/.test(v)) throw new Error(`${f}: obsidian.vault must be a full path, without quotes`);
+  }
+  if (d.perTool === undefined) return;
   if (!isObj(d.perTool)) throw new Error(`${f}: perTool must be an object`);
   const skills = readdirSync(join(ROOT, '_ai/skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
   const servers = Object.keys(loadMcp());
@@ -502,7 +524,7 @@ export function kiroWorkspacePermissionsPath(dir, home = homedir()) {
 const KIRO_BEGIN = '# >>> generated by node _ai/sync.mjs; add your own rules outside this block';
 const KIRO_END = '# <<< generated by node _ai/sync.mjs';
 
-function kiroRules() {
+function kiroRules(vault) {
   const cases = (w) => [...new Set([w, w.toLowerCase(), w[0].toUpperCase() + w.slice(1).toLowerCase()])];
   const ask = (words) => ({ capability: 'shell', match: words.flatMap((w) => cases(w).map((c) => `${c} *`)), effect: 'ask' });
   const reads = ['status', 'log', 'diff', 'show', 'ls-files', 'blame', 'rev-parse', 'grep', 'remote -v', 'branch --show-current', 'branch -a', 'branch -r', 'branch --list',
@@ -519,13 +541,14 @@ function kiroRules() {
     { capability: 'shell', match: writes.map((w) => `git -C * ${w}*`), effect: 'ask' },
     { capability: 'mcp', match: mcp, effect: 'ask' },
     { capability: 'filesystem', match: ['**/.env', '**/.env.*', '**/*.env', 'personal/**'], exclude: ['**/*.example', '**/*.sample', '**/*.template', '**/*.dist'], effect: 'deny' },
+    ...(vault ? [{ capability: 'filesystem', match: VAULT_DENY.map((p) => `${vault.replace(/\\/g, '/').replace(/\/+$/, '')}/${p}`), effect: 'deny' }] : []),
   ];
 }
 
 // Writes the generated block of the Kiro workspace permissions, keeping any rules outside it.
-export function syncKiroPermissions(dir, home = homedir()) {
+export function syncKiroPermissions(dir, home = homedir(), vault) {
   const f = kiroWorkspacePermissionsPath(dir, home);
-  const block = [`  ${KIRO_BEGIN}`, ...kiroRules().map((r) => `  - ${JSON.stringify(r)}`), `  ${KIRO_END}`].join('\n');
+  const block = [`  ${KIRO_BEGIN}`, ...kiroRules(vault).map((r) => `  - ${JSON.stringify(r)}`), `  ${KIRO_END}`].join('\n');
   let text = existsSync(f) ? readFileSync(f, 'utf8').replace(/\r\n/g, '\n') : '';
   const start = text.indexOf(KIRO_BEGIN), end = text.indexOf(KIRO_END);
   if (start >= 0 && end > start) {
@@ -557,7 +580,14 @@ export function main(args, dir = ROOT) {
     else console.error('first run: node _ai/sync.mjs home|work --tools claude,kiro,copilot');
     return 1;
   }
-  const out = build(profile, tools, saved);
+  // a vault that is gone must not stop the rest of the setup
+  let vault = saved.obsidian?.vault;
+  if (vault) {
+    try { checkVault(vault); }
+    catch (e) { console.warn(`obsidian: ${e.message}; no vault access until it is fixed`); vault = undefined; }
+  }
+  const { obsidian, ...noVault } = saved;
+  const out = build(profile, tools, vault ? saved : noVault);
   const mcp = mcpFiles(tools, saved, dir);
   const broken = [...brokenLinks(out).map((b) => `broken link: ${b}`), ...missingPaths().map((b) => `missing path: ${b}`)];
   const localFile = '.claude/settings.local.json';
@@ -598,7 +628,7 @@ export function main(args, dir = ROOT) {
     mkdirSync(join(dir, '.vscode'), { recursive: true });
     writeFileSync(join(dir, '.vscode/settings.json'), vscodeSettings(dir));
   }
-  if (tools.includes('kiro') && dir === ROOT && existsSync(join(homedir(), '.kiro'))) syncKiroPermissions(dir);
+  if (tools.includes('kiro') && dir === ROOT && existsSync(join(homedir(), '.kiro'))) syncKiroPermissions(dir, undefined, vault);
   const hints = profile === 'home' ? { kiro: 'Kiro: use Autopilot.' }
     : { kiro: 'Kiro: Autopilot + guard hook.', claude: 'Claude Code: keep approvals on.', copilot: 'Copilot: hooks + auto-approve synced.' };
   if (broken.length) console.log(broken.join('\n'));

@@ -53,7 +53,7 @@ Then open the `work` folder (not a project subfolder) in your editor. The choice
 |---|---|---|
 | [_ai/models.json](_ai/models.json) | Yes, in Git | Model per tier and per helper, per tool |
 | [_ai/mcp.json](_ai/mcp.json) | Yes, in Git | MCP servers |
-| `.ai-device.json` | No, this device | Profile, tools, per-tool switches, local model overrides |
+| `.ai-device.json` | No, this device | Profile, tools, per-tool switches, local model overrides, Obsidian vault |
 
 ### Models
 
@@ -100,9 +100,17 @@ In `.ai-device.json`, `perTool` turns things off for one tool; anything not list
 - **claude.ai connectors** (Atlassian, Gmail, ... in your claude.ai account) reach Claude Code through your account, not this file. If a connector already covers a server, turn that server off for `claude`.
 - **First use:** Claude Code asks once to approve the servers in `.mcp.json`.
 
+### Obsidian vault
+
+Paste the vault folder in the setup page (Obsidian section) and **Apply**; it is saved as `"obsidian": { "vault": "<full path>" }` in `.ai-device.json`.
+
+- **Access:** the tools read and edit the vault. `Personal` and `.mdenc` notes are denied, and the guard blocks commands that name them or search the whole vault; it does not see a shell variable or a wildcard from another folder.
+- **`/learn`** writes its notes in `Learn` and its pictures in `Files`; `node _ai/vault.mjs check "<Topic>"` checks links, pictures, diagrams and length.
+- **Folder missing:** sync warns and leaves vault access out.
+
 ## Setup page
 
-A local web page for the same settings: tools, profile, models, hooks, skills and MCP servers per tool. It shows what will change, saves `_ai/models.json` and `.ai-device.json`, then **Apply** runs sync and shows its output.
+A local web page for the same settings: tools, profile, models, Obsidian vault, hooks, skills and MCP servers per tool. It shows what will change, saves `_ai/models.json` and `.ai-device.json`, then **Apply** runs sync and shows its output.
 
 ```powershell
 cd setup-ui; npm install
@@ -124,7 +132,7 @@ Type `/<name>`, or describe the task and the matching skill starts. Use Opus for
 | `/review [review \| bug \| analyze \| debt] <scope>` | Review a change, find a bug's cause, explain code or list shortcuts |
 | `/data <task>` | Design or review data models, DDL, migrations, loads and Spark notebooks |
 | `/confluence-project <link> <change>` | Read or update a project's Confluence page |
-| `/learn <stage or topic>` | Write a study report on what the industry uses, with interview questions |
+| `/learn <stage or topic>` | Write linked study notes in the Obsidian vault, with diagrams and interview questions |
 | `/retro [topic]` | Turn a session's mistakes or lessons into 1-2 line rule updates |
 | `/handoff` | Print a brief to continue in a new chat |
 | `/clean [--days 7] [--reports]` | List stale logs, caches and transcripts; delete after you confirm |
@@ -189,9 +197,9 @@ Fill `docs/ai/project.md` once (stack, commands, DEV/PRODUCTION names). The AI k
 | `_ai/agents/`, `_ai/skills/`, `_ai/rules/`, `_ai/profiles/`, `_ai/tools/` | Helpers, skills, file-type rules, profiles, per-tool notes |
 | `_ai/hooks/` | Guard and English hook |
 | `_ai/templates/` | Project skeletons and the report template |
-| [_ai/sync.mjs](_ai/sync.mjs), [_ai/new-project.mjs](_ai/new-project.mjs), [_ai/report.mjs](_ai/report.mjs), [_ai/clean.mjs](_ai/clean.mjs) | Sync, new project, Markdown-to-HTML report, cleanup |
+| [_ai/sync.mjs](_ai/sync.mjs), [_ai/new-project.mjs](_ai/new-project.mjs), [_ai/report.mjs](_ai/report.mjs), [_ai/clean.mjs](_ai/clean.mjs), [_ai/vault.mjs](_ai/vault.mjs) | Sync, new project, Markdown-to-HTML report, cleanup, study note check |
 | [setup-ui/](setup-ui/) | Setup page |
-| `docs/` | Plans and reports about this setup |
+| `docs/` | Plans and reports about this setup, while they are in use |
 
 ## Credits
 

@@ -4,7 +4,7 @@ import { writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { check, checkPaths, checkToolHardStop, checkAsk, canAutoAllow } from './guard.mjs';
 import { build } from '../sync.mjs';
 
@@ -250,3 +250,67 @@ for (const [command, args, tool] of [
   [undefined, { file_path: join(dir, 'README.md') }, 'Read'],
   ['node --test "_ai/**/*.test.mjs"', {}, 'Bash'],
 ]) assert.equal(ask(command, args, tool), null, `not asked: ${command ?? JSON.stringify(args)}`);
+
+// the Obsidian vault of .ai-device.json: its private folder and encrypted notes are blocked, the rest is open
+{
+  const root = mkdtempSync(join(tmpdir(), 'ws-'));
+  const vault = mkdtempSync(join(tmpdir(), 'vault-'));
+  writeFileSync(join(root, '.ai-device.json'), JSON.stringify({ profile: 'home', tools: ['claude'], obsidian: { vault } }));
+  const fwd = vault.replace(/\\/g, '/');
+  const bash = fwd.replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`);
+  const why = 'the private folder of the Obsidian vault and its .mdenc notes are never opened by the agent';
+  const whole = 'this reads the whole Obsidian vault, private folder included; name one folder, for example Learn';
+  for (const p of [`${fwd}/Personal/a.md`, `${fwd}/personal/a.md`, `${vault}\\Personal\\a.md`, `${fwd}/Learn/../Personal/a.md`,
+    `${fwd}/Personal./a.md`, `${fwd}/Personal /a.md`, `${fwd}/Personal`, `${fwd}/Inbox/keys.mdenc`]) {
+    assert.equal(checkPaths({ file_path: p }, root, root, 'Read'), why, p);
+    assert.equal(checkPaths({ file_path: p, content: 'x' }, root, root, 'Write'), why, p);
+    assert.equal(check(`cat "${p}"`, root, root), why, p);
+  }
+  assert.equal(check(`ls ${bash}/Personal`, root, root), why);
+  assert.equal(check(`cp ${fwd}/Inbox/keys.mdenc .`, root, root), why);
+  for (const path of [vault, `${fwd}/`, join(vault, '..')]) {
+    assert.equal(checkPaths({ pattern: 'x', path }, root, root, 'Grep'), whole, path);
+    assert.equal(checkPaths({ pattern: '**/*.md', path }, root, root, 'Glob'), whole, path);
+  }
+  assert.equal(checkPaths({ pattern: `${fwd}/**/*.md` }, root, root, 'Glob'), whole);
+  assert.equal(checkPaths({ pattern: '../P*/**', path: `${fwd}/Learn` }, root, root, 'Glob'), whole);
+  assert.equal(checkPaths({ pattern: '{a,../Personal}/**', path: `${fwd}/Learn` }, root, root, 'Glob'), why);
+  assert.equal(checkPaths({ pattern: 'x', glob: '../P*/**', path: `${fwd}/Learn` }, root, root, 'Grep'), whole);
+  assert.equal(checkPaths({ pattern: '**/*.md', path: `${fwd}/Learn` }, root, root, 'Glob'), null);
+  assert.equal(checkPaths({ pattern: '**/*.md' }, root, root, 'Glob'), null);
+  for (const c of [`grep -rn x ${fwd}`, `rg x ${bash}`, `Get-ChildItem -Recurse ${fwd}`, `cat ${fwd}/*/a.md`, `tar cf a.tar ${fwd}`]) assert.equal(check(c, root, root), whole, c);
+  // everything else in the vault is open, and edits there are not asked about
+  for (const p of [`${fwd}/Learn/Requirements.md`, `${fwd}/Learn/Personal finance.md`, `${fwd}/Files/a.svg`, `${fwd}/Personal.base`]) {
+    assert.equal(checkPaths({ file_path: p }, root, root, 'Read'), null, p);
+    assert.equal(checkAsk(undefined, { file_path: p, content: 'x' }, root, root, 'Write'), null, p);
+    assert.equal(check(`cat "${p}"`, root, root), null, p);
+  }
+  assert.equal(checkPaths({ pattern: 'personal', path: `${fwd}/Learn` }, root, root, 'Grep'), null);
+  assert.equal(check(`D=${bash}; cp a.svg $D/Files/`, root, root), null);
+  assert.equal(check(`grep -rn x ${fwd}/Learn`, root, root), null);
+  assert.match(checkAsk(undefined, { file_path: join(tmpdir(), 'x.md'), content: 'x' }, root, root, 'Write'), /outside the workspace/);
+  // a folder change, the home folder, lists, wrappers, redirects and \\\\?\\ are followed to the same place
+  for (const c of [`cd ${fwd} && cat Personal/a.md`, `cd "${vault}"; gc Personal\\a.md`, `(cd ${bash} && ls Personal)`, `Set-Location -Path ${fwd}; type .\\Personal\\a.md`,
+    `cd ${fwd}/Learn && cat ../Personal/a.md`, `Get-Content ${vault}\\Learn\\a.md,${vault}\\Personal\\b.md`, `pwsh -Command "gc ${vault}\\Personal\\a.md"`,
+    `bash -c "cat ${fwd}/Personal/a.md"`, `bash -c "cd ${fwd} && cat Personal/a.md"`, `echo x >${fwd}/Personal/b.md`, `cat<${fwd}/Personal/a.md`,
+    `cat ${fwd}/Learn/*/../../Personal/x.md`, `ls ${fwd}/Learn/*/../../Personal`, `cat "\\\\?\\${vault}\\Personal\\a.md"`]) assert.match(check(c, root, root) ?? 'allowed', /private/, c);
+  for (const p of [`\\\\?\\${vault}\\Personal\\new.md`, `//?/${fwd}/Personal/new.md`]) assert.equal(checkPaths({ file_path: p }, root, root, 'Read'), why, p);
+  for (const c of [`cd ${fwd} && rg foo`, `cd ${fwd}; grep -r foo .`, `grep --recursive foo ${fwd}`, `cmd /c "dir ${vault} /s"`, `git -C ${fwd} grep foo`, `bash -c "grep -r x ${fwd}"`]) assert.equal(check(c, root, root), whole, c);
+  assert.equal(checkPaths({ pattern: 'x' }, vault, root, 'Grep'), whole);
+  // the home folder, with a vault under it (only the path text is used)
+  const homeWs = mkdtempSync(join(tmpdir(), 'ws-'));
+  writeFileSync(join(homeWs, '.ai-device.json'), JSON.stringify({ obsidian: { vault: join(homedir(), 'zz-no-such-vault') } }));
+  for (const h of ['~', '$HOME', '${HOME}', '$env:USERPROFILE', '%USERPROFILE%']) assert.equal(check(`cat ${h}/zz-no-such-vault/Personal/a.md`, homeWs, homeWs), why, h);
+  // still open: the work a study note needs
+  for (const c of [`cd ${fwd}/Learn && grep -rn x .`, `cp a.svg "${fwd}/Files/My picture.svg"`, `grep -rn "a / b" src`, `cd ${fwd} && ls Learn`, 'node _ai/vault.mjs check "Requirements"', `cd ${root} && rg foo`]) assert.equal(check(c, root, root), null, c);
+  // a search pattern is not a path: / and . alone do not name the folder above the vault
+  for (const c of ["sed -n '/{/p' a.md", "awk '/[0-9]/' a.md"]) assert.equal(check(c, root, root), null, c);
+  assert.equal(check('grep ".*error" a.log', join(vault, '..'), root), null);
+  assert.equal(check(`cat ${fwd}/../*/Personal/a.md`, root, root), whole);
+  // Obsidian runs what is in .obsidian, so those edits are asked about
+  assert.match(checkAsk(undefined, { file_path: `${fwd}/.obsidian/plugins/x/main.js`, content: 'x' }, root, root, 'Write'), /outside the workspace/);
+  assert.equal(checkAsk(undefined, { file_path: `${fwd}/..x.md`, content: 'x' }, root, root, 'Write'), null);
+  // no vault set: nothing is special
+  const bare = mkdtempSync(join(tmpdir(), 'ws-'));
+  assert.equal(checkPaths({ file_path: `${fwd}/Personal/a.md` }, bare, bare, 'Read'), null);
+}

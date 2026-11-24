@@ -44,7 +44,7 @@ Rules for Claude Code, Kiro and GitHub Copilot. Project files add facts, never w
 - **No bloat:** no unrequested option, abstraction, single-use wrapper or "for later" code; no speculative `try/catch`, silent fallback that hides broken input, or redundant check on a guaranteed type. Deletion beats addition.
 - **Never cut:** validation at trust boundaries, error handling that prevents data loss, security, accessibility, anything the user asked for. Moved code keeps its validation and error handling.
 - **Never lose content:** merge, don't overwrite files you did not create. Keep surrounding code, comments and formatting; delete only what your change made unused. Comment only a *why* the code cannot show; a shortcut with a known limit gets `shortcut: <limit>, <when to upgrade>`.
-- New non-trivial logic gets one small test. Tests assert real behavior and exact outputs; never mock the unit under test or assert only "no error".
+- New non-trivial logic gets one small test. Tests assert real behavior and exact outputs; never mock the unit under test or assert only "no error". Tests write only in temp folders, never to the workspace's own files.
 
 ## Verify
 

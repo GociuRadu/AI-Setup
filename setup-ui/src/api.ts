@@ -7,7 +7,7 @@ export interface ToolModels {
 }
 export type Models = Record<string, ToolModels>;
 export interface PerTool { hooks?: Record<string, boolean>; skillsOff?: string[]; mcpOff?: string[] }
-export interface Device { profile: string; tools: string[]; models?: Partial<Models>; perTool?: Record<string, PerTool>; [key: string]: unknown }
+export interface Device { profile: string; tools: string[]; models?: Partial<Models>; perTool?: Record<string, PerTool>; obsidian?: { vault: string }; [key: string]: unknown }
 interface Item { name: string; description?: string; link: string }
 export interface Setup {
   tools: string[];
@@ -20,6 +20,7 @@ export interface Setup {
   models: Models;
   device: Device | null;
   deviceError?: string;
+  vaultError?: string;
 }
 export interface SyncResult { code: number; stdout: string; stderr: string }
 

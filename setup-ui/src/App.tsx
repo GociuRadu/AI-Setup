@@ -47,6 +47,9 @@ function withPerTool(device: Device, tool: string, change: (p: PerTool) => void)
   return d;
 }
 
+// A pasted path without the quotes of "Copy as path", spaces around it or a separator at the end
+const cleanPath = (text: string) => text.trim().replace(/^["']+|["']+$/g, '').trim().replace(/(?<=[^\\/:])[\\/]+$/, '');
+
 function Switch({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="switch" htmlFor={id}>
@@ -65,6 +68,8 @@ export default function App() {
   const [guardAsk, setGuardAsk] = useState<string>();
   // model text as typed, per tool:helper, so the field can be emptied and retyped
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // the vault path as typed, so it can be edited; the device holds it cleaned
+  const [vaultText, setVaultText] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SyncResult>();
   const [error, setError] = useState<string>();
@@ -107,6 +112,12 @@ export default function App() {
   };
   const resetAgentModel = (agent: string, tier: string) => setAgentModel(agent, tier, models![activeTab].tiers[tier]);
 
+  const setVault = (text: string) => {
+    setVaultText(text);
+    const vault = cleanPath(text);
+    setDevice(({ obsidian: _, ...d }) => (vault ? { ...d, obsidian: { vault } } as Device : d as Device));
+  };
+
   const closeGuardAsk = () => { setGuardAsk(undefined); document.getElementById('hook-guard')?.focus(); };
   const showTab = (t: string) => { setTab(t); setGuardAsk(undefined); };
   // tab pattern: arrows, Home and End move between tools
@@ -134,7 +145,7 @@ export default function App() {
     finally {
       await api.setup().then((s) => {
         setSetup(s);
-        if (saved) { setDevice(editable(s)); setModels(clone(s.models)); setDrafts({}); }
+        if (saved) { setDevice(editable(s)); setModels(clone(s.models)); setDrafts({}); setVaultText(undefined); }
       }).catch((e: Error) => setError(e.message));
       setBusy(false);
     }
@@ -181,6 +192,18 @@ export default function App() {
             {setup.rules.map((r) => <li key={r.name}><a href={r.link}>{r.name}</a> <code>{r.applyTo}</code></li>)}
           </ul>
         </details>
+      </section>
+
+      <section className="card" aria-labelledby="obsidian-h">
+        <h2 id="obsidian-h">Obsidian</h2>
+        <label className="field" htmlFor="vault">Vault folder</label>
+        <input id="vault" className="wide" spellCheck={false} autoComplete="off" placeholder="Paste the folder path, for example C:\Users\me\vault"
+          value={vaultText ?? device.obsidian?.vault ?? ''} onChange={(e) => setVault(e.target.value)} />
+        {vaultText === undefined && setup.vaultError ? <p role="alert" className="error">{setup.vaultError}</p>
+          : !device.obsidian ? <p className="note">No vault set: /learn asks for it.</p>
+            : device.obsidian.vault === setup.device?.obsidian?.vault ? <p className="ok">Vault connected.</p>
+              : <p className="note">Apply checks the folder and connects it.</p>}
+        <p className="note">/learn writes its notes in <code>Learn</code>. The tools read and edit the vault, except <code>Personal</code> and <code>.mdenc</code> notes.</p>
       </section>
 
       {activeTab && tm && (

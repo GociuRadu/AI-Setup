@@ -81,6 +81,34 @@ test('bad models or device values are rejected and not written', async () => {
   expect(readFileSync(join(ROOT, '_ai/models.json'), 'utf8')).toBe(before);
 });
 
+test('the Obsidian vault is checked before it is saved, and its state is sent to the page', async () => {
+  // a copy of the sources, so this device's own file is never written
+  const tmp = mkdtempSync(join(tmpdir(), 'setup-vault-'));
+  cpSync(join(ROOT, '_ai'), join(tmp, '_ai'), { recursive: true, filter: (f) => !/[\/](node_modules|__pycache__)$/.test(f) });
+  for (const f of ['AGENTS.md', 'README.md']) cpSync(join(ROOT, f), join(tmp, f));
+  const file = join(tmp, '.ai-device.json');
+  const vault = mkdtempSync(join(tmpdir(), 'vault-'));
+  mkdirSync(join(vault, '.obsidian'));
+  const plain = mkdtempSync(join(tmpdir(), 'plain-'));
+  const { server, port } = await start({ root: tmp, dist });
+  try {
+    const t = (await call(port, { path: '/api/session' })).json().token;
+    const put = (v) => call(port, { method: 'PUT', path: '/api/device', ...json(t, { profile: 'work', tools: ['claude'], obsidian: { vault: v } }) });
+    for (const [v, msg] of [[join(plain, 'gone'), /does not exist/], [plain, /no .obsidian folder/], [tmp, /outside the workspace/], ['notes', /full path/]]) {
+      const r = await put(v);
+      expect(r.status, v).toBe(400);
+      expect(r.json().error).toMatch(msg);
+    }
+    expect(existsSync(file)).toBe(false);
+    expect((await put(vault)).status).toBe(200);
+    expect(JSON.parse(readFileSync(file, 'utf8')).obsidian).toEqual({ vault });
+  } finally { server.close(); }
+  const mod = await import(pathToFileURL(join(tmp, '_ai/sync.mjs')).href);
+  expect(readSetup(tmp, mod).vaultError).toBeUndefined();
+  writeFileSync(file, JSON.stringify({ profile: 'work', tools: ['claude'], obsidian: { vault: join(vault, 'gone') } }));
+  expect(readSetup(tmp, mod).vaultError).toMatch(/does not exist/);
+});
+
 test('a second Apply while one runs gets 409', async () => {
   const first = call(s.port, { method: 'POST', path: '/api/apply', ...json(token, {}) });
   await new Promise((r) => setTimeout(r, 100));

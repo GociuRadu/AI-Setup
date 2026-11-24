@@ -2,10 +2,14 @@
 // - shell commands that send writing SQL (DML, DDL, EXEC, ...) through a database client, inline, piped or
 //   from a script, and tools that only write databases;
 // - hard stops: force-push, deleting Docker volumes, production compose files, release scripts, SSH;
-// - reading or writing secret files (.env, local.env, ...) and anything under personal/, by shell or file tools.
+// - reading or writing secret files (.env, local.env, ...) and anything under personal/, by shell or file tools;
+// - the private folder and .mdenc notes of the Obsidian vault set in .ai-device.json, and reads of that whole vault.
+// Asks for git writes, deletes, loaders, external CLIs, setup-ui/, edits outside the workspace and mutating MCP tools;
+// with --allow it lets read-only tools skip VS Code's own prompt.
 // shortcut: matches command text and path arguments only; code that opens its own connection (pytest, a loader) is not seen.
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve, relative, isAbsolute } from 'node:path';
+import { readFileSync, existsSync, realpathSync } from 'node:fs';
+import { resolve, relative, isAbsolute, join } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const CLIENT = /\b(sqlcmd|osql|isql|bcp|psql|mysql|mariadb|sqlite3|duckdb|mssql-cli|usql|Invoke-Sqlcmd|Invoke-DbaQuery|pyodbc|pymssql|psycopg2?|pg8000|sqlalchemy|mssql|tedious|oracledb)\b/i;
@@ -36,15 +40,78 @@ const SECRETS = new RegExp(SECRET.source, 'gi');
 const isSecret = (text) => [...String(text).matchAll(SECRETS)].some((m) => !EXAMPLE.test(m[2]));
 // words of a command with quotes removed, to test each one as a path
 const tokens = (s) => [...s.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+const outside = (rel) => /^\.\.([\\/]|$)/.test(rel) || isAbsolute(rel);
 // a path inside the workspace folder that `re` matches (relative to the root)
 const inside = (re) => (path, cwd, root = ROOT) => {
   const rel = relative(root, resolve(cwd, String(path))).replace(/\\/g, '/');
-  return !rel.startsWith('..') && !isAbsolute(rel) && re.test(rel);
+  return !outside(rel) && re.test(rel);
 };
 const isPersonal = inside(/^personal(\/|$)/i);
 // not AI context: read or run only after the user approves (searches skip it through the root .ignore)
 const ON_REQUEST = 'setup-ui';
 const isOnRequest = inside(new RegExp(`^${ON_REQUEST}(\\/|$)`, 'i'));
+
+// the Obsidian vault of this device, or null; read per call, so a change needs no restart
+function vaultOf(root) {
+  try {
+    const v = JSON.parse(readFileSync(join(root, '.ai-device.json'), 'utf8')).obsidian?.vault;
+    return typeof v === 'string' && isAbsolute(v) ? v : null;
+  } catch { return null; }
+}
+const VAULT_PRIVATE = 'the private folder of the Obsidian vault and its .mdenc notes are never opened by the agent';
+const VAULT_WHOLE = 'this reads the whole Obsidian vault, private folder included; name one folder, for example Learn';
+// the real path when it exists, so a short Windows name or a link is seen
+const real = (p) => { try { return realpathSync.native(p); } catch { return p; } };
+// a path as the shell would see it: home folder, file:, \\?\, Git Bash drive
+const plain = (path) => String(path).replace(/^(~|\$HOME|\$\{HOME\}|\$env:USERPROFILE|\$\{env:USERPROFILE\}|\$USERPROFILE|%USERPROFILE%)(?=[\\/]|$)/i, () => homedir())
+  .replace(/^file:\/+(?=[A-Za-z]:)/i, '').replace(/^[\\/]{2}[?.][\\/]/, '').replace(/^\/([A-Za-z])(?=\/|$)/, '$1:/');
+// 'private' for the vault's Personal folder or an encrypted note; 'whole' for the vault root or a wildcard in its first level;
+// 'above' for a folder that holds the vault; else null. Windows drops dots and spaces at the end of a folder name.
+function vaultPart(path, cwd, vault) {
+  const text = plain(path).replace(/([^\\/.])[. ]+(?=[\\/]|$)/g, '$1');
+  const [fixed, ...wild] = text.split(/[*?{[]/);
+  const full = resolve(cwd, fixed);
+  const rel = relative(real(vault), real(full)).replace(/\\/g, '/');
+  // after a wildcard, .. can climb back to any folder
+  if (!outside(rel) && (/^personal($|[\/:])/i.test(rel) || /\.mdenc$/i.test(text) || wild.some((w) => /\.\.[\\/]/.test(w)))) return 'private';
+  if (!outside(rel) && (rel === '' || (wild.length && !rel.includes('/') && !/[\\/]$/.test(fixed)))) return 'whole';
+  const up = relative(real(full), real(vault));
+  return up !== '' && !outside(up) ? 'above' : null;
+}
+// commands that walk a folder tree, or any command reading a wildcard
+const TREE = /(\s-[a-z]*r[a-z]*(\s|$)|\s--?recursive?\b|\s\/s(\s|$)|^\s*(find|rg|tree|tar|robocopy|xcopy|7z|zip|du|Compress-Archive)\b|^\s*git\b.*\sgrep\b)/i;
+const CD = /^\s*(?:cd|chdir|pushd|sl|Set-Location|Push-Location)\s+(?:(?:\/d|-Path|-LiteralPath|--)\s+)*("[^"]*"|'[^']*'|[^\s)]+)/i;
+// the vault rules for a shell command: follows cd, looks into bash -c and the like, and into lists and redirects
+function checkVaultCommand(command, cwd, vault) {
+  let dir = cwd;
+  for (const part of parts(command)) {
+    const inner = part.replace(WRAPPERS, '');
+    if (inner !== part) {
+      const reason = checkVaultCommand(inner.replace(/["')}]\s*$/, ''), dir, vault);
+      if (reason) return reason;
+    }
+    const walks = TREE.test(part);
+    for (const t of tokens(part)) {
+      const value = t.replace(/^[\w-]+=/, '');
+      const where = vaultPart(value, dir, vault);
+      const wildcard = READER.test(part) && /[*?{[]/.test(t);
+      const reads = t === value && (walks || wildcard);
+      if (where === 'private') return VAULT_PRIVATE;
+      // a wildcard above the vault counts when a folder is named before it; '/{/p' is a search pattern
+      if (reads && (where === 'whole' || (where && (walks || /[\w.][\\/][^*?{[]*[*?{[]/.test(t))))) return VAULT_WHOLE;
+      // one token can hold several paths: a,b  >file  "gc path"
+      for (const piece of t.split(/[\s,;<>()"'|=]+/).filter((x) => x && x !== t)) {
+        const at = vaultPart(piece, dir, vault);
+        if (at === 'private') return VAULT_PRIVATE;
+        if (at === 'whole' && reads) return VAULT_WHOLE;
+      }
+    }
+    if (walks && dir !== cwd && vaultPart('.', dir, vault)) return VAULT_WHOLE;
+    const cd = CD.exec(inner);
+    if (cd) dir = resolve(dir, plain(cd[1].replace(/^["']|["']$/g, '')));
+  }
+  return null;
+}
 
 // split on && || ; and newlines outside quotes, so `-Q "SELECT 1; DELETE ..."` stays one command
 function parts(command) {
@@ -98,12 +165,11 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
       if (WRITE.test(readFileSync(file, 'utf8'))) return `the SQL script ${raw} contains writing SQL`;
     }
   }
-  return null;
+  const vault = vaultOf(root);
+  return vault ? checkVaultCommand(command, cwd, vault) : null;
 }
 
-// file tools: every argument whose name is a path (Claude file_path, Kiro path/paths),
-// also nested (Kiro CLI batch reads send {operations: [{path}]})
-// {a,b} groups into separate globs; globMatch tests whether a file glob can match any candidate filename
+// {a,b} groups into separate globs; globMatchesSecret tests whether a file glob can match a secret file name
 function expandBraces(s) {
   const m = /\{([^{}]*)\}/.exec(s);
   return m ? m[1].split(',').flatMap((o) => expandBraces(s.slice(0, m.index) + o + s.slice(m.index + m[0].length))) : [s];
@@ -114,6 +180,8 @@ function globMatchesSecret(glob) {
   const rx = new RegExp('^' + tail.replace(/[.+^$()|\\]/g, '\\$&').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]') + '$', 'i');
   return ['.env', 'local.env', 'prod.env', '.test.env', '.env.local'].some((name) => rx.test(name));
 }
+// file tools: every argument whose name is a path (Claude file_path, Kiro path/paths),
+// also nested (Kiro CLI batch reads send {operations: [{path}]})
 function pathArgs(value, key = '', isContentGrep = false, queryIsGlob = false) {
   if (typeof value === 'string' && (/^(glob|includePattern)$/i.test(key) || (queryIsGlob && key === 'query') || (/pattern/i.test(key) && !isContentGrep))) {
     // a glob is not a file, but one rooted in personal/ still lists it, and one that can match .env is a secret read
@@ -135,10 +203,23 @@ function filePaths(args, toolName = '') {
   const queryIsGlob = /(^|_)(file_search|fileSearch|findFiles|glob)$/i.test(String(toolName));
   return pathArgs(args ?? {}, '', isContentGrep, queryIsGlob);
 }
+const SEARCH_TOOL = /(^|_)(grep|glob|grep_search|file_search|grepSearch|fileSearch|findTextInFiles|findFiles|semantic_search|list_dir)$/i;
 export function checkPaths(args, cwd = process.cwd(), root = ROOT, toolName = '') {
   for (const p of filePaths(args, toolName)) {
     if (isSecret(p)) return 'secret files (.env and similar) are never opened by the agent';
     if (isPersonal(p, cwd, root)) return 'personal/ is private';
+  }
+  const vault = vaultOf(root);
+  if (!vault) return null;
+  const search = SEARCH_TOOL.test(String(toolName));
+  // a search's globs are checked as typed, from the folder it searches: their wildcards are cut out of filePaths
+  const globs = search ? Object.entries(args ?? {}).filter(([k, v]) => typeof v === 'string' && (/^(glob|includePattern)$/i.test(k) || (/^(pattern|query)$/i.test(k) && !/grep/i.test(toolName))))
+    .flatMap(([, v]) => expandBraces(v).map((g) => resolve(cwd, String(args.path ?? '.'), g.replace(/^\/([A-Za-z])\//, '$1:/')))) : [];
+  const paths = [...filePaths(args, toolName), ...globs];
+  for (const p of search && !paths.length ? ['.'] : paths) {
+    const where = vaultPart(p, cwd, vault);
+    if (where === 'private') return VAULT_PRIVATE;
+    if (where && search) return VAULT_WHOLE;
   }
   return null;
 }
@@ -186,9 +267,13 @@ export function checkAsk(command, args = {}, cwd = process.cwd(), root = ROOT, t
   }
   const name = String(toolName);
   if (EDIT_TOOL.test(name)) {
+    const vault = vaultOf(root);
     for (const p of pathArgs(args ?? {}, '', false, false)) {
       const rel = relative(root, resolve(cwd, String(p))).replace(/\\/g, '/');
-      if ((rel.startsWith('..') || isAbsolute(rel)) && !String(p).startsWith('untitled:') && !String(p).startsWith('/memories/')) return 'editing files outside the workspace requires approval';
+      // the vault's own files; dot folders hold settings and plugin code, so those edits are asked about
+      const note = vault && relative(vault, resolve(cwd, plain(p)));
+      if (vault && !outside(note) && !/^\.(?!\.)/.test(note)) continue;
+      if (outside(rel) && !String(p).startsWith('untitled:') && !String(p).startsWith('/memories/')) return 'editing files outside the workspace requires approval';
     }
   }
   if (/^mcp_/i.test(name) && MUTATING_MCP.test(name)) return 'mutating MCP tool requires approval';
