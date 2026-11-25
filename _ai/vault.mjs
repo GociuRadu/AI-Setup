@@ -1,18 +1,17 @@
 // The study notes of the Obsidian vault set in .ai-device.json (format: _ai/skills/learn/notes.md). Reads only; never looks into
 // the private folder or encrypted notes.
 //   node _ai/vault.mjs                  prints the vault path, the notes in Learn and the PDFs in Books
-//   node _ai/vault.mjs check "<topic>"  checks one topic note and its concept notes; prints scan: lines and exits 1 when there are any
-import { readFileSync, readdirSync } from 'node:fs';
+//   node _ai/vault.mjs check "<topic>"  checks one topic note; prints scan: lines and exits 1 when there are any
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { checkVault } from './sync.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const STATUS = ['standard', 'common', 'growing', 'niche', 'legacy'];
 const DIAGRAMS = /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram-v2|erDiagram|mindmap|timeline|quadrantChart|C4Context|C4Container|architecture-beta|gitGraph|pie|xychart-beta|block-beta|journey|requirementDiagram)\b/;
 const GENERIC = /^(overview|introduction|intro|background|summary|conclusion|details|notes|index|basics|general|diagram|definition|references)$/i;
-const LIMIT = { words: 600, concept: 200, bottom: 40, para: 50, nodes: 10, lrNodes: 4, columns: 5, svgWidth: 520, svgFont: 16 };
+const LIMIT = { words: 1500, bottom: 40, para: 50, nodes: 10, lrNodes: 4, columns: 5, svgWidth: 520, svgFont: 16 };
 
 // frontmatter: `key: value` and `key:` followed by `- item` lines; quotes removed
 export function parseNote(text) {
@@ -57,20 +56,23 @@ const words = (s) => s.replace(/!?\[\[[^\]]*?\\?\|?([^\]|]*)\]\]/g, '$1').replac
 const nodeIds = (d) => new Set([...d.replace(/^\s*(class|classDef|style|linkStyle|click|subgraph|direction|end)\b.*$/gm, '').replace(/"[^"]*"/g, '').replace(/\|[^|]*\|/g, ' ').replace(/--\s+\w[^\n]*?\s(-->|---)/g, '$1')
   .matchAll(/(?:^|[\s>&-])([A-Za-z][\w]*)(?=\s*(?:[[({<]|:::|-{2,}|-\.|==|~~|&|$))/gm)].map((m) => m[1]).filter((w) => !/^(flowchart|graph|TD|TB|LR|RL|BT)$/.test(w)));
 
-// `notes`: name -> text of every note in Learn; `files`: lower-case names of every linkable file (notes without .md);
-// `svg`: file name -> text. Returns { warnings, info }.
-export function checkTopic(topic, notes, files, svg = {}) {
-  const warnings = [], info = [];
+// One topic is one note. `notes`: name -> text of every note in Learn; `files`: lower-case names of every linkable file
+// (notes without .md); `svg`: file name -> text; `banned`: names the note must not use (the workspace's projects). Returns { warnings }.
+export function checkTopic(topic, notes, files, svg = {}, banned = []) {
+  const warnings = [];
   const warn = (note, msg) => warnings.push(`${note}: ${msg}`);
-  if (!Object.hasOwn(notes, topic)) return { warnings: [`${topic}: no such note in Learn`], info };
+  if (!Object.hasOwn(notes, topic)) return { warnings: [`${topic}: no such note in Learn`] };
   const parsed = Object.fromEntries(Object.entries(notes).map(([n, t]) => [n, parseNote(t)]));
-  const topicsOf = (n) => list(parsed[n].meta.topic).flatMap((v) => links(v).map((l) => l.target));
-  const concepts = Object.keys(notes).filter((n) => parsed[n].meta.type === 'concept' && topicsOf(n).includes(topic));
   const exists = (t) => files.has(t.toLowerCase()) || files.has(t.toLowerCase().replace(/\.md$/, '')) || files.has(t.toLowerCase().split('/').pop());
 
-  for (const n of [topic, ...concepts]) {
+  {
+    const n = topic;
     const { meta, body } = parsed[n];
     const plain = withoutCode(body);
+    for (const name of banned) {
+      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`(^|[^\\w-])${esc}($|[^\\w-])`, 'i').test(notes[n])) warn(n, `names the project "${name}": examples stay generic`);
+    }
     for (const k of ['created', 'updated']) if (!DATE.test(meta[k] ?? '')) warn(n, `property ${k} must be YYYY-MM-DD`);
     for (const l of links(plain + '\n' + Object.values(meta).flat().join('\n'))) {
       if (!l.target) continue;
@@ -130,35 +132,23 @@ export function checkTopic(topic, notes, files, svg = {}) {
   }
 
   const { meta, body } = parsed[topic];
-  const seen = visible(body);
+  // the reader's own words do not count
+  const seen = visible(body).split(/^## In my own words$/m)[0];
   if (meta.type !== 'topic') warn(topic, 'property type must be topic');
   const bottom = /^\s*> \[!abstract\][^\n]*\n((?:>.*\n?)*)/.exec(body);
   if (!bottom) warn(topic, 'must start with a > [!abstract] callout');
   else if (words(bottom[1].replace(/^>/gm, '')) > LIMIT.bottom) warn(topic, `the first callout is over ${LIMIT.bottom} words`);
-  if (words(seen) > LIMIT.words) warn(topic, `${words(seen)} visible words (at most ${LIMIT.words}): move depth to concept notes or folded callouts`);
+  if (words(seen) > LIMIT.words) warn(topic, `${words(seen)} visible words (at most ${LIMIT.words}): move depth to folded callouts`);
   for (const s of body.split(/^## /m).slice(1)) {
-    if (!/^```mermaid|^(> )?\||^!\[\[|^\d+\. |^> \[!question\]-/m.test(s)) warn(topic, `section "${s.split('\n')[0]}" has no diagram, table, picture, steps or questions`);
+    if (/^In my own words\s*$/.test(s.split('\n')[0])) continue;
+    if (!/^```mermaid|^(> )?\||^!\[\[|^\d+\. /m.test(s)) warn(topic, `section "${s.split('\n')[0]}" has no diagram, table, picture or steps`);
   }
   if (mermaids(body).length < 2) warn(topic, 'needs at least 2 diagrams');
   if (!links(body).some((l) => l.embed && /\.(svg|png|jpe?g|webp|gif|avif)$/i.test(l.target))) warn(topic, 'needs a picture (![[name.svg]])');
-  if ((body.match(/^> \[!question\]- /gm) ?? []).length < 5) warn(topic, 'needs 5 folded questions (> [!question]- ...)');
-  if (concepts.length < 5 || concepts.length > 9) warn(topic, `${concepts.length} concept notes (5 to 9)`);
+  if (/^> \[!question\]/m.test(body)) warn(topic, 'no question callouts: the note holds only what is used');
+  if (!/^## In my own words$/m.test(body)) warn(topic, 'needs a "## In my own words" section');
   if (!Object.keys(notes).some((n) => parsed[n].meta.type === 'map' && links(parsed[n].body).some((l) => l.target === topic))) warn(topic, 'is not linked from a map note');
-  const linked = new Set(links(withoutCode(body)).map((l) => l.target));
-  for (const n of concepts) {
-    const c = parsed[n];
-    if (!linked.has(n)) warn(n, `is not linked from the text of ${topic}`);
-    if (!STATUS.includes(c.meta.status)) warn(n, `property status must be one of ${STATUS.join(', ')}`);
-    if (!/^\s*> \[!abstract\]/.test(c.body)) warn(n, 'must start with a > [!abstract] callout');
-    if (!/^## In my own words$/m.test(c.body)) warn(n, 'needs a "## In my own words" section');
-    const own = visible(c.body).split(/^## In my own words$/m)[0];
-    if (words(own) > LIMIT.concept) warn(n, `${words(own)} visible words (at most ${LIMIT.concept})`);
-    const related = new Set(links(withoutCode(c.body)).map((l) => l.target).filter((t) => t !== n && parsed[t]?.meta.type === 'concept'));
-    if (related.size < 2) warn(n, 'links to fewer than 2 other concept notes');
-    const others = topicsOf(n).filter((t) => t !== topic);
-    if (others.length) info.push(`${n} is shared with ${others.join(', ')}: append or correct, do not rewrite`);
-  }
-  return { warnings, info };
+  return { warnings };
 }
 
 const walk = (dir, skip) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.name.startsWith('.') || skip.test(e.name) ? []
@@ -175,8 +165,9 @@ export function main(args, root = ROOT) {
   if (args[0] === 'check' && args[1]) {
     const files = new Set(all.flatMap((f) => [f, f.split('/').pop()].map((x) => x.toLowerCase().replace(/\.md$/, ''))));
     const svg = Object.fromEntries(all.filter((f) => f.endsWith('.svg')).map((f) => [f.split('/').pop(), readFileSync(join(vault, f), 'utf8')]));
-    const { warnings, info } = checkTopic(args[1], notes, files, svg);
-    for (const i of info) console.log(`info: ${i}`);
+    // the workspace's projects: folders that hold a code/ repo
+    const projects = readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.') && existsSync(join(root, e.name, 'code'))).map((e) => e.name);
+    const { warnings } = checkTopic(args[1], notes, files, svg, projects);
     for (const w of warnings) console.log(`scan: ${w}`);
     console.log(warnings.length ? `${warnings.length} to fix` : 'clean');
     return warnings.length ? 1 : 0;

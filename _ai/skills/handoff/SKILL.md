@@ -15,7 +15,6 @@ Print one brief the user copies into a new chat (Claude Code, Kiro or Copilot). 
 # Handoff: <topic>
 Project: <folder>; repo <project>/code; branch <name, if known>
 Read first: <project>/docs/ai/project.md, <active plan or context.md, if any>
-Model: <Opus for design or hard debugging | Sonnet>
 
 ## Goal
 <one sentence>. Done when: <observable check>
@@ -32,4 +31,4 @@ Model: <Opus for design or hard debugging | Sonnet>
 - <trap, blocker, or open question with the recommended answer>
 ```
 
-Reply with the block and one line: which agent to pick in the new chat.
+Reply with the block and one line: which tool to use in the new chat (Claude Code, Kiro or Copilot); never a model.

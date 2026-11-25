@@ -6,8 +6,9 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative, isAbsolute, posix } from 'node:path';
 import { createHash } from 'node:crypto';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { LOCAL_MCP } from './hooks/guard.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => readFileSync(join(ROOT, f), 'utf8').replace(/\r\n/g, '\n');
@@ -18,7 +19,7 @@ const note = (src) => `<!-- Generated from ${src} by node _ai/sync.mjs; edit the
 
 export const TOOL_NAMES = ['claude', 'kiro', 'copilot'];
 // Hooks a device can switch off per tool in .ai-device.json `perTool.<tool>.hooks`; missing = on.
-export const HOOKS = ['guard', 'lang'];
+export const HOOKS = ['guard'];
 const CLAUDE_ISOLATION = ['worktree'];
 const CLAUDE_MEMORY = ['user', 'project', 'local'];
 // Generated paths per tool; sync replaces them whole, --check flags extra files in them. Never .github itself: user files live there.
@@ -74,10 +75,11 @@ export function loadModels(override, base) {
   return merged;
 }
 
-// MCP servers from _ai/mcp.json: { servers: { <name>: { description?, type: http|stdio, url | command + args?, env?, headers? } } }.
+// MCP servers from _ai/mcp.json: { servers: { <name>: { description?, type: http|stdio, url | command + args?, env?, headers?, disabledTools? } } }.
 // No secrets in the file: env and header values are ${NAME} references and a url carries no credentials; sign-in is OAuth or
-// that variable. `args` are not checked: pass a secret through `env`.
-const MCP_KEYS = ['description', 'type', 'url', 'command', 'args', 'env', 'headers'];
+// that variable. `args` are not checked: pass a secret through `env`. The one literal header is X-MCP-* (GitHub's toolset
+// switches), limited to letters, digits, `_` and `,`. `disabledTools` reaches Kiro only: Copilot has no such key.
+const MCP_KEYS = ['description', 'type', 'url', 'command', 'args', 'env', 'headers', 'disabledTools'];
 export function loadMcp(m) {
   if (m === undefined) {
     if (!existsSync(join(ROOT, '_ai/mcp.json'))) return {};
@@ -105,9 +107,13 @@ export function loadMcp(m) {
     } else throw new Error(`${at}.type must be http or stdio`);
     for (const k of ['env', 'headers']) {
       for (const [key, v] of Object.entries(s[k] ?? {})) {
+        if (k === 'headers' && /^X-MCP-[A-Za-z]+$/i.test(key) && typeof v === 'string' && /^[A-Za-z0-9_,]+$/.test(v)) continue;
         // only a variable, optionally after one scheme word such as Bearer
         if (typeof v !== 'string' || !/^(?:[A-Za-z]+ )?\$\{[A-Z0-9_]+\}$/.test(v)) throw new Error(`${at}.${k}.${key} must be \${NAME} or "<Scheme> \${NAME}"; secrets never go in this file`);
       }
+    }
+    if (s.disabledTools !== undefined && !(Array.isArray(s.disabledTools) && s.disabledTools.every((t) => typeof t === 'string' && /^[A-Za-z0-9_.-]+$/.test(t)))) {
+      throw new Error(`${at}.disabledTools must be a list of tool names`);
     }
   }
   return servers;
@@ -124,6 +130,7 @@ export function mcpEntry(s, tool) {
     ...(s.args && { args: s.args.map(v) }),
     ...(s.env && { env: map(s.env) }),
     ...(s.headers && { headers: map(s.headers) }),
+    ...(tool === 'kiro' && s.disabledTools && { disabledTools: s.disabledTools }),
   };
 }
 
@@ -226,7 +233,10 @@ function claudeSettings(models, hookOn, vault) {
     env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '60', CLAUDE_CODE_SUBAGENT_MODEL: pick(c.subagentDefault, 'fast') },
     permissions: {
       ...(vault && { additionalDirectories: [vault] }),
-      allow: ['Read', 'Grep', 'Glob'],
+      // vault notes are edited without a prompt; .obsidian holds plugin code Obsidian runs, so it asks (deny > ask > allow)
+      // MCP servers are allowed whole: the guard hook asks on their writing tools
+      allow: ['Read', 'Grep', 'Glob', ...Object.keys(loadMcp()).map((n) => `mcp__${n}`), ...(vault ? [`Edit(${claudePath(vault)}/**)`] : [])],
+      ...(vault && { ask: [`Edit(${claudePath(vault)}/.obsidian/**)`] }),
       deny: [
         'Read(**/.env)', 'Read(**/.env.*)', 'Read(**/*.env)', 'Edit(**/.env)', 'Edit(**/.env.*)', 'Edit(**/*.env)',
         'Read(./personal/**)', 'Edit(./personal/**)', 'Read(**/personal/**)', 'Edit(**/personal/**)',
@@ -249,16 +259,8 @@ function claudeSettings(models, hookOn, vault) {
       ...['morning', 'import-memory', 'computer-use', 'built-in-browser', 'google-workspace'].map((s) => `anthropic-skills:${s}`),
     ].map((s) => [s, 'user-invocable-only'])),
     hooks: {
-      ...(hookOn('lang') && { UserPromptSubmit: [{
-        hooks: [{
-          type: 'command',
-          command: 'node',
-          args: ['${CLAUDE_PROJECT_DIR}/_ai/hooks/lang.mjs'],
-          timeout: 10,
-        }],
-      }] }),
       ...(hookOn('guard') && { PreToolUse: [{
-        matcher: 'Bash|PowerShell|Read|Edit|Write|NotebookEdit|Grep|Glob',
+        matcher: 'Bash|PowerShell|Read|Edit|Write|NotebookEdit|Grep|Glob|mcp__.*',
         hooks: [{
           type: 'command',
           command: 'node',
@@ -273,8 +275,7 @@ function claudeSettings(models, hookOn, vault) {
 
 const kiroHooks = {
   // keyed by hook name; no `matcher`: Kiro then matches every PreToolUse event (shell, read, grep, glob, write, subagent, mcp)
-  guard: { version: 'v1', hooks: [{ name: 'Guard tool calls', description: 'Blocks hard stops, writing SQL, secret files and personal/; asks on deletes, Git writes, external CLI and mutating MCP (_ai/hooks/guard.mjs).', trigger: 'PreToolUse', action: { type: 'command', command: 'node _ai/hooks/run-guard.mjs' }, timeout: 10 }] },
-  lang: { version: 'v1', hooks: [{ name: 'Reply in English', description: 'Adds a one-line reminder to reply in English to every prompt.', trigger: 'UserPromptSubmit', action: { type: 'command', command: 'node _ai/hooks/lang.mjs' }, timeout: 10 }] },
+  guard: { version: 'v1', hooks: [{ name: 'Guard tool calls', description: 'Blocks hard stops, writing SQL, secret files and personal/; asks only on pushes, work-discarding Git, wide deletes, loaders, publishing and shared writes (_ai/hooks/guard.mjs).', trigger: 'PreToolUse', action: { type: 'command', command: 'node _ai/hooks/run-guard.mjs' }, timeout: 10 }] },
 };
 
 export function claudeAgentMeta(meta, tools, src, models = loadModels()) {
@@ -365,12 +366,11 @@ export function build(profile, tools = TOOL_NAMES, device = {}) {
   if (on('copilot')) {
     // no quotes in the commands: Windows PowerShell -Command turns exit 2 into 1 unless `exit $LASTEXITCODE` follows
     const g = hookOn('copilot');
-    if (g('guard') || g('lang')) {
+    if (g('guard')) {
       out['.github/hooks/guard.json'] = JSON.stringify({
         hooks: {
           // --allow lets the guard auto-confirm safe calls; it still answers ask on sensitive ones and exits 2 on hard stops
-          ...(g('guard') && { PreToolUse: [{ type: 'command', command: 'node _ai/hooks/run-guard.mjs --allow', windows: 'node _ai/hooks/run-guard.mjs --allow; exit $LASTEXITCODE', cwd: '.', timeout: 10 }] }),
-          ...(g('lang') && { UserPromptSubmit: [{ type: 'command', command: 'node _ai/hooks/lang.mjs --json', cwd: '.', timeout: 10 }] }),
+          PreToolUse: [{ type: 'command', command: 'node _ai/hooks/run-guard.mjs --allow', windows: 'node _ai/hooks/run-guard.mjs --allow; exit $LASTEXITCODE', cwd: '.', timeout: 10 }],
         },
       }, null, 2) + '\n';
     }
@@ -476,26 +476,27 @@ function localSettings(profile, dir) {
     try { s = JSON.parse(readFileSync(f, 'utf8')); }
     catch { throw new Error(`${f} is not valid JSON; fix or delete it, then run again`); }
   }
-  // the shared settings allow only reads, so work asks; home adds the rest here
-  const HOME_ALLOW = ['Edit', 'Write', 'NotebookEdit', 'Bash', 'PowerShell', 'WebFetch', 'WebSearch'];
+  // both profiles allow the tools here; the guard hook asks on the sensitive calls and the shared deny list still applies.
+  // home also skips Claude's own prompts (outside the working folders, for example).
+  const ALLOW = ['Edit', 'Write', 'NotebookEdit', 'Bash', 'PowerShell', 'WebFetch', 'WebSearch'];
   s.permissions ??= {};
-  const allow = (s.permissions.allow ?? []).filter((r) => !HOME_ALLOW.includes(r));
-  if (profile === 'home') { s.permissions.defaultMode = 'bypassPermissions'; s.permissions.allow = [...allow, ...HOME_ALLOW]; }
-  else { delete s.permissions.defaultMode; s.permissions.allow = allow; }
-  if (!s.permissions.allow.length) delete s.permissions.allow;
+  s.permissions.allow = [...(s.permissions.allow ?? []).filter((r) => !ALLOW.includes(r)), ...ALLOW];
+  if (profile === 'home') s.permissions.defaultMode = 'bypassPermissions';
+  else delete s.permissions.defaultMode;
   return JSON.stringify(s, null, 2) + '\n';
 }
 
+// With the guard hook on, it alone asks (path-aware, by profile); these coarse patterns are the fallback when it is off.
+const TERMINAL_FALLBACK = {
+  '/(^|[\\s;|&(])(rm|del|erase|rmdir|rd|ri|Remove-Item|Clear-Content|Clear-Item)(\\s|$)/i': false,
+  '/(^|[\\s;|&(])git\\s+(?!(-C\\s+\\S+\\s+|--no-pager\\s+|-c\\s+\\S+\\s+)*(status|log|diff|show|ls-files|blame|rev-parse|grep|remote\\s+-v|branch\\s+(--show-current|-a|-r|--list)|--version|merge-base|stash\\s+list|config\\s+(--get|--list)|describe|shortlog)\\b)/i': false,
+  '/(^|[\\s;|&(])(az|gh|curl(\\.exe)?|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr|kubectl|helm|terraform)\\s/i': false,
+};
 const MANAGED_VSCODE = {
   'chat.useAgentsMdFile': true,
   'chat.useHooks': true,
   'chat.agent.maxRequests': 250,
-  'chat.tools.terminal.autoApprove': {
-    '/.*/': true,
-    '/(^|[\\s;|&(])(rm|del|erase|rmdir|rd|ri|Remove-Item|Clear-Content|Clear-Item)(\\s|$)/i': false,
-    '/(^|[\\s;|&(])git\\s+(?!(-C\\s+\\S+\\s+|--no-pager\\s+|-c\\s+\\S+\\s+)*(status|log|diff|show|ls-files|blame|rev-parse|grep|remote\\s+-v|branch\\s+(--show-current|-a|-r|--list)|--version|merge-base|stash\\s+list|config\\s+(--get|--list)|describe|shortlog)\\b)/i': false,
-    '/(^|[\\s;|&(])(az|gh|curl(\\.exe)?|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr|kubectl|helm|terraform)\\s/i': false,
-  },
+  'chat.tools.terminal.autoApprove': { '/.*/': true },
   'chat.tools.urls.autoApprove': { 'https://*': true },
   'chat.tools.edits.autoApprove': { '**/*': true, '**/.env': false, '**/.env.*': false, '**/*.env': false, 'personal/**': false },
   'github.copilot.chat.executionSubagent.enabled': false,
@@ -505,14 +506,15 @@ const MANAGED_VSCODE = {
 };
 
 // .vscode/settings.json with our managed keys set and the user's other keys kept
-export function vscodeSettings(dir) {
+export function vscodeSettings(dir, guardOn = true) {
   const f = join(dir, '.vscode/settings.json');
   let s = {};
   if (existsSync(f)) {
     try { s = JSON.parse(readFileSync(f, 'utf8')); }
     catch { throw new Error(`${f} is not valid JSON; fix or delete it, then run again`); }
   }
-  return JSON.stringify({ ...s, ...MANAGED_VSCODE }, null, 2) + '\n';
+  const terminal = { ...MANAGED_VSCODE['chat.tools.terminal.autoApprove'], ...(!guardOn && TERMINAL_FALLBACK) };
+  return JSON.stringify({ ...s, ...MANAGED_VSCODE, 'chat.tools.terminal.autoApprove': terminal }, null, 2) + '\n';
 }
 
 export function kiroWorkspacePermissionsPath(dir, home = homedir()) {
@@ -524,40 +526,65 @@ export function kiroWorkspacePermissionsPath(dir, home = homedir()) {
 const KIRO_BEGIN = '# >>> generated by node _ai/sync.mjs; add your own rules outside this block';
 const KIRO_END = '# <<< generated by node _ai/sync.mjs';
 
-function kiroRules(vault) {
-  const cases = (w) => [...new Set([w, w.toLowerCase(), w[0].toUpperCase() + w.slice(1).toLowerCase()])];
-  const ask = (words) => ({ capability: 'shell', match: words.flatMap((w) => cases(w).map((c) => `${c} *`)), effect: 'ask' });
-  const reads = ['status', 'log', 'diff', 'show', 'ls-files', 'blame', 'rev-parse', 'grep', 'remote -v', 'branch --show-current', 'branch -a', 'branch -r', 'branch --list',
-    '--version', 'merge-base', 'stash list', 'config --get', 'config --list', 'describe', 'shortlog'];
-  const gits = ['git', 'Git', 'GIT'];
-  const writes = ['add', 'am', 'apply', 'branch', 'checkout', 'cherry-pick', 'clean', 'clone', 'commit', 'config', 'fetch', 'init', 'merge', 'mv', 'pull', 'push', 'rebase',
-    'reset', 'restore', 'revert', 'rm', 'stash', 'submodule', 'switch', 'tag', 'worktree', 'gc', 'update-ref', 'reflog', 'notes', 'bisect', 'prune', 'sparse-checkout', 'symbolic-ref'];
-  const mcp = ['create', 'update', 'delete', 'remove', 'add', 'edit', 'transition', 'comment', 'send', 'post', 'put', 'patch', 'register', 'rename', 'restore', 'set_', 'log_', 'link_', 'evaluate', 'write', 'execute', 'apply', 'upload', 'insert', 'merge', 'push', 'deploy'].flatMap((w) => [`*${w}*`, `*${w[0].toUpperCase() + w.slice(1)}*`]);
+const EXAMPLES = ['**/*.example', '**/*.sample', '**/*.template', '**/*.dist'];
+
+// Shell commands get no ask rules here: the guard hook asks on them, by path and profile, so Kiro never asks twice.
+// MCP keeps ask rules because the hook may not see Kiro's MCP tool names (it matches mcp_<server>_<tool>).
+export function kiroRules(profile = 'work') {
+  const words = (ws) => ws.flatMap((w) => [`*${w}*`, `*${w[0].toUpperCase() + w.slice(1)}*`]);
+  const writes = ['create', 'update', 'add', 'edit', 'transition', 'comment', 'send', 'post', 'put', 'patch', 'register', 'rename', 'restore', 'set_', 'log_', 'link_',
+    'evaluate', 'write', 'execute', 'apply', 'upload', 'insert', 'merge', 'push', 'deploy', 'publish'];
+  // read tools whose names hold a write word (listJiraIssueComments, executeRead), and the servers that only touch this machine
+  const reads = ['*/get*', '*/list*', '*/search*', '*/lookup*', 'get*', 'list*', 'search*', 'lookup*', '*executeRead*'];
   return [
     { capability: 'all', effect: 'allow' },
     { capability: 'filesystem', match: ['**'], effect: 'allow' },
-    ask(['rm', 'del', 'erase', 'rmdir', 'rd', 'ri', 'Remove-Item', 'az', 'gh', 'curl', 'curl.exe', 'wget', 'Invoke-RestMethod', 'Invoke-WebRequest', 'irm', 'iwr', 'kubectl', 'helm', 'terraform']),
-    { capability: 'shell', match: gits.map((g) => `${g} *`), exclude: gits.flatMap((g) => reads.flatMap((r) => g === 'git' ? [`git ${r}*`, `git -C * ${r}*`, `git --no-pager ${r}*`] : [`${g} ${r}*`])), effect: 'ask' },
-    { capability: 'shell', match: writes.map((w) => `git -C * ${w}*`), effect: 'ask' },
-    { capability: 'mcp', match: mcp, effect: 'ask' },
-    { capability: 'filesystem', match: ['**/.env', '**/.env.*', '**/*.env', 'personal/**'], exclude: ['**/*.example', '**/*.sample', '**/*.template', '**/*.dist'], effect: 'deny' },
-    ...(vault ? [{ capability: 'filesystem', match: VAULT_DENY.map((p) => `${vault.replace(/\\/g, '/').replace(/\/+$/, '')}/${p}`), effect: 'deny' }] : []),
+    { capability: 'mcp', match: [...words(['delete', 'remove', 'drop', 'destroy', 'purge']), '*browser_file_upload*', '*browser_run_code_unsafe*'], effect: 'ask' },
+    ...(profile === 'work' ? [{ capability: 'mcp', match: words(writes), exclude: [...reads, ...LOCAL_MCP.map((s) => `${s}*`)], effect: 'ask' }] : []),
+    { capability: 'mcp', match: ['*executeDestructive*'], effect: 'deny' },
+    { capability: 'filesystem', match: ['**/.env', '**/.env.*', '**/*.env', 'personal/**'], exclude: EXAMPLES, effect: 'deny' },
   ];
 }
 
-// Writes the generated block of the Kiro workspace permissions, keeping any rules outside it.
-export function syncKiroPermissions(dir, home = homedir(), vault) {
-  const f = kiroWorkspacePermissionsPath(dir, home);
-  const block = [`  ${KIRO_BEGIN}`, ...kiroRules(vault).map((r) => `  - ${JSON.stringify(r)}`), `  ${KIRO_END}`].join('\n');
+// User-wide rules: reads anywhere except credential stores, and the temp folder for scratch files; without them every
+// read of a Kiro or VS Code log and every scratch file outside the workspace asks (and piles up one-off rules).
+export function kiroUserRules(home = homedir(), vault, temp = tmpdir()) {
+  const h = home.replace(/\\/g, '/').replace(/\/+$/, ''), t = temp.replace(/\\/g, '/').replace(/\/+$/, '');
+  const v = vault && vault.replace(/\\/g, '/').replace(/\/+$/, '');
+  const credentials = ['.ssh/**', '.aws/**', '.azure/**', '.kube/**', '.docker/config.json', '.git-credentials', '.npmrc', '.pypirc', '.netrc'].map((p) => `${h}/${p}`);
+  return [
+    { capability: 'fs_read', effect: 'allow' },
+    { capability: 'filesystem', match: [`${t}/**`], effect: 'allow' },
+    ...(v ? [{ capability: 'filesystem', match: [`${v}/**`], exclude: [`${v}/.obsidian/**`], effect: 'allow' }] : []),
+    { capability: 'filesystem', match: [...credentials, '**/*.pem', '**/*.key', '**/*.pfx', '**/.env', '**/.env.*', '**/*.env'], exclude: EXAMPLES, effect: 'deny' },
+    ...(v ? [{ capability: 'filesystem', match: VAULT_DENY.map((p) => `${v}/${p}`), effect: 'deny' }] : []),
+  ];
+}
+
+// Writes the generated block of a Kiro permissions file, keeping any rules outside it; no rules removes the block.
+function writeKiroBlock(f, rules) {
   let text = existsSync(f) ? readFileSync(f, 'utf8').replace(/\r\n/g, '\n') : '';
   const start = text.indexOf(KIRO_BEGIN), end = text.indexOf(KIRO_END);
+  if (!rules.length && start < 0) return;
+  const block = rules.length ? [`  ${KIRO_BEGIN}`, ...rules.map((r) => `  - ${JSON.stringify(r)}`), `  ${KIRO_END}`].join('\n') : '';
   if (start >= 0 && end > start) {
     const from = text.lastIndexOf('\n', start) + 1;
-    text = text.slice(0, from) + block + text.slice(end + KIRO_END.length);
+    const to = end + KIRO_END.length + (block ? 0 : 1);
+    text = text.slice(0, from) + block + text.slice(to);
   } else if (/^rules:[ \t]*$/m.test(text)) text = text.replace(/^rules:[ \t]*$/m, () => `rules:\n${block}`);
   else text = `${text}${text && !text.endsWith('\n') ? '\n' : ''}rules:\n${block}\n`;
   mkdirSync(dirname(f), { recursive: true });
   writeFileSync(f, text);
+}
+
+export const kiroUserPermissionsPath = (home = homedir()) => join(home, '.kiro', 'settings', 'permissions.yaml');
+
+// Workspace rules go to the workspace-roots file. Paths outside the workspace (temp, home, the vault) go to the user file:
+// Kiro skips workspace rules whose path is outside the workspace. Vault notes are open without a prompt; .obsidian holds
+// plugin code, so it is left to ask; the private folder and encrypted notes are denied.
+export function syncKiroPermissions(dir, home = homedir(), vault, profile = 'work') {
+  writeKiroBlock(kiroWorkspacePermissionsPath(dir, home), kiroRules(profile));
+  writeKiroBlock(kiroUserPermissionsPath(home), kiroUserRules(home, vault));
 }
 
 export function main(args, dir = ROOT) {
@@ -595,6 +622,7 @@ export function main(args, dir = ROOT) {
     console.warn('warning: claude and copilot are both enabled; Copilot also reads .claude/ hooks and agents, which can double-fire hooks.');
   }
   const guardOff = tools.filter((t) => saved.perTool?.[t]?.hooks?.guard === false);
+  const copilotGuard = !guardOff.includes('copilot');
   if (guardOff.length) console.warn(`guard: off for ${guardOff.join(', ')}`);
 
   if (check) {
@@ -604,7 +632,7 @@ export function main(args, dir = ROOT) {
       ...Object.entries(mcp).filter(([f, t]) => !existsSync(join(dir, f)) || readFileSync(join(dir, f), 'utf8') !== t).map(([f]) => `stale or missing: ${f}`),
       ...(!tools.includes('claude') && existsSync(join(dir, localFile)) ? [`extra: ${localFile}`] : []),
       ...(tools.includes('copilot') && (!existsSync(join(dir, '.vscode/settings.json'))
-        || readFileSync(join(dir, '.vscode/settings.json'), 'utf8').replace(/\r\n/g, '\n') !== vscodeSettings(dir)) ? ['stale or missing: .vscode/settings.json'] : []),
+        || readFileSync(join(dir, '.vscode/settings.json'), 'utf8').replace(/\r\n/g, '\n') !== vscodeSettings(dir, copilotGuard)) ? ['stale or missing: .vscode/settings.json'] : []),
       ...broken,
     ];
     console.log(problems.length ? `${problems.join('\n')}\nnot synced: run node _ai/sync.mjs` : 'in sync');
@@ -626,11 +654,11 @@ export function main(args, dir = ROOT) {
   } else rmSync(join(dir, localFile), { force: true });
   if (tools.includes('copilot')) {
     mkdirSync(join(dir, '.vscode'), { recursive: true });
-    writeFileSync(join(dir, '.vscode/settings.json'), vscodeSettings(dir));
+    writeFileSync(join(dir, '.vscode/settings.json'), vscodeSettings(dir, copilotGuard));
   }
-  if (tools.includes('kiro') && dir === ROOT && existsSync(join(homedir(), '.kiro'))) syncKiroPermissions(dir, undefined, vault);
+  if (tools.includes('kiro') && dir === ROOT && existsSync(join(homedir(), '.kiro'))) syncKiroPermissions(dir, undefined, vault, profile);
   const hints = profile === 'home' ? { kiro: 'Kiro: use Autopilot.' }
-    : { kiro: 'Kiro: Autopilot + guard hook.', claude: 'Claude Code: keep approvals on.', copilot: 'Copilot: hooks + auto-approve synced.' };
+    : { kiro: 'Kiro: Autopilot; the guard hook asks only on sensitive calls.', claude: 'Claude Code: tools allowed; the guard hook asks only on sensitive calls.', copilot: 'Copilot: hooks + auto-approve synced.' };
   if (broken.length) console.log(broken.join('\n'));
   console.log([`synced ${Object.keys(out).length} files, profile ${profile}, tools ${tools.join(',')}.`, ...tools.map((t) => hints[t]).filter(Boolean)].join(' '));
   return broken.length ? 1 : 0;

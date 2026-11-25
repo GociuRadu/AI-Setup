@@ -12,7 +12,7 @@ Named in the request, else from the words; unclear: `review`.
 
 | Mode | Work | Verdict |
 |---|---|---|
-| `review` | Scope: the named files, else `git diff HEAD` (on a branch also `<main>...HEAD`). Read callers and tests. Large change or audit: one `scout` per area, then `reviewer`; verify every finding yourself before reporting it. `security`: only that area. | `ready` / `fix first` |
+| `review` | Scope: the named files, else `git diff HEAD` (on a branch also `<main>...HEAD`). Read changed files, direct callers and tests; run no test suites unless asked. Large change (10+ code files) or folder audit: one `scout` per area, then `reviewer`; verify every finding yourself. `security`: only that area. | `ready` / `fix first` |
 | `bug` | `memory.md` and known issues first. Contain and reproduce per **Bug** in `AGENTS.md`, then test 3-5 ranked hypotheses one at a time. Wrong data: counts per stage, key uniqueness, NULL keys, casts, join fan-out. Tag debug output `[DEBUG-xxxx]`; remove it by searching the tag. Fix per **Bug** in `AGENTS.md`; dropping bad rows or a catch-all is a workaround, call it that. | `cause proven` / `unproven` / `fixed` |
 | `analyze` | Read code, tests and config; wide scope: one `scout` per area. Facts only as far as evidence goes; unverified: **U** and what would confirm it. | none |
 | `debt` | List every `shortcut:` comment (a deliberate shortcut that names its limit) with the command below. One table row per marker: path:line, limit, upgrade trigger; no trigger named: `no-trigger`. Chat only. | `<N> markers, <M> with no trigger` |
@@ -24,7 +24,7 @@ Every finding has a concrete case ("this input gives this wrong result") and `pa
 ## Output
 **Chat first:** verdict or answer in line 1, then the top findings numbered across levels (so the user can say "fix 2 and 5"), at most 3 unless asked for all, then the report path.
 
-**Report** when asked, for an audit, a proven bug, or anything longer than one screen: `<project>/docs/ai/reports/YYYY-MM-DD-<mode>-<topic>.html`, built per `_ai/rules/report.md`. Keep only the sections that carry the answer.
+**Report** only when explicitly asked, for a folder audit, or a proven bug: `<project>/docs/ai/reports/YYYY-MM-DD-<mode>-<topic>.html`, built per `_ai/rules/report.md`. Branch/PR/status reviews stay in chat unless asked for a report.
 
 | Mode | Sections, in order | Picture |
 |---|---|---|

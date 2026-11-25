@@ -180,14 +180,18 @@ for (const t of ['', 'mcp_atlassian-mcp_search', 'mcp_hostinger_list_sites', 're
 
 // ask layer
 const ask = (command, args = {}, toolName = '') => checkAsk(command, args, dir, dir, toolName);
+// no .ai-device.json in dir: the work profile
 const asks = [
-  'rm -rf build', 'Remove-Item foo', 'cmd /c del a.txt', 'node -e "fs.rmSync(\'x\')"', 'node _ai/clean.mjs --apply',
-  'git add .', 'git commit -m "x"', 'git -C MCDT/code push', '& git checkout -b x', 'git branch -D x',
-  'az group list', 'gh pr create', 'curl https://x', 'Invoke-RestMethod https://x', 'npm publish', 'docker push img',
-  'python MCDT/code/local/run_notebook.py',
-  'echo a & rm -rf x', 'Get-ChildItem | ForEach-Object { Remove-Item $_ }', "find . -name '*.tmp' -delete", 'bash -c "rm foo"',
+  'rm -rf build', 'rm -rf Shop/code', 'Remove-Item -Recurse -Force .\\Shop', 'rm -rf .git/refs', 'rm *', 'rm -r src/*', 'Remove-Item $dir -Recurse', 'Remove-Item',
+  'rm C:/Users/x/notes.txt', 'cmd /c del ..\\..\\a.txt', 'node -e "fs.rmSync(\'x\')"', 'node _ai/clean.mjs --apply',
+  'git -C MCDT/code push', 'git push origin feature/x', 'git branch -D x', 'git reset --hard HEAD~1', 'git clean -fd', 'git rebase main',
+  'git restore src/a.py', 'git checkout -- a.py', 'git checkout .', 'git stash drop', 'git config --global user.name x', 'git tag -d v1',
+  'az group list', 'kubectl get pods', 'gh pr create', 'gh api -X POST repos/o/r/issues', 'gh api repos/o/r/labels -f name=x',
+  'curl -X POST https://x', 'curl -d @f https://x', 'Invoke-RestMethod -Method Post https://x', 'iwr https://x -Headers @{Authorization="t"}',
+  'npm publish', 'twine upload dist/*', 'docker push img', 'python MCDT/code/local/run_notebook.py',
+  'echo a & rm -rf x', 'Get-ChildItem | ForEach-Object { Remove-Item $_ }', "find . -name '*.tmp' -delete", 'git log $(git push)',
 ];
-assert.equal(ask('echo a & rm -rf x'), 'deleting files requires approval');
+assert.equal(ask('echo a & rm -rf x'), 'deleting a whole project, repo or the workspace requires approval');
 assert.equal(check('cd x & ssh user@host', dir, dir), 'SSH to a server is a hard stop');
 for (const c of ['& git push -f', 'powershell -Command "git push --force"', 'bash -c "git push --force"']) assert.equal(check(c, dir, dir), 'force-push is a hard stop', `should deny: ${c}`);
 for (const c of ['docker run --rm alpine echo ok', 'echo "git push -f"', 'grep "git push -f" x']) {
@@ -198,14 +202,37 @@ for (const c of asks) assert.notEqual(ask(c), null, `should ask: ${c}`);
 const noAsks = [
   'node --test "_ai/**/*.test.mjs"', 'pytest', 'pnpm test', 'git status --short', 'git -C MCDT/code diff', 'git log -n 5',
   'grep -rn "rm -rf" src/', 'echo "git push"', 'node _ai/clean.mjs',
+  // local, reversible work runs end to end
+  'git add .', 'git commit -m "x"', '& git checkout -b x', 'git switch main', 'git stash', 'git stash pop', 'git fetch', 'git pull --ff-only', 'git merge feature/x',
+  'git branch -d x', 'git restore --staged a.py', 'git config user.name', 'git config --get user.email', 'git worktree add .worktrees/x -b x', 'git commit --amend --no-edit',
+  'git -C MCDT/code merge-base HEAD $(git rev-parse HEAD)',
+  'Remove-Item foo', 'rm src/old.py', 'Remove-Item .tmp\\scratch -Recurse -Force', 'rm -rf Shop/code/dist', 'rm .tmp/*', 'bash -c "rm foo"',
+  `Remove-Item -Recurse -Force "${join(tmpdir(), 'guard-scratch')}"`, 'cmd /c del a.txt',
+  'gh pr view 12', 'gh pr list', 'gh run view 99 --log', 'gh pr checks', 'gh api repos/o/r/pulls', 'gh auth status',
+  'curl https://x', 'curl -fsSL https://x -o a.json', 'Invoke-RestMethod https://x', 'iwr -Method Get https://x',
 ];
 for (const c of noAsks) assert.equal(ask(c), null, `should not ask: ${c}`);
+assert.equal(ask(undefined, { filePath: join(tmpdir(), 'scratch.md') }, 'fs_write'), null, 'the temp folder is fine');
 assert.notEqual(ask(undefined, { filePath: 'c:/Outside/x.txt' }, 'replace_string_in_file'), null, 'outside edit asks');
 assert.equal(ask(undefined, { filePath: join(dir, 'a.txt') }, 'replace_string_in_file'), null, 'inside edit');
 assert.equal(ask(undefined, { filePath: '/memories/tooling.md' }, 'memory_create_file'), null);
 assert.equal(ask(undefined, { filePath: '/memories/tooling.md' }, 'create_file'), null, '/memories/ is fine');
-for (const t of ['mcp_atlassian-mcp_createConfluencePage', 'mcp_mlflow_mcp_delete_run', 'mcp_some_server_execute_action', 'mcp_some_server_upload_file', 'mcp_mlflow_mcp_set_trace_tag']) assert.notEqual(ask(undefined, {}, t), null, `should ask: ${t}`);
-for (const t of ['mcp_atlassian-mcp_getConfluencePage', 'mcp_atlassian-mcp_search', 'mcp_atlassian-mcp_lookupJiraAccountId', 'mcp_atlassian-mcp_atlassianUserInfo', 'mcp_nx_mcp_nx_docs', 'mcp_mlflow_mcp_describe_run', 'mcp_some_server_get_settings']) assert.equal(ask(undefined, {}, t), null, `should not ask: ${t}`);
+for (const t of ['mcp_atlassian-mcp_createConfluencePage', 'mcp_mlflow_mcp_delete_run', 'mcp_some_server_execute_action', 'mcp_some_server_upload_file', 'mcp_mlflow_mcp_set_trace_tag', 'mcp__atlassian__editJiraIssue']) assert.notEqual(ask(undefined, {}, t), null, `should ask: ${t}`);
+for (const t of ['mcp_atlassian-mcp_getConfluencePage', 'mcp_atlassian-mcp_search', 'mcp_atlassian-mcp_lookupJiraAccountId', 'mcp_atlassian-mcp_atlassianUserInfo', 'mcp_nx_mcp_nx_docs', 'mcp_mlflow_mcp_describe_run', 'mcp_some_server_get_settings', 'mcp_atlassian-mcp_listJiraIssueComments']) assert.equal(ask(undefined, {}, t), null, `should not ask: ${t}`);
+assert.equal(ask(undefined, {}, 'mcp_atlassian-mcp_executeRead'), null, 'executeRead only reads');
+for (const t of ['mcp_playwright_browser_file_upload', 'mcp_playwright_browser_run_code_unsafe']) assert.notEqual(ask(undefined, {}, t), null, `should ask: ${t}`);
+for (const t of ['mcp_playwright_browser_click', 'mcp_playwright_browser_type', 'mcp_playwright_browser_fill_form', 'mcp_playwright_browser_handle_dialog', 'mcp_playwright_browser_evaluate',
+  'mcp_playwright_browser_navigate', 'mcp_playwright_browser_snapshot', 'mcp_playwright_browser_take_screenshot', 'mcp_playwright_browser_tabs', 'mcp_playwright_browser_console_messages', 'mcp_github_pull_request_read']) assert.equal(ask(undefined, {}, t), null, `should not ask: ${t}`);
+// home profile: only pushes of main, work-discarding Git, wide deletes, publishing, loaders and deleting MCP tools ask
+{
+  const home = mkdtempSync(join(tmpdir(), 'home-'));
+  writeFileSync(join(home, '.ai-device.json'), JSON.stringify({ profile: 'home', tools: ['claude'] }));
+  const hask = (command, toolName = '') => checkAsk(command, {}, home, home, toolName);
+  for (const c of ['git push origin feature/x', 'git push', 'az group list', 'gh pr create', 'curl -X POST https://x']) assert.equal(hask(c), null, `home should not ask: ${c}`);
+  for (const t of ['mcp_atlassian-mcp_createConfluencePage', 'mcp_mlflow_mcp_set_trace_tag']) assert.equal(hask(undefined, t), null, `home should not ask: ${t}`);
+  for (const c of ['git push origin main', 'git push origin HEAD:master', 'git push --all', 'git reset --hard', 'rm -rf Shop', 'npm publish', 'python x/run_notebook.py']) assert.notEqual(hask(c), null, `home should ask: ${c}`);
+  assert.notEqual(hask(undefined, 'mcp_mlflow_mcp_delete_run'), null);
+}
 assert.notEqual(ask(undefined, { operation: 'apply_changes' }, 'mssql_dab'), null);
 assert.equal(ask(undefined, { operation: 'get_state' }, 'mssql_dab'), null);
 for (const t of ['read_file', 'runSubagent', 'run_in_terminal', 'mcp_atlassian-mcp_search', 'mssql_list_servers']) assert.equal(canAutoAllow(t), true, `auto-allow: ${t}`);
@@ -218,8 +245,9 @@ const cases = [
   [{ tool_name: 'run_in_terminal', tool_input: { command: 'git push --force' } }, 2, /"permissionDecision":"deny"/],
   [{ tool_name: 'mcp_hostinger_execute', tool_input: {} }, 2, /"permissionDecision":"deny"/],
   [{ tool_name: 'mcp_atlassian-mcp_executeDestructive', tool_input: {} }, 2, /"permissionDecision":"deny"/],
-  [{ tool_name: 'run_in_terminal', tool_input: { command: 'git commit -m "x"' } }, 0, /"permissionDecision":"ask"/],
-  [{ tool_name: 'run_in_terminal', tool_input: { command: 'Remove-Item x' } }, 0, /"permissionDecision":"ask"/],
+  [{ tool_name: 'run_in_terminal', tool_input: { command: 'git reset --hard' } }, 0, /"permissionDecision":"ask"/],
+  [{ tool_name: 'run_in_terminal', tool_input: { command: 'Remove-Item -Recurse Shop' } }, 0, /"permissionDecision":"ask"/],
+  [{ tool_name: 'run_in_terminal', tool_input: { command: 'git commit -m "x"' } }, 0, /"permissionDecision":"allow"/],
   [{ tool_name: 'read_file', tool_input: { filePath: 'c:/Users/GOCIURDU/AppData/Roaming/Code/logs/x.log' } }, 0, /"permissionDecision":"allow"/],
   [{ tool_name: 'runSubagent', tool_input: { prompt: 'x' } }, 0, /"permissionDecision":"allow"/],
   [{ tool_name: 'run_in_terminal', tool_input: { command: 'node --test' } }, 0, /"permissionDecision":"allow"/],
@@ -288,7 +316,8 @@ for (const [command, args, tool] of [
   assert.equal(checkPaths({ pattern: 'personal', path: `${fwd}/Learn` }, root, root, 'Grep'), null);
   assert.equal(check(`D=${bash}; cp a.svg $D/Files/`, root, root), null);
   assert.equal(check(`grep -rn x ${fwd}/Learn`, root, root), null);
-  assert.match(checkAsk(undefined, { file_path: join(tmpdir(), 'x.md'), content: 'x' }, root, root, 'Write'), /outside the workspace/);
+  assert.match(checkAsk(undefined, { file_path: join(homedir(), 'outside-ws.md'), content: 'x' }, root, root, 'Write'), /outside the workspace/);
+  assert.equal(checkAsk(undefined, { file_path: join(tmpdir(), 'x.md'), content: 'x' }, root, root, 'Write'), null, 'the temp folder is fine');
   // a folder change, the home folder, lists, wrappers, redirects and \\\\?\\ are followed to the same place
   for (const c of [`cd ${fwd} && cat Personal/a.md`, `cd "${vault}"; gc Personal\\a.md`, `(cd ${bash} && ls Personal)`, `Set-Location -Path ${fwd}; type .\\Personal\\a.md`,
     `cd ${fwd}/Learn && cat ../Personal/a.md`, `Get-Content ${vault}\\Learn\\a.md,${vault}\\Personal\\b.md`, `pwsh -Command "gc ${vault}\\Personal\\a.md"`,
@@ -305,6 +334,9 @@ for (const [command, args, tool] of [
   for (const c of [`cd ${fwd}/Learn && grep -rn x .`, `cp a.svg "${fwd}/Files/My picture.svg"`, `grep -rn "a / b" src`, `cd ${fwd} && ls Learn`, 'node _ai/vault.mjs check "Requirements"', `cd ${root} && rg foo`]) assert.equal(check(c, root, root), null, c);
   // a search pattern is not a path: / and . alone do not name the folder above the vault
   for (const c of ["sed -n '/{/p' a.md", "awk '/[0-9]/' a.md"]) assert.equal(check(c, root, root), null, c);
+  // PowerShell parameters with an r (-Pattern, -Raw) are not a recursive flag
+  for (const c of [`Select-String -Path $p -Pattern '\\[\\^\\d\\]' -AllMatches`, `Get-Content -Raw ${fwd}/Learn/a.md`, `Select-String -Path ${fwd}/Learn/a.md -Pattern '[0-9]'`]) assert.equal(check(c, root, root), null, c);
+  for (const c of [`Get-ChildItem -r ${fwd}`, `gci -Recurse -Filter *.md ${fwd}`, `ls -R ${fwd}`]) assert.equal(check(c, root, root), whole, c);
   assert.equal(check('grep ".*error" a.log', join(vault, '..'), root), null);
   assert.equal(check(`cat ${fwd}/../*/Personal/a.md`, root, root), whole);
   // a file that does not exist yet, reached through a link to the vault (a short Windows name behaves the same)

@@ -11,7 +11,7 @@ Readers scan, they do not read: the first screen must answer the question.
 - Order: title, meta table, **Bottom line** (1-2 sentences, at most 40 words), **Decide first** (omit when no real decision remains), finding or question cards, then sections.
 - About 2 screens, 600 visible words. Long tables, logs and "not checked" go into `<details><summary>Evidence</summary>`.
 - `##` headings state the conclusion and its first 2 words carry it (`## The index runs on SDK defaults`, not `## Index` or `## Overview`). Every section has a picture: a diagram block, a table or numbered steps. Paragraphs: at most 2 sentences and 50 words.
-- Cut restated facts, meta steps ("send this report"), empty sections and options nobody asked about.
+- Cut restated facts from `context.md`/`memory.md`/plans (link them instead), meta steps, unasked options, and scratch reasoning ("wait: ...").
 - Findings: `### High · <statement>` with `**Problem:**`, `**Fix:**`, `**If skipped:**`, `**Where:**`. High = wrong or lost data, security, outage with no workaround; Medium = degraded, workaround exists; Low = minor. More than ~6: cards for High and Medium, the rest in a `| # | Sev | Where | Problem | Fix |` table.
 - One fact per table row with evidence (`path:line`, URL, command). Unverified: `**U**` and what would confirm it.
 - Diagrams only through the template's blocks (`graph`, `flow`, `bars`, `compare`, `seq`, `tree`), not Mermaid.

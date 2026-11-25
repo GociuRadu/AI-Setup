@@ -31,10 +31,9 @@ Rules for Claude Code, Kiro and GitHub Copilot. Project files add facts, never w
 - Finish in one turn: diagnose, change, verify. Stop only for a denied action (never retry it), hard stop or unfindable fact that changes behavior, safety or data; ask at most one question with a recommended answer.
 - Change the AI setup (`_ai/`, `AGENTS.md`) only when asked; then run `node _ai/sync.mjs` and `node --test "_ai/**/*.test.mjs"` and leave the commit to the user.
 
-## Helpers and models
+## Helpers
 
 - Subagents: only the helpers of the `delegate` skill, started through it; never a built-in subagent.
-- Opus only where choices are expensive to change: switch the chat model for design, data models, migrations, public interfaces, hard debugging. Chats run on Sonnet; on Opus, suggest Sonnet once before routine work.
 - **Stuck:** after 2 failed fixes change the approach; after 3, stop and report a likely design problem.
 
 ## Code

@@ -66,7 +66,7 @@ test('GET /api/setup counts helpers, skills, rules and hooks from the source fol
   expect(setup.agents.length).toBe(readdirSync(join(ROOT, '_ai/agents')).filter((f) => f.endsWith('.md') && f !== '_core.md').length);
   expect(setup.skills.length).toBe(dirs.length);
   expect(setup.rules.length).toBe(readdirSync(join(ROOT, '_ai/rules')).filter((f) => f.endsWith('.md')).length);
-  expect(setup.hooks).toEqual(['guard', 'lang']);
+  expect(setup.hooks).toEqual(['guard']);
   expect(setup.skills.find((k) => k.name === 'review').link).toBe(`vscode://file/${join(ROOT, '_ai/skills/review/SKILL.md').replace(/\\/g, '/')}`);
 });
 
