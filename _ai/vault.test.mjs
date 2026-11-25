@@ -5,24 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseNote, links, visible, checkTopic, main } from './vault.mjs';
 
-const concept = (name, others, extra = '') => `---
-type: concept
-status: standard
-topic:
-  - "[[Topic]]"
-created: 2026-11-24
-updated: 2026-11-24
----
-> [!abstract] ${name} in one line.
-
-## ${name} connects to ${others.length} others
-- Part of [[Topic]]
-- [[${others[0]}]]: it needs it.
-- [[${others[1]}]]: it is compared with it.
-${extra}
-## In my own words
-
-`;
+// other notes the topic links to: they only need to exist
 const names = ['C1', 'C2', 'C3', 'C4', 'C5'];
 const topicNote = `---
 type: topic
@@ -55,29 +38,30 @@ stateDiagram-v2
   [*] --> Open
 \`\`\`
 
-## Answer before you open
-${[1, 2, 3, 4, 5].map((i) => `> [!question]- ${i}. Why?\n> Because of a long hidden answer.\n`).join('\n')}
+## Steps run in order
+1. First.
+2. Second.
+
 [^1]: [Source](https://example.com), 2026
+
+## In my own words
+
 `;
 const good = () => ({
-  notes: {
-    Topic: topicNote,
-    'Learning map': '---\ntype: map\n---\n[[Topic]]\n',
-    ...Object.fromEntries(names.map((n, i) => [n, concept(n, [names[(i + 1) % 5], names[(i + 2) % 5]])])),
-  },
+  notes: { Topic: topicNote, 'Learning map': '---\ntype: map\n---\n[[Topic]]\n' },
   files: new Set(['topic', 'learning map', 'pic.svg', 'book.pdf', ...names.map((n) => n.toLowerCase())]),
   svg: { 'pic.svg': '<svg viewBox="0 0 480 200"><title>Stack</title><text font-size="18">x</text></svg>' },
 });
-const scan = (change = () => {}) => {
+const scan = (change = () => {}, banned = []) => {
   const g = good();
   change(g);
-  return checkTopic('Topic', g.notes, g.files, g.svg).warnings;
+  return checkTopic('Topic', g.notes, g.files, g.svg, banned).warnings;
 };
 const swap = (note, a, b) => (g) => { assert.ok(g.notes[note].includes(a), a); g.notes[note] = g.notes[note].replace(a, () => b); };
 
 test('notes: properties, links and the text seen before anything is opened', () => {
-  const { meta, body } = parseNote('---\r\ntype: concept\r\ntopic:\r\n  - "[[A]]"\r\n  - "[[B]]"\r\naliases: [x, "y z"]\r\n---\r\ntext');
-  assert.deepEqual(meta, { type: 'concept', topic: ['[[A]]', '[[B]]'], aliases: ['x', 'y z'] });
+  const { meta, body } = parseNote('---\r\ntype: topic\r\nnext:\r\n  - "[[A]]"\r\n  - "[[B]]"\r\naliases: [x, "y z"]\r\n---\r\ntext');
+  assert.deepEqual(meta, { type: 'topic', next: ['[[A]]', '[[B]]'], aliases: ['x', 'y z'] });
   assert.equal(body, 'text');
   assert.deepEqual(links('![[a.svg|300]] [[N#H\\|l]] [[b.pdf#page=3|p]]').map((l) => [l.embed, l.target, l.part]), [[true, 'a.svg', undefined], [false, 'N', 'H'], [false, 'b.pdf', 'page=3']]);
   assert.equal(visible('seen\n> [!info]- closed\n> hidden\n\n> [!info] open\n> shown\n[^1]: hidden\n```js\nhidden\n```\nend').replace(/\n+/g, ' '), 'seen > [!info] open > shown end');
@@ -92,7 +76,7 @@ test('each broken rule gives its own warning', () => {
     [swap('Topic', '[[C2\\|second]]', '[[C2|second]]'), /needs \\\|/],
     [swap('Topic', '[^1]: [Source](https://example.com), 2026', '[^1]: from memory'), /footnote 1 needs a source link/],
     [swap('Topic', 'one[^1]', 'one[^9]'), /footnote 9 has no text/],
-    [swap('Topic', '> [!question]- 5.', '> [!question] 5.'), /5 folded questions/],
+    [swap('Topic', '2. Second.', '2. Second.\n\n> [!question]- Why?\n> Because.'), /no question callouts/],
     [swap('Topic', '![[pic.svg|480]]', 'no picture'), /needs a picture/],
     [swap('Topic', '## Five terms carry it', '## Overview'), /heading "Overview" says nothing/],
     [swap('Topic', 'class a,b internal-link', 'class a,b internal-link\n  c[Ghost]\n  class c internal-link'), /"Ghost" is an internal-link to no note/],
@@ -101,20 +85,17 @@ test('each broken rule gives its own warning', () => {
     [swap('Topic', 'flowchart TD', 'flowchart LR\n  c --> d --> e'), /flowchart LR diagram has 5 nodes \(at most 4; use TD\)/],
     [swap('Topic', '[[C3]], [[C4]] and [[C5]] follow.', '[[C3]] a. [[C4]] b. [[C5]] c.'), /long paragraph \(3 sentences/],
     [swap('Topic', 'One sentence.', 'word '.repeat(41)), /first callout is over 40 words/],
-    [swap('Topic', '[[C3]], [[C4]]', `${'- word word word\n'.repeat(210)}\n[[C3]], [[C4]]`), /visible words \(at most 600\)/],
-    [swap('Topic', '## Answer before', '## Only words here\ntext\n\n## Answer before'),/section "Only words here" has no diagram/],
+    [swap('Topic', '[[C3]], [[C4]]', `${'- word word word\n'.repeat(510)}\n[[C3]], [[C4]]`), /visible words \(at most 1500\)/],
+    [swap('Topic', '## Steps run', '## Only words here\ntext\n\n## Steps run'), /section "Only words here" has no diagram/],
     [swap('Topic', '| Term | Means |', '| a | b | c | d | e | f |'), /6 columns/],
     [swap('Topic', 'One sentence.', '<details>x</details>'), /<details>: HTML/],
-    [swap('C2', 'in one line', '<one sentence>'), /C2: <one sentence>: HTML or a placeholder/],
+    [swap('Topic', 'One sentence.', '<one sentence>'), /Topic: <one sentence>: HTML or a placeholder/],
     [(g) => { g.svg['pic.svg'] = '<svg viewBox="0 0 900 200"><text font-size="10">x</text></svg>'; }, /at most 520 wide[\s\S]*needs a <title>[\s\S]*under 16 px/],
     [(g) => { g.svg['pic.svg'] = '<svg viewBox="0 0 480 200"><title>t</title><script>1</script></svg>'; }, /only plain shapes/],
-    [swap('C1', 'status: standard', 'status: hot'), /C1: property status/],
-    [swap('C1', '## In my own words', '## Mine'), /needs a "## In my own words"/],
-    [swap('C1', '[[C2]]', 'C2'), /C1: links to fewer than 2/],
-    [swap('C1', '- Part of [[Topic]]', '- Part of it'), /C1: property link \[\[Topic\]\] also needs a link in the text/],
-    [swap('C1', 'updated: 2026-11-24', 'updated: today'), /property updated must be/],
+    [swap('Topic', '## In my own words', '## Mine'), /needs a "## In my own words"/],
+    [swap('Topic', 'type: topic', 'type: topic\nnext: "[[C1]]"\nprevious: "[[C5x]]"'), /property link \[\[C5x\]\] also needs a link in the text/],
+    [swap('Topic', 'updated: 2026-11-24', 'updated: today'), /property updated must be/],
     [(g) => { delete g.notes['Learning map']; }, /not linked from a map note/],
-    [(g) => { for (const n of names.slice(1)) delete g.notes[n]; }, /1 concept notes \(5 to 9\)/],
   ];
   for (const [change, re] of cases) assert.match(scan(change).join('\n'), re);
   assert.match(checkTopic('Nope', {}, new Set()).warnings[0], /no such note/);
@@ -123,14 +104,14 @@ test('each broken rule gives its own warning', () => {
   assert.deepEqual(scan(swap('Topic', 'flowchart TD', 'flowchart LR\n  a -- one --> b\n  b -- two --> c\n  c -- three --> d')), []);
 });
 
-test("the reader's own words are not counted, and a shared concept is reported", () => {
-  assert.deepEqual(scan(swap('C1', '## In my own words\n', `## In my own words\n- ${'mine '.repeat(400)}\n`)), []);
-  const g = good();
-  g.notes.Other = '---\ntype: topic\n---\n';
-  g.files.add('other');
-  g.notes.C1 = g.notes.C1.replace('  - "[[Topic]]"', '  - "[[Topic]]"\n  - "[[Other]]"').replace('Part of [[Topic]]', 'Part of [[Topic]] and [[Other]]');
-  const r = checkTopic('Topic', g.notes, g.files, g.svg);
-  assert.deepEqual(r, { warnings: [], info: ['C1 is shared with Other: append or correct, do not rewrite'] });
+test("the reader's own words are not counted", () => {
+  assert.deepEqual(scan(swap('Topic', '## In my own words\n', `## In my own words\n- ${'mine '.repeat(1600)}\n`)), []);
+});
+
+test('a workspace project name in the note is flagged, a word that only contains it is not', () => {
+  assert.match(scan(swap('Topic', 'One sentence.', 'As in the ACME repo.'), ['ACME']).join('\n'), /names the project "ACME": examples stay generic/);
+  assert.match(scan(swap('Topic', 'One sentence.', 'Branch `acme-app/feat`.'), ['acme-app']).join('\n'), /acme-app/);
+  assert.deepEqual(scan(swap('Topic', 'One sentence.', 'ACMEX and RFQS stay.'), ['ACME', 'RFQ']), []);
 });
 
 test('main lists Learn and Books, never the private folder, and says what to do without a vault', (t) => {
@@ -152,5 +133,11 @@ test('main lists Learn and Books, never the private folder, and says what to do 
   writeFileSync(join(vault, 'Learn/Topic.md'), topicNote.replace('[[C3]]', '[[secret note]]'));
   assert.equal(main(['check', 'Topic'], root), 1);
   assert.ok(out.some((l) => /secret note\]\] does not exist/.test(l)));
+  // a folder of the workspace with a code/ repo is a project: its name may not appear in a note
+  mkdirSync(join(root, 'Shop', 'code'), { recursive: true });
+  writeFileSync(join(vault, 'Learn/Topic.md'), topicNote.replace('One sentence.', 'The Shop repo.'));
+  out.length = 0;
+  assert.equal(main(['check', 'Topic'], root), 1);
+  assert.ok(out.some((l) => /names the project "Shop"/.test(l)), out.join('\n'));
   assert.equal(main(['nope'], root), 1);
 });

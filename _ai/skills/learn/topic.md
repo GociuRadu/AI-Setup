@@ -1,89 +1,56 @@
 ---
 type: topic
-project: <project>
-stage: <n>
 previous: "[[<earlier topic>]]"
 next: "[[<later topic>]]"
 aliases: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
-<!-- Delete this line, unused blocks and properties; replace every <...>. -->
+<!-- Delete this line, unused blocks and properties; replace every <...>. Examples stay generic: no project, repo or ticket names. Every line must be something the reader will do, say or be asked. -->
 > [!abstract] Bottom line
-> <what this stage exists to do and what it produces>
+> <what this topic is for and what you do with it>
 
 Before: [[<earlier topic>]]. Next: [[<later topic>]]. Order: [[Learning map]].
 
-## <Stage> sits between <previous> and <next>
+## 1. <Mental model in one line>
 ```mermaid
 flowchart TD
-  A[<input>] --> B[<this stage>]
+  A[<input>] --> B[<this topic>]
   B --> C[<output>]
 ```
 
-| In | Out | Who |
-|---|---|---|
-| <what it needs> | <artifacts> | <roles> |
-
-> [!info]- Step by step
-> 1. <step, with the named technique>
-
-## <K> terms carry every meeting
-| Term | Means |
+| <Part> | <Means> |
 |---|---|
-| [[<Term>]] | <plain words, at most 12> |
+| <part> | <plain words, at most 12> |
 
-## <The default approach> is the default; <exception> when <condition>
+## 2. <Daily use runs in this order>
+1. <step>: `<command>`
+
+## 3. <The default approach> is the default; <exception> when <condition>
 | Approach | Use when | Trade-off | Status |
 |---|---|---|---|
 | <name> | <context> | <what you give up> | <status>[^1] |
 
-![[<topic> - <what>.svg|480]]
+![[<Topic> - <what>.svg|480]]
 
 <one sentence: what the picture shows>
 
-## <Project> shows it: <lesson>
-| Before | After |
+## 4. <Situations not covered above have a fixed sequence>
+| Situation | Steps |
 |---|---|
-| <naive version> | <what this stage produced, with its decision number> |
+| <situation> | <steps> |
 
-> [!example]- The real decision
-> <what was decided, why, what it cost>
-
-## <Most common mistake> costs the most
+## 5. <Most common mistake> costs the most
 | Mistake | Why it hurts | Do instead |
 |---|---|---|
 | <mistake> | <consequence> | <fix> |
 
-## Answer before you open
-> [!question]- 1. <definition>
-> **Claim:** <answer>
-> **Why:** <reason>
-> **Example:** <from the project>
-> **Trade-off:** <cost>
-
-> [!question]- 2. <compare X and Y>
-> ...
-
-> [!question]- 3. <apply it to the project>
-> ...
-
-> [!question]- 4. <mixes [[earlier term]]>
-> ...
-
-> [!question]- 5. <senior follow-up: what breaks if...>
-> ...
-
-## The terms connect like this
-```mermaid
-flowchart TD
-  a[<Term>] -->|<verb>| b[<Term>]
-  class a,b internal-link
-```
-
-- [[<Term>]] <verb> [[<Term>]]
-
-> [!warning]- Not verified
-> <fact>: <what would confirm it>. Left out: <what and why>.
+## 6. Glossary: words no section explains
+| Term | Means |
+|---|---|
+| <term> | <plain words> |
 
 [^1]: [<title>](https://<url>), <year>
+
+## In my own words
+

@@ -77,11 +77,11 @@ In `.ai-device.json`, `perTool` turns things off for one tool; anything not list
 ```json
 { "profile": "home", "tools": ["claude", "kiro"],
   "perTool": {
-    "kiro":   { "hooks": { "lang": false }, "skillsOff": ["learn"] },
+    "kiro":   { "skillsOff": ["learn"] },
     "claude": { "mcpOff": ["atlassian"] } } }
 ```
 
-- **`hooks`:** `guard` (the safety check) and `lang` (reply in English). With `guard` off, that tool can read `.env` files and `personal/` through the shell, write SQL and run hard stops; sync prints `guard: off for <tool>`.
+- **`hooks`:** `guard`, the one hook (the safety check). With `guard` off, that tool can read `.env` files and `personal/` through the shell, write SQL and run hard stops; sync prints `guard: off for <tool>`.
 - **`skillsOff`:** skills left out of that tool.
 - **`mcpOff`:** MCP servers left out of that tool.
 
@@ -161,14 +161,13 @@ Fill `docs/ai/project.md` once (stack, commands, DEV/PRODUCTION names). The AI k
 
 ## Safety
 
-[AGENTS.md](AGENTS.md) sets the rules; 4 layers enforce them:
+[AGENTS.md](AGENTS.md) sets the rules; 3 layers enforce them:
 
 | Layer | What it does |
 |---|---|
-| Guard hook ([_ai/hooks/guard.mjs](_ai/hooks/guard.mjs)) | Runs before each tool call in all 3 tools. Blocks writing SQL, PRODUCTION/staging commands, force-push, `.env` files and `personal/`; asks before deletes, Git writes, external CLI, mutating MCP tools and `setup-ui/`. If it cannot load, it blocks. |
-| Deny lists | Claude Code settings, Kiro `permissions.yaml` and Copilot auto-approve rules exclude the same files and commands; Claude Code also denies each MCP server's `executeDestructive`. |
+| Guard hook ([_ai/hooks/guard.mjs](_ai/hooks/guard.mjs)) | Runs before each tool call in all 3 tools. Blocks writing SQL, PRODUCTION/staging commands, force-push, `.env` files and `personal/`. It is the only layer that asks, and only on what leaves the machine or cannot be undone, by profile ([work](_ai/profiles/work.md), [home](_ai/profiles/home.md)): pushes, work-discarding Git, wide or outside deletes, outside edits, loaders, publishing, deleting MCP tools, `setup-ui/`; on work also cloud CLIs, writing `gh`/HTTP calls and shared MCP writes. If it cannot load, it blocks. |
+| Allow and deny lists | Claude Code settings, Kiro `permissions.yaml` and Copilot auto-approve rules allow the tools and deny the same secret files and hard stops, so they never ask twice; Kiro keeps ask rules for MCP writes, and reads outside the workspace (credential stores denied) and the temp folder are allowed. Claude Code also denies each MCP server's `executeDestructive`. |
 | Written rules | `AGENTS.md` plus each tool's own instructions file. |
-| English hook ([_ai/hooks/lang.mjs](_ai/hooks/lang.mjs)) | Reminds the AI to reply in English. |
 
 **Known limits:** a script that opens a database connection itself is not inspected, only the command; a command that only mentions a hard stop or `personal` is blocked too (put it in a file); Copilot hooks are still a Preview feature.
 

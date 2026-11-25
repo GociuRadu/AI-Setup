@@ -4,7 +4,6 @@ import { api, diff, type Device, type Models, type PerTool, type Setup, type Syn
 const TOOL_LABEL: Record<string, string> = { claude: 'Claude Code', kiro: 'Kiro', copilot: 'GitHub Copilot' };
 const HOOK_TEXT: Record<string, { title: string; text: string }> = {
   guard: { title: 'Guard', text: 'Blocks hard stops, writing SQL, secret files and personal/; asks on deletes, Git writes, external CLI and mutating MCP.' },
-  lang: { title: 'Reply in English', text: 'Adds a one-line reminder to reply in English to every prompt.' },
 };
 const GUARD_OFF_UNBLOCKS = [
   'Shell reads and writes of .env files and personal/',

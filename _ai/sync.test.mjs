@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { parse, relink, sections, loadModels, resolveModel, claudeAgentMeta, build, brokenLinks, missingPaths, main, checkDevice, checkVault, claudePath, loadMcp, mcpEntry, mcpFiles, vscodeSettings, kiroWorkspacePermissionsPath, syncKiroPermissions, ROOT } from './sync.mjs';
+import { parse, relink, sections, loadModels, resolveModel, claudeAgentMeta, build, brokenLinks, missingPaths, main, checkDevice, checkVault, claudePath, loadMcp, mcpEntry, mcpFiles, vscodeSettings, kiroWorkspacePermissionsPath, kiroUserPermissionsPath, syncKiroPermissions, kiroRules, kiroUserRules, ROOT } from './sync.mjs';
 
 test('parse reads quoted strings and lists', () => {
   const { meta, body } = parse('---\nname: x\ndescription: "a: b"\ntools: [read, search]\n---\nhi\n');
@@ -78,10 +78,7 @@ test('Copilot gets every skill, every rule as .instructions.md and the same guar
   }
   const hooks = JSON.parse(out['.github/hooks/guard.json']).hooks;
   assert.deepEqual(hooks.PreToolUse, [{ type: 'command', command: 'node _ai/hooks/run-guard.mjs --allow', windows: 'node _ai/hooks/run-guard.mjs --allow; exit $LASTEXITCODE', cwd: '.', timeout: 10 }]);
-  assert.deepEqual(hooks.UserPromptSubmit, [{ type: 'command', command: 'node _ai/hooks/lang.mjs --json', cwd: '.', timeout: 10 }]);
-  const text = spawnSync('node', ['_ai/hooks/lang.mjs'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim();
-  const json = JSON.parse(spawnSync('node', ['_ai/hooks/lang.mjs', '--json'], { cwd: ROOT, encoding: 'utf8' }).stdout);
-  assert.equal(json.hookSpecificOutput.additionalContext, text);
+  assert.deepEqual(Object.keys(hooks), ['PreToolUse'], 'the guard is the only hook');
 });
 
 test('Kiro guard is one catch-all PreToolUse hook, in the hook file and in every helper', () => {
@@ -105,6 +102,9 @@ test('vscodeSettings sets the managed keys and keeps the user keys', () => {
   assert.equal(s['chat.useHooks'], true);
   assert.equal(s['kiroAgent.agentAutonomy'], 'Autopilot');
   assert.equal(s['chat.tools.edits.autoApprove']['personal/**'], false);
+  // the guard asks on sensitive commands; the coarse fallback patterns only when it is off
+  assert.deepEqual(s['chat.tools.terminal.autoApprove'], { '/.*/': true });
+  assert.ok(Object.values(JSON.parse(vscodeSettings(tmp, false))['chat.tools.terminal.autoApprove']).includes(false));
   writeFileSync(join(tmp, '.vscode/settings.json'), '{');
   assert.throws(() => vscodeSettings(tmp), /not valid JSON/);
 });
@@ -129,6 +129,15 @@ test('Kiro permissions: workspace hash, generated block replaced, user rules kep
     assert.ok(['allow', 'ask', 'deny'].includes(r.effect));
   }
   assert.deepEqual(rules.find((r) => r.effect === 'deny' && r.capability === 'filesystem').match, ['**/.env', '**/.env.*', '**/*.env', 'personal/**']);
+  // shell asks live in the guard hook only, so Kiro never asks twice
+  assert.ok(!kiroRules().some((r) => r.capability === 'shell'), 'no shell rules');
+  const mcpAsk = rules.filter((r) => r.capability === 'mcp' && r.effect === 'ask');
+  assert.ok(mcpAsk.flatMap((r) => r.match).includes('*delete*') && mcpAsk.flatMap((r) => r.match).includes('*browser_file_upload*'));
+  const shared = mcpAsk.find((r) => r.match.includes('*create*'));
+  assert.ok(shared.exclude.includes('playwright*') && shared.exclude.includes('*executeRead*'), 'local servers and read tools are not asked');
+  assert.ok(!mcpAsk.some((r) => r.match.some((m) => /browser_(click|type|navigate|snapshot)/.test(m))), 'browser actions run');
+  assert.ok(rules.some((r) => r.capability === 'mcp' && r.effect === 'deny' && r.match.includes('*executeDestructive*')));
+  assert.ok(!kiroRules('home').some((r) => r.match?.includes('*create*')), 'home: shared MCP writes run');
 });
 
 // a vault folder as Obsidian makes it
@@ -168,15 +177,42 @@ test('a vault gives Claude and Kiro access with its private folder and encrypted
   for (const rule of [`Read(${p}/Personal/**)`, `Edit(${p}/Personal/**)`, `Read(${p}/**/*.mdenc)`, `Edit(${p}/**/*.mdenc)`]) {
     assert.ok(permissions.deny.includes(rule), `missing ${rule}`);
   }
+  // notes are edited without a prompt; plugin code in .obsidian asks
+  assert.ok(permissions.allow.includes(`Edit(${p}/**)`));
+  assert.deepEqual(permissions.ask, [`Edit(${p}/.obsidian/**)`]);
   const none = JSON.parse(build('work', ['claude'])['.claude/settings.json']).permissions;
-  assert.ok(!('additionalDirectories' in none) && !none.deny.some((r) => /mdenc/.test(r)));
+  assert.ok(!('additionalDirectories' in none) && !('ask' in none) && !none.deny.some((r) => /mdenc/.test(r)));
+  assert.deepEqual(none.allow, ['Read', 'Grep', 'Glob', ...Object.keys(loadMcp()).map((n) => `mcp__${n}`)]);
   if (process.platform === 'win32') assert.equal(claudePath('C:\\Users\\me\\vault\\'), '//c/Users/me/vault');
 
   const home = mkdtempSync(join(tmpdir(), 'home-')), dir = mkdtempSync(join(tmpdir(), 'ws-'));
+  // Kiro skips workspace rules with paths outside the workspace, so the vault deny goes to the user file
+  const userFile = kiroUserPermissionsPath(home);
+  mkdirSync(dirname(userFile), { recursive: true });
+  const mine = 'rules:\n  - capability: fs_read\n    effect: allow\n    match:\n      - C:/tmp/x\n';
+  writeFileSync(userFile, mine);
   syncKiroPermissions(dir, home, vault);
-  const rules = readFileSync(kiroWorkspacePermissionsPath(dir, home), 'utf8').split('\n').filter((l) => l.startsWith('  - ')).map((l) => JSON.parse(l.slice(4)));
+  syncKiroPermissions(dir, home, vault);
+  const lines = (f) => readFileSync(f, 'utf8').split('\n').filter((l) => l.startsWith('  - {')).map((l) => JSON.parse(l.slice(4)));
   const fwd = vault.replace(/\\/g, '/');
-  assert.deepEqual(rules.at(-1), { capability: 'filesystem', match: [`${fwd}/Personal/**`, `${fwd}/**/*.mdenc`], effect: 'deny' });
+  assert.ok(!readFileSync(kiroWorkspacePermissionsPath(dir, home), 'utf8').includes(fwd), 'no vault path in the workspace file');
+  // notes open without a prompt, .obsidian left to ask, then the deny (allow first, as in the workspace rules)
+  const rules = lines(userFile);
+  assert.ok(rules.some((r) => r.capability === 'filesystem' && r.effect === 'allow' && r.match[0] === `${fwd}/**` && r.exclude[0] === `${fwd}/.obsidian/**`));
+  assert.ok(rules.some((r) => r.effect === 'deny' && r.match.join() === `${fwd}/Personal/**,${fwd}/**/*.mdenc`));
+  assert.ok(readFileSync(userFile, 'utf8').includes('      - C:/tmp/x'), 'user rules kept');
+  // no vault: the vault rules leave the user file, the user's rules stay
+  syncKiroPermissions(dir, home);
+  const after = readFileSync(userFile, 'utf8');
+  assert.ok(!after.includes(fwd) && after.includes('      - C:/tmp/x'));
+});
+
+test('Kiro user rules: reads anywhere and the temp folder allowed, credential stores denied', () => {
+  const rules = kiroUserRules('C:\\Users\\me', undefined, 'C:\\Temp');
+  assert.deepEqual(rules[0], { capability: 'fs_read', effect: 'allow' });
+  assert.deepEqual(rules[1], { capability: 'filesystem', match: ['C:/Temp/**'], effect: 'allow' });
+  const deny = rules.find((r) => r.effect === 'deny').match;
+  for (const p of ['C:/Users/me/.ssh/**', 'C:/Users/me/.azure/**', 'C:/Users/me/.git-credentials', '**/*.pem', '**/.env']) assert.ok(deny.includes(p), p);
 });
 
 test('main keeps the vault in the device file, and only warns when the folder is gone', (t) => {
@@ -269,16 +305,9 @@ test('Claude settings use exec-form hooks, onFailure block, 60% autocompact and 
     onFailure: 'block',
     timeout: 10,
   });
-  const lang = settings.hooks.UserPromptSubmit[0].hooks[0];
-  assert.deepEqual(lang, {
-    type: 'command',
-    command: 'node',
-    args: ['${CLAUDE_PROJECT_DIR}/_ai/hooks/lang.mjs'],
-    timeout: 10,
-  });
-  assert.equal(JSON.parse(build('work', ['kiro'])['.kiro/hooks/lang.json']).hooks[0].action.command, 'node _ai/hooks/lang.mjs');
-  const expected = 'Reply in English, even if this message is in Romanian or another language.';
-  assert.equal(spawnSync(lang.command, lang.args.map((a) => a.replace('${CLAUDE_PROJECT_DIR}', ROOT)), { encoding: 'utf8' }).stdout.trim(), expected);
+  assert.deepEqual(Object.keys(settings.hooks), ['PreToolUse'], 'the guard is the only hook');
+  assert.match(settings.hooks.PreToolUse[0].matcher, /mcp__/, 'MCP calls go through the guard');
+  assert.deepEqual(Object.keys(build('work', ['kiro'])).filter((k) => k.startsWith('.kiro/hooks/')), ['.kiro/hooks/guard.json']);
 });
 
 test('claudeAgentMeta passes valid isolation and memory and rejects invalid values', () => {
@@ -322,7 +351,7 @@ test('perTool round-trips through main and an unknown skill or hook fails sync',
   t.mock.method(console, 'log', () => {});
   const warn = t.mock.method(console, 'warn', () => {});
   const tmp = mkdtempSync(join(tmpdir(), 'sync-'));
-  const device = { profile: 'work', tools: ['claude'], perTool: { claude: { hooks: { guard: false, lang: true }, skillsOff: ['learn'] }, kiro: { skillsOff: [] } } };
+  const device = { profile: 'work', tools: ['claude'], perTool: { claude: { hooks: { guard: false }, skillsOff: ['learn'] }, kiro: { skillsOff: [] } } };
   writeFileSync(join(tmp, '.ai-device.json'), JSON.stringify(device));
   assert.equal(main([], tmp), 0);
   assert.deepEqual(JSON.parse(readFileSync(join(tmp, '.ai-device.json'), 'utf8')), { ...device, mcpSynced: Object.keys(loadMcp()) });
@@ -333,6 +362,7 @@ test('perTool round-trips through main and an unknown skill or hook fails sync',
     [{ kiro: { skillsOff: ['no-such-skill'] } }, /perTool\.kiro\.skillsOff: unknown skill no-such-skill/],
     [{ claude: { hooks: { guard: 'off' } } }, /perTool\.claude\.hooks\.guard must be true or false/],
     [{ claude: { hooks: { gaurd: false } } }, /perTool\.claude\.hooks: unknown hook gaurd/],
+    [{ claude: { hooks: { lang: false } } }, /perTool\.claude\.hooks: unknown hook lang/],
     [{ vim: {} }, /perTool\.vim: unknown tool/],
   ]) {
     writeFileSync(join(tmp, '.ai-device.json'), JSON.stringify({ ...device, perTool }));
@@ -342,35 +372,36 @@ test('perTool round-trips through main and an unknown skill or hook fails sync',
 
 test('perTool switches skills and hooks for one tool only', () => {
   const both = ['claude', 'kiro', 'copilot'];
-  const out = build('work', both, { perTool: { kiro: { skillsOff: ['learn'] }, claude: { hooks: { lang: false } } } });
+  const out = build('work', both, { perTool: { kiro: { skillsOff: ['learn'] }, claude: { hooks: { guard: false } } } });
   assert.ok(out['.claude/skills/learn/SKILL.md']);
   assert.ok(out['.github/skills/learn/SKILL.md']);
   assert.ok(!Object.keys(out).some((k) => k.startsWith('.kiro/skills/learn/')));
-  assert.ok(out['.kiro/hooks/lang.json']);
-  const claude = JSON.parse(out['.claude/settings.json']).hooks;
-  assert.deepEqual(Object.keys(claude), ['PreToolUse']);
+  assert.ok(out['.kiro/hooks/guard.json']);
+  assert.deepEqual(JSON.parse(out['.claude/settings.json']).hooks, {});
 
-  const off = build('work', both, { perTool: Object.fromEntries(both.map((t) => [t, { hooks: { guard: false, lang: false } }])) });
+  const off = build('work', both, { perTool: Object.fromEntries(both.map((t) => [t, { hooks: { guard: false } }])) });
   assert.deepEqual(JSON.parse(off['.claude/settings.json']).hooks, {});
-  assert.ok(!off['.kiro/hooks/guard.json'] && !off['.kiro/hooks/lang.json'] && !off['.github/hooks/guard.json']);
+  assert.ok(!off['.kiro/hooks/guard.json'] && !off['.github/hooks/guard.json']);
   assert.ok(!('hooks' in JSON.parse(off['.kiro/agents/scout.json'])));
-  const guardOnly = JSON.parse(build('work', ['copilot'], { perTool: { copilot: { hooks: { lang: false } } } })['.github/hooks/guard.json']).hooks;
-  assert.deepEqual(Object.keys(guardOnly), ['PreToolUse']);
   // default toggles change nothing
   assert.deepEqual(build('work', both, { perTool: { claude: { hooks: { guard: true }, skillsOff: [] } } }), build('work', both));
 });
 
 test('MCP servers go to each tool in its own format; mcpOff removes one for one tool, and Kiro gets it as disabled', () => {
   const all = ['claude', 'kiro', 'copilot'];
-  const { url } = loadMcp().atlassian;
+  const servers = loadMcp(), names = Object.keys(servers);
+  const fmt = (tool, extra = {}) => Object.fromEntries(names.map((n) => [n, { ...mcpEntry(servers[n], tool), ...extra }]));
+  const { url } = servers.atlassian;
   const empty = mkdtempSync(join(tmpdir(), 'mcp-'));
   const out = mcpFiles(all, {}, empty);
-  assert.deepEqual(JSON.parse(out['.mcp.json']), { mcpServers: { atlassian: { type: 'http', url } } });
-  assert.deepEqual(JSON.parse(out['.kiro/settings/mcp.json']), { mcpServers: { atlassian: { url } } });
-  assert.deepEqual(JSON.parse(out['.vscode/mcp.json']), { servers: { atlassian: { type: 'http', url } } });
-  const off = mcpFiles(all, { perTool: { claude: { mcpOff: ['atlassian'] }, kiro: { mcpOff: ['atlassian'] } } }, empty);
+  assert.deepEqual(JSON.parse(out['.mcp.json']), { mcpServers: fmt('claude') });
+  assert.deepEqual(JSON.parse(out['.kiro/settings/mcp.json']), { mcpServers: fmt('kiro') });
+  assert.deepEqual(JSON.parse(out['.vscode/mcp.json']), { servers: fmt('copilot') });
+  assert.deepEqual(JSON.parse(out['.mcp.json']).mcpServers.atlassian, { type: 'http', url });
+  assert.deepEqual(JSON.parse(out['.kiro/settings/mcp.json']).mcpServers.atlassian, { url });
+  const off = mcpFiles(all, { perTool: { claude: { mcpOff: names }, kiro: { mcpOff: names } } }, empty);
   assert.ok(!off['.mcp.json']);
-  assert.deepEqual(JSON.parse(off['.kiro/settings/mcp.json']), { mcpServers: { atlassian: { url, disabled: true } } });
+  assert.deepEqual(JSON.parse(off['.kiro/settings/mcp.json']), { mcpServers: fmt('kiro', { disabled: true }) });
   assert.equal(off['.vscode/mcp.json'], out['.vscode/mcp.json']);
   assert.throws(() => checkDevice({ profile: 'work', tools: ['kiro'], perTool: { kiro: { mcpOff: ['nope'] } } }), /unknown MCP server nope/);
   // Claude Code's hook does not see MCP calls, so the hard stop is a deny rule per server
@@ -382,13 +413,14 @@ test('MCP files keep the servers and keys a tool wrote itself; only _ai/mcp.json
   mkdirSync(join(dir, '.vscode'));
   writeFileSync(join(dir, '.vscode/mcp.json'), JSON.stringify({ inputs: [{ id: 'k' }], servers: { mine: { type: 'stdio', command: 'x' }, atlassian: { type: 'http', url: 'https://old.test' } } }));
   writeFileSync(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { mine: { command: 'y' }, atlassian: { type: 'http', url: 'https://old.test' } } }));
-  const { url } = loadMcp().atlassian;
+  const servers = loadMcp();
+  const fmt = (tool, skip) => Object.fromEntries(Object.entries(servers).filter(([n]) => n !== skip).map(([n, s]) => [n, mcpEntry(s, tool)]));
   const out = mcpFiles(['claude', 'copilot'], { perTool: { claude: { mcpOff: ['atlassian'] } } }, dir);
-  assert.deepEqual(JSON.parse(out['.vscode/mcp.json']), { inputs: [{ id: 'k' }], servers: { mine: { type: 'stdio', command: 'x' }, atlassian: { type: 'http', url } } });
-  assert.deepEqual(JSON.parse(out['.mcp.json']), { mcpServers: { mine: { command: 'y' } } });
+  assert.deepEqual(JSON.parse(out['.vscode/mcp.json']), { inputs: [{ id: 'k' }], servers: { mine: { type: 'stdio', command: 'x' }, ...fmt('copilot') } });
+  assert.deepEqual(JSON.parse(out['.mcp.json']), { mcpServers: { mine: { command: 'y' }, ...fmt('claude', 'atlassian') } });
   // a server sync wrote last time and that is no longer in _ai/mcp.json is removed; the user's own stays
   writeFileSync(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { mine: { command: 'y' }, gone: { type: 'http', url: 'https://gone.test' } } }));
-  assert.deepEqual(JSON.parse(mcpFiles(['claude'], { mcpSynced: ['gone'] }, dir)['.mcp.json']).mcpServers, { mine: { command: 'y' }, atlassian: { type: 'http', url } });
+  assert.deepEqual(JSON.parse(mcpFiles(['claude'], { mcpSynced: ['gone'] }, dir)['.mcp.json']).mcpServers, { mine: { command: 'y' }, ...fmt('claude') });
   assert.throws(() => checkDevice({ profile: 'work', tools: ['claude'], mcpSynced: 'gone' }), /mcpSynced must be a list/);
 });
 
@@ -408,6 +440,13 @@ test('loadMcp refuses secrets, bad names, types and keys; Copilot gets variables
   const s = one({ type: 'stdio', command: 'npx', args: ['srv', '--site', '${SITE}'], env: { TOKEN: '${GH_TOKEN}' } }).x;
   assert.deepEqual(mcpEntry(s, 'copilot'), { type: 'stdio', command: 'npx', args: ['srv', '--site', '${env:SITE}'], env: { TOKEN: '${env:GH_TOKEN}' } });
   assert.deepEqual(mcpEntry(s, 'kiro'), { command: 'npx', args: ['srv', '--site', '${SITE}'], env: { TOKEN: '${GH_TOKEN}' } });
+  // X-MCP-* switches may be literal; any other literal header or an odd X-MCP value is refused
+  const gh = one({ type: 'http', url: 'https://a.test/mcp', headers: { 'X-MCP-Toolsets': 'repos,issues', 'X-MCP-Readonly': 'true' }, disabledTools: ['tool_a'] }).x;
+  assert.deepEqual(mcpEntry(gh, 'kiro'), { url: 'https://a.test/mcp', headers: { 'X-MCP-Toolsets': 'repos,issues', 'X-MCP-Readonly': 'true' }, disabledTools: ['tool_a'] });
+  assert.ok(!('disabledTools' in mcpEntry(gh, 'copilot')), 'Copilot has no disabledTools');
+  assert.throws(() => one({ type: 'http', url: 'https://a.test', headers: { 'X-Api-Key': 'abc' } }), /secrets never go in this file/);
+  assert.throws(() => one({ type: 'http', url: 'https://a.test', headers: { 'X-MCP-Toolsets': 'Bearer abc.def' } }), /secrets never go in this file/);
+  assert.throws(() => one({ type: 'http', url: 'https://a.test', disabledTools: 'tool_a' }), /disabledTools must be a list/);
 });
 
 test('perTool for a tool that is not enabled is valid and changes nothing', () => {

@@ -28,7 +28,7 @@ test('the page shows the helper, skill, rule and hook counts of the source folde
   expect(count('Helpers')).toBe(String(md('_ai/agents')));
   expect(count('Skills')).toBe(String(readdirSync(join(ROOT, '_ai/skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).length));
   expect(count('Rules')).toBe(String(md('_ai/rules')));
-  expect(count('Hooks')).toBe('2');
+  expect(count('Hooks')).toBe('1');
   expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Claude Code', 'Kiro']);
 });
 
