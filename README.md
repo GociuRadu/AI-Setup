@@ -111,7 +111,7 @@ Everything is in [setup.json](setup.json). After a change, rerun `node install.m
 
 | Layer | What it does |
 |---|---|
-| Guard ([hooks/guard.mjs](hooks/guard.mjs)), all 3 tools | **Blocks** writing SQL, anything on PRODUCTION or staging, force-push, `docker compose down -v`, SSH, Hostinger `execute`, Atlassian `executeDestructive`, `.env` files, the `personal/` folder and encrypted `.mdenc` notes. **Asks** before `git push`, Git that discards work, deletes outside the workspace, of a whole project or in the vault, the vault's `Personal/`, publishing, data loaders, `az`, `kubectl`, `helm`, `terraform`, writing `gh` or HTTP calls, and writes to shared MCP servers. If it fails, it blocks. |
+| Guard ([hooks/guard.mjs](hooks/guard.mjs)), all 3 tools | **Blocks** writing SQL, anything on PRODUCTION or staging, force-push, `docker compose down -v`, SSH, Hostinger `execute`, Atlassian `executeDestructive`, `.env` files, the `personal/` folder and encrypted `.mdenc` notes. **Asks** before `git push`, Git that discards work, deletes outside the workspace, of a whole project or in the vault, the vault's `Personal/`, publishing, data loaders, `az`, `kubectl`, `helm`, `terraform`, writing `gh` or HTTP calls, and writes to shared MCP servers; in Kiro these are blocked instead, and you run them, because a Kiro allow rule can approve the ask without showing it. If it fails, or its input is not JSON, it blocks. |
 | Tool settings | Claude Code auto mode and deny rules; Copilot never-auto-approve rules (Copilot runs a call when a hook times out); Kiro deny rules |
 | Rules | The safety section of [rules/always.md](rules/always.md): databases are read-only, every write is a draft with a rollback |
 
@@ -133,7 +133,7 @@ Missing files are created from [templates/](templates/) (`app` or `data-eng`).
 ## Maintain
 
 ```powershell
-node --test           # 40 tests: install, guard, vault checker, report builder
+node --test           # 41 tests: install, guard, vault checker, report builder
 node install.mjs      # apply the change, then start a new chat in each tool
 ```
 
