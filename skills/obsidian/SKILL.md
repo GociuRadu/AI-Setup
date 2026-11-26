@@ -33,7 +33,7 @@ Turn one stage or topic into **one** note, `Learn/<Topic>.md`, read top to botto
    - **Market:** what job ads, `roadmap.sh` and interview guides ask at junior-to-mid level.
 
    Open a source yourself before its fact goes into the note; popularity needs a source at most 2 years old; sources that disagree are both shown. Not opened: leave it out. A fact that can age carries its year inline ("standard since 2024").
-3. **Order:** only what the user will do, say or be asked. Sections in learning order; each term explained where first used; the glossary holds only terms no section explains. An existing note on a term is linked, not repeated.
+3. **Order:** sections in learning order; each term explained where first used; the glossary holds only terms no section explains. An existing note on a term is linked, not repeated.
 4. **Write** with [notes.md](notes.md) from [topic.md](topic.md). Link the topic from `Learn/Learning map.md` and from the previous topic's `next`.
 5. **Cut** every line the reader would not miss (**Useful only** below), **check**, then **reply:** the bottom line, the 3 terms that matter most, the path of the note.
 

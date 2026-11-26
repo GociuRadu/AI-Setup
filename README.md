@@ -137,12 +137,12 @@ node install.mjs      # apply the change, then start a new chat in each tool
 ```
 
 - **Rules for changing this repo** (new skill, new guard check): [AGENTS.md](AGENTS.md).
-- **Decisions and state:** [docs/ai/memory.md](docs/ai/memory.md), [docs/ai/context.md](docs/ai/context.md); the full decision set: [docs/ai/plan.md](docs/ai/plan.md); smoke test per tool: [docs/ai/smoke.md](docs/ai/smoke.md).
+- **Decisions and state:** [docs/ai/memory.md](docs/ai/memory.md), [docs/ai/context.md](docs/ai/context.md); the design record of the rebuild: [docs/ai/plans/2026-11-26-ai-setup-rebuild.md](docs/ai/plans/2026-11-26-ai-setup-rebuild.md); smoke test per tool: [docs/ai/smoke.md](docs/ai/smoke.md).
 
 CI runs `node --test` on Windows on every push ([.github/workflows/test.yml](.github/workflows/test.yml)).
 
 ## Credits
 
-- Code rules follow [Ponytail](https://github.com/DietrichGebert/ponytail) 5.3.3 (MIT).
+- Code rules follow [Ponytail](https://github.com/DietrichGebert/ponytail) (MIT); the version last compared is in `docs/ai/memory.md`.
 - `skills/obsidian/bases*.md` and `canvas*.md`: [kepano/obsidian-skills](https://github.com/kepano/obsidian-skills) `9c9560a` (MIT, Copyright (c) 2026 Steph Ango).
-- The decision Review column in `memory.md` is adapted from [chief-of-staff](https://github.com/alirezarezvani/claude-skills/tree/main/c-level-advisor/skills/chief-of-staff) (MIT).
+- The decision Review column in the `memory.md` template is adapted from [chief-of-staff](https://github.com/alirezarezvani/claude-skills/tree/main/c-level-advisor/skills/chief-of-staff) (MIT).

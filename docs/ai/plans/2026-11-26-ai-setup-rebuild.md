@@ -1,8 +1,10 @@
 # AI setup rebuild: decisions and build plan
 
+Design record of 2026-11-26, kept as history like every file in `plans/`: the repo files now own the current behaviour, and where they differ the file wins. Decisions and their reasons: [memory.md](../memory.md).
+
   
 
-Written 2026-11-26 on the home laptop at the end of the design sessions, and built the same day. Every decision below was taken by the user, one at a time; the reason for each is in [memory.md](memory.md) (replaced ones in [memory-archive.md](memory-archive.md)).
+Written 2026-11-26 on the home laptop at the end of the design sessions, and built the same day. Every decision below was taken by the user, one at a time; the reason for each is in [memory.md](../memory.md) (replaced ones in [memory-archive.md](../memory-archive.md)).
 
   
 
@@ -431,4 +433,4 @@ Written 2026-11-26 on the home laptop at the end of the design sessions, and bui
 
 ## 4. Build status
 
-Steps 0-9 are built and steps 10-12 are tracked in [context.md](context.md); the step-by-step build list is in Git history (before commit bb3e6b9).
+Steps 0-9 are built and steps 10-12 are tracked in [context.md](../context.md); the step-by-step build list is in Git history (before commit bb3e6b9).

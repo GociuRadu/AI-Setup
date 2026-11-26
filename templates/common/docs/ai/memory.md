@@ -1,6 +1,6 @@
 # {{PROJECT}} memory
 
-Durable decisions, lessons learned, bugs.
+Decisions and non-obvious bugs.
 
 ## Decisions
 
@@ -8,8 +8,6 @@ Review = when to re-check: a date or a trigger with how to measure it ("table > 
 
 | Date | Decision | Reason | Review |
 |---|---|---|---|
-
-## Lessons learned
 
 ## Bugs
 

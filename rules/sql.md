@@ -7,4 +7,4 @@ applyTo: "**/*.sql"
 - State grain, keys, nullability, constraints and rerun behavior; describe truncate, sync-delete, incremental or transactional behavior accurately. Keep existing set-based staging and reload strategies unless asked.
 - T-SQL: `THROW`, not `RAISERROR` (except the DDL guard followed by `SET NOEXEC ON`); no `SELECT *`; no `NOLOCK`; dynamic SQL only with `QUOTENAME` or a fixed mapping.
 - Bound validation reads by key, date range or `TOP`; state purpose, target, environment and expected result.
-- Data repair: a scoping read, then the exact narrow write with expected count and rollback, in a transaction. Verify with reads; never rerun a write to check it.
+- Data repair: a scoping read first, the write in a transaction; verify with reads, never rerun a write to check it.
