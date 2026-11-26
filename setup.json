@@ -23,9 +23,9 @@
   },
   "main": { "tier": "deep" },
   "models": {
-    "fast": { "claude": "haiku", "copilot": "claude-haiku-5.5", "kiro": "claude-haiku-5.5" },
-    "balanced": { "claude": "sonnet", "copilot": "claude-sonnet-5.5", "kiro": "claude-sonnet-5.5" },
-    "deep": { "claude": "opus", "copilot": "claude-opus-5.5", "kiro": "claude-opus-5.5" }
+    "fast": { "claude": "haiku", "copilot": "Claude Haiku 5.5 (copilot)", "kiro": "claude-haiku-5.5" },
+    "balanced": { "claude": "sonnet", "copilot": "Claude Sonnet 5.5 (copilot)", "kiro": "claude-sonnet-5.5" },
+    "deep": { "claude": "opus", "copilot": "Claude Opus 5.5 (copilot)", "kiro": "claude-opus-5.5" }
   },
   "hooks": { "guard": true },
   "mcp": { "atlassian": true },

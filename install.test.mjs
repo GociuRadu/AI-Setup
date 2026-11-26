@@ -104,7 +104,7 @@ test('a first install writes every tool format, merges user settings and keeps w
 
   // agents: the tier becomes each tool's model; effort where the tool has it
   assert.match(read(m.work, '.claude/agents/tester.md'), /\nmodel: haiku\neffort: medium\ntools: "Read, Grep, Glob, Bash, PowerShell"\n/);
-  assert.match(read(m.work, '.github/agents/reviewer.agent.md'), /\nmodel: claude-sonnet-5.5\nreasoning-effort: high\n/);
+  assert.match(read(m.work, '.github/agents/reviewer.agent.md'), /\nmodel: "Claude Sonnet 5\.5 \(copilot\)"\nreasoning-effort: high\n/);
   const kiroAgent = readJson(m.work, '.kiro/agents/challenger.json');
   assert.equal(kiroAgent.model, 'claude-opus-5.5');
   assert.equal(kiroAgent.hooks[0].action.command, 'node .ai/hooks/kiro/hook.mjs');
