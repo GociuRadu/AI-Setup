@@ -24,7 +24,7 @@ The vault is plain files. Obsidian Sync is its only second copy and its only und
 | `.obsidian/` settings, snippets, plugins | the vault's `AGENTS.md`; no new plugin without a problem the user named |
 
 ## Study notes
-Turn one stage or topic into **one** note, `Learn/<Topic>.md`, read top to bottom: the mental model first, then daily use, then depth, scenarios and mistakes. Facts come from research done in this session, never from memory alone. Write in the main chat: only it sees the conversation the note comes from.
+Turn one stage or topic into **one** note, `Learn/<Topic>.md`, read top to bottom in the order of [topic.md](topic.md). Facts come from research done in this session, never from memory alone. Write in the main chat: only it sees the conversation the note comes from.
 
 1. **Context:** when a project is named, read its `docs/ai/project.md` and `context.md` only to choose what matters; the note stays generic ([notes.md](notes.md)).
 2. **Research:** one `researcher` per question, in parallel, each asked for primary sources it opened, with URL and year, at most 35 lines back. Start from [sources.md](sources.md).

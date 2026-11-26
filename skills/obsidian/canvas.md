@@ -206,18 +206,17 @@ Generate 16-character lowercase hexadecimal strings (64-bit random value):
 
 - Coordinates can be negative (canvas extends infinitely)
 - `x` increases right, `y` increases down; position is the top-left corner
-- Space nodes 50-100px apart; leave 20-50px padding inside groups
+- Leave 20-50px padding inside groups
 - Align to grid (multiples of 10 or 20) for cleaner layouts
 
-| Node Type | Suggested Width | Suggested Height | CJK Width (1.5x) |
-|-----------|-----------------|------------------|-------------------|
-| Small text | 200-300 | 80-150 | 300-450 |
-| Medium text | 300-450 | 150-300 | 450-675 |
-| Large text | 400-600 | 300-500 | 600-900 |
-| File preview | 300-500 | 200-400 | 450-750 |
-| Link preview | 250-400 | 100-200 | 375-600 |
+| Node Type | Suggested Width | Suggested Height |
+|-----------|-----------------|------------------ |
+| Small text | 200-300 | 80-150 |
+| Medium text | 300-450 | 150-300 |
+| Large text | 400-600 | 300-500 |
+| File preview | 300-500 | 200-400 |
+| Link preview | 250-400 | 100-200 |
 
-**CJK text sizing**: CJK characters (Chinese, Japanese, Korean) are wider than Latin characters. For content primarily in CJK languages, multiply the suggested width by ~1.5× to avoid cramped layouts and awkward line breaks.
 
 ## Validation Checklist
 
@@ -226,10 +225,6 @@ Generate 16-character lowercase hexadecimal strings (64-bit random value):
 1. Each node has its content field: `text` for text nodes, `file` for file nodes, `url` for link nodes
 2. `fromSide`/`toSide` are `top`, `right`, `bottom` or `left`; `fromEnd`/`toEnd` are `none` or `arrow`
 3. Colors are presets `"1"` to `"6"` or hex (`"#FF0000"`)
-
-## Complete Examples
-
-See [canvas-examples.md](canvas-examples.md) for full canvas examples including mind maps, project boards, research canvases, and flowcharts.
 
 ## References
 

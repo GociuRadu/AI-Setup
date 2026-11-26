@@ -14,7 +14,7 @@ Current state and open work, under 40 lines. Decisions: [memory.md](memory.md).
 | Item | Status | Next action |
 |---|---|---|
 | Guard gaps (eval) | open | `echo x > .env` (a write) and Gmail MCP `trash_thread`/`label`/`forward` are allowed; add checks with tests |
-| Smoke prompts | Claude Code 4/4 pass; Kiro pass; Copilot: rules and skills pass, `tester` model and the guard ask not yet confirmed (this laptop has no Copilot account) | rerun [smoke.md](smoke.md) in Copilot on the work laptop |
+| Smoke prompts | Claude Code 4/4 pass; Kiro pass; Copilot: rules and skills pass, `tester` model and the guard ask not yet confirmed (this laptop has no Copilot account) | part of the Work laptop row ([smoke.md](smoke.md)) |
 | Work laptop | not started | clone into `work/`, `node AI-Setup/install.mjs --vault <path>`, Copilot smoke prompt, run `Developer: Policy Diagnostics` (no server-managed `strictPluginOnlyCustomization`), check Claude 5.5 in the Copilot and Kiro model pickers |
 | Missing CLIs | open | install `gh`, `gitleaks` on both laptops |
 | Remaining checks | open | Copilot writes to the vault, Copilot skill discovery with `.claude/skills` off, Obsidian Sync of edits made while closed, `/review` vs `/code-review` precedence in Claude Code |

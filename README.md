@@ -97,13 +97,11 @@ Everything is in [setup.json](setup.json). After a change, rerun `node install.m
 
 ```json
 {
-  "skills": { "debate": false },
-  "agents": { "reviewer": { "on": true, "tier": "balanced", "effort": "high" } },
-  "models": { "balanced": { "claude": "sonnet", "copilot": "Claude Sonnet 5.5 (copilot)", "kiro": "claude-sonnet-5.5" } }
+  "skills": { "debate": false }
 }
 ```
 
-- **Models:** each helper names a tier; `models` maps the tier to a model ID per tool. One device can give one helper another model in `work/.ai-device.json`: `"models": { "reviewer": { "copilot": "<model id>" } }`.
+- **Models:** each helper names a tier; `models` maps the tier to a model ID per tool. A per-device model for one helper: see the `$comment` in `setup.json`.
 - **Built-ins turned off** (`off`), because this setup replaces them: Claude auto memory, Claude's Concise output style, Copilot local memory, Copilot reading `.claude/` files, and the retired GitHub and Playwright MCP servers. Kiro's memory is off by default; Copilot's cloud memory is a GitHub account setting. Review the list after vendor updates.
 
 ## Safety

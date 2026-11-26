@@ -41,8 +41,7 @@ Every finding has a concrete case ("this input gives this wrong result") and `pa
 | `analyze` | How it works, Components `Part \| Role \| Where`, Questions (`### Q ·` cards with a proposal), Risks (1 line each), Next steps | `graph`, `flow` or `seq`; `compare` for today vs after |
 | `analyze` of numbers (runs, metrics, loads, counts) | Result (per-item table), What it means (the limit or risk the numbers imply), Next steps; ids, sources and the calculation in Evidence | `bars` of the values; `compare` for the two readings |
 
-**Style:** [report.md](report.md) owns the layout and the build enforces its limits. Two points it does not cover:
+**Style:** [report.md](report.md) owns the layout and the build enforces its limits. One point it does not cover:
 - **The "so what":** add at least 1 finding the data implies but does not show (noise wider than the decision margin, a threshold missed, the stage that loses rows). Never only restate the numbers.
-- **Computed numbers** (mean, rate, delta): show the calculation in Evidence.
 
 PR description on request: title under 70 characters, then **Summary**, **Tested**, **Not tested**, **Risk**.

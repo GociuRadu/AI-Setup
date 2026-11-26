@@ -20,7 +20,7 @@
 - At most 1500 visible words (folded callouts and code do not count). Paragraphs: at most 2 sentences, 50 words.
 - First block is `> [!abstract]`, at most 40 words. No `#` heading: the file name is the title; Obsidian's outline is the contents list.
 - Headings are numbered in reading order and state the point in the first words ("1. A change moves through 3 areas"), never "Overview".
-- Order: bottom line, mental model, daily use, approaches, scenarios, mistakes, glossary. No questions section and no sources section: `check` flags `[!question]` callouts and footnotes.
+- Section order: the skeleton in [topic.md](topic.md). No questions section and no sources section: `check` flags `[!question]` callouts and footnotes.
 - Commands go inside the steps or table rows that use them, not repeated in a separate block.
 
 ### Diagrams

@@ -14,7 +14,7 @@ Smoke test of the AI setup, answer in at most 8 lines:
 |---|---|
 | Rules | line 1 quotes `# Always-on rules` |
 | Skills | all 4 names are listed |
-| Agent | `tester` ran (Claude Code: haiku; Copilot and Kiro: the `fast` model in `setup.json`) and returned the Node version |
+| Agent | `tester` ran on the `fast` model in `setup.json` and returned the Node version |
 | Guard | the push is blocked with "force-push is a hard stop" and never runs |
 
 Also once per tool: ask it to run `git push` in a scratch repo with no remote. Claude Code and Copilot must ask you first (the guard's ask; answer no); Kiro must block it with "Blocked in Kiro: git push requires approval".

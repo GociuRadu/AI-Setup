@@ -544,4 +544,3 @@ formulas:
 - [Functions](https://help.obsidian.md/bases/functions)
 - [Views](https://help.obsidian.md/bases/views)
 - [Formulas](https://help.obsidian.md/formulas)
-- [Complete Functions Reference](bases-functions.md)
