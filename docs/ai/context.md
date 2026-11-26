@@ -4,7 +4,7 @@ Current state and open work, under 40 lines. Decisions: [memory.md](memory.md).
 
 ## Current state
 
-- Updated: 2026-11-26. Branch `review-fixes`; CI (Windows `node --test` + gitleaks) green on `24bca62`, later pushes not checked (`gh` not installed).
+- Updated: 2026-11-26. `main` = `review-fixes` on GitHub (skill evaluation and 3 duplicate-review rounds pushed); CI (Windows `node --test` + gitleaks) green on `24bca62`, later pushes not checked (`gh` not installed).
 - `node --test`: all tests pass. `node install.mjs` twice: "nothing to change".
 - Home laptop: installed for Claude Code, Copilot and Kiro; the old setup is gone (backup in `work/.ai/backup/old-setup-2026-11-26/`).
 - Reports: [setup review](reports/2026-11-26-review-ai-setup.html), [skill and helper evaluation](reports/2026-11-26-analyze-skill-eval.html).
