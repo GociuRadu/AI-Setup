@@ -5,13 +5,15 @@
 // ~/.kiro/settings/permissions.yaml), and records what it wrote in <work>/.ai-device.json. It deletes only files it wrote
 // itself; a file of someone else's at a path it needs is moved to <work>/.ai/backup/ first. A second run changes nothing.
 // No npm packages: Node 22+ only.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, renameSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, renameSync, cpSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve, relative, isAbsolute, sep } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const REPO = dirname(fileURLToPath(import.meta.url));
+// one spelling per path, the one on disk: a shell started in c:\users\x and one in C:\Users\x must write the same files
+const drive = (p) => { try { return realpathSync.native(p); } catch { return p.replace(/^[a-z]:/, (d) => d.toUpperCase()); } };
+export const REPO = drive(dirname(fileURLToPath(import.meta.url)));
 export const TOOLS = ['claude', 'copilot', 'kiro'];
 const TIERS = ['fast', 'balanced', 'deep'];
 const AGENT_TOOLS = {
@@ -321,9 +323,9 @@ function mergeIgnore(text, lines, prev) {
 // ---- the run ----
 
 export function install(opts = {}) {
-  const repo = opts.repo ?? REPO;
-  const home = opts.home ?? homedir();
-  const work = resolve(opts.work ?? dirname(repo));
+  const repo = drive(opts.repo ?? REPO);
+  const home = drive(opts.home ?? homedir());
+  const work = drive(resolve(opts.work ?? dirname(repo)));
   const log = opts.log ?? console.log;
   const dry = !!opts.dryRun;
   const detect = opts.which ?? which;
@@ -338,6 +340,7 @@ export function install(opts = {}) {
   const managed = device.manifest ?? {};
   // the vault: --vault, else the device file (the old setup kept it under obsidian.vault)
   let vault = opts.vault ?? device.vault ?? device.obsidian?.vault;
+  if (vault) vault = drive(vault);
   const warnings = [];
   if (vault && !(existsSync(join(vault, '.obsidian')))) { warnings.push(`vault ${vault} has no .obsidian folder: left out until it is fixed`); vault = undefined; }
   if (vault) {

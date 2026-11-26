@@ -134,9 +134,11 @@ test('a first install writes every tool format, merges user settings and keeps w
   assert.ok(device.manifest.files.includes('.claude/skills/review/SKILL.md'));
   assert.ok(m.work && read(m.work, '.ignore').includes('/AI-Setup/'));
 
-  // a second run changes nothing
+  // a second run changes nothing, also from a shell that spells the path in lower case (Windows paths ignore case)
   const again = m.run();
   assert.deepEqual(again.changes, []);
+  const lower = (p) => (process.platform === 'win32' ? p.toLowerCase() : p);
+  assert.deepEqual(m.run({ work: lower(m.work), home: lower(m.home), vault: lower(m.vault), repo: lower(m.repo) }).changes, []);
 });
 
 test('an existing Atlassian entry, and so its sign-in, is left as it is', () => {
