@@ -41,11 +41,8 @@ Every finding has a concrete case ("this input gives this wrong result") and `pa
 | `analyze` | How it works, Components `Part \| Role \| Where`, Questions (`### Q ·` cards with a proposal), Risks (1 line each), Next steps | `graph`, `flow` or `seq`; `compare` for today vs after |
 | `analyze` of numbers (runs, metrics, loads, counts) | Result (per-item table), What it means (the limit or risk the numbers imply), Next steps; ids, sources and the calculation in Evidence | `bars` of the values; `compare` for the two readings |
 
-**Style:** the report should scan in 30 seconds.
-- **First screen:** the bottom line gives the answer and what it changes ("…, so compare means, not single repeats"). When a number is computed (mean, rate, delta), show the calculation in Evidence.
-- **One point per `##`:** the heading states the conclusion, then 1 picture, at most 1 table of up to 5 short columns, and at most 2 sentences. A second table on the same point goes into Evidence.
+**Style:** [report.md](report.md) owns the layout and the build enforces its limits. Two points it does not cover:
 - **The "so what":** add at least 1 finding the data implies but does not show (noise wider than the decision margin, a threshold missed, the stage that loses rows). Never only restate the numbers.
-- **Size:** about 300 visible words; cut every line that does not change a decision. Long ids, digests and sources go only into Evidence.
-- **Before you reply:** the build has 0 `scan:` warnings, and the first screen (title to the first `##`) answers the question without the rest.
+- **Computed numbers** (mean, rate, delta): show the calculation in Evidence.
 
 PR description on request: title under 70 characters, then **Summary**, **Tested**, **Not tested**, **Risk**.

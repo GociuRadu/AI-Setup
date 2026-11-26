@@ -1,25 +1,21 @@
 # AI setup context
 
-Current state and open work, under 40 lines. Decisions: [memory.md](memory.md) (replaced ones in [memory-archive.md](memory-archive.md)); full decision set and build plan: [plan.md](plan.md).
+Current state and open work, under 40 lines. Decisions: [memory.md](memory.md); decision set: [plan.md](plan.md).
 
 ## Current state
 
 - Updated: 2026-11-26. Branch `review-fixes`; CI (Windows `node --test` + gitleaks) green on `24bca62`, later pushes not checked (`gh` not installed).
-- `node --test`: 44 tests pass (2026-11-26). `node install.mjs` twice: "nothing to change".
-- Skill and helper evaluation done: [report](reports/2026-11-26-analyze-skill-eval.html). 8 skills kept, `ui-ux-pro-max`, `playwright`, `skill-creator` dropped; 4 helpers kept; `tester` now only for long output.
+- `node --test`: all tests pass. `node install.mjs` twice: "nothing to change".
 - Home laptop: installed for Claude Code, Copilot and Kiro; the old setup is gone (backup in `work/.ai/backup/old-setup-2026-11-26/`).
-- Today's review and fixes: [report](reports/2026-11-26-review-ai-setup.html); every fix with its reason is in memory.md (guard bypasses, Kiro asks are blocks, Copilot hook writes `hookSpecificOutput`, Kiro YAML and backups, CI 8.3 temp path, Copilot models as `"Claude Haiku 5.5 (copilot)"`).
-- A `reviewer` graded the setup 7.5/10 before the last improvements (weakest: per-tool integration 7, MCP and tools 6.5, docs 7).
-- Helpers: rules send long command output and Git history to `tester` (Haiku) and searches to `researcher` (Sonnet); built-in agents in Claude Code default to Sonnet (`CLAUDE_CODE_SUBAGENT_MODEL`, a fallback: a helper's own model wins); forks run on the main model, so last resort.
+- Reports: [setup review](reports/2026-11-26-review-ai-setup.html), [skill and helper evaluation](reports/2026-11-26-analyze-skill-eval.html).
 
 ## Open work
 
 | Item | Status | Next action |
 |---|---|---|
 | Guard gaps (eval) | open | `echo x > .env` (a write) and Gmail MCP `trash_thread`/`label`/`forward` are allowed; add checks with tests |
-| Duplicate and bloat review | in progress | a fresh `reviewer` (Sonnet) audits the whole repo for duplicated or useless text across rules, skills, agents, README and docs; fix in the repo, add a test where a duplicate could come back |
 | Smoke prompts (step 10) | Claude Code 4/4 pass; Kiro pass; Copilot: rules and skills pass, `tester` model and the guard ask not yet confirmed (this laptop has no Copilot account) | rerun [smoke.md](smoke.md) in Copilot on the work laptop |
-| Work laptop (step 11) | not started | clone into `work/`, `node AI-Setup/install.mjs --vault <path>`, Copilot smoke prompt, check Claude 5.5 in the Copilot and Kiro model pickers |
-| Missing CLIs | open | install `gh`, `gitleaks` on both laptops (`playwright-cli` only if the `playwright` skill comes back) |
-| Remaining checks (plan 5) | open | Copilot writes to the vault, Copilot skill discovery with `.claude/skills` off, Obsidian Sync of edits made while closed |
+| Work laptop (step 11) | not started | clone into `work/`, `node AI-Setup/install.mjs --vault <path>`, Copilot smoke prompt, run `Developer: Policy Diagnostics` (no server-managed `strictPluginOnlyCustomization`), check Claude 5.5 in the Copilot and Kiro model pickers |
+| Missing CLIs | open | install `gh`, `gitleaks` on both laptops |
+| Remaining checks | open | Copilot writes to the vault, Copilot skill discovery with `.claude/skills` off, Obsidian Sync of edits made while closed, `/review` vs `/code-review` precedence in Claude Code |
 | Vault notes | open | `Agentic AI Design Patterns` (too long, footnotes) and `Git` (footnotes) fail `vault.mjs check`; `My AI Coding Setup` rewritten and clean |

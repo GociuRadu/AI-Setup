@@ -6,7 +6,7 @@ aliases: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
-<!-- Delete this line, unused blocks and properties; replace every <...>. Examples stay generic: no project, repo or ticket names. Every line must be something the reader will do, say or be asked. -->
+<!-- Delete this line, unused blocks and properties; replace every <...>. -->
 > [!abstract] Bottom line
 > <what this topic is for and what you do with it>
 

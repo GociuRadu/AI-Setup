@@ -59,16 +59,18 @@ Type `/<name>`, or describe the task and the matching skill starts.
 
 The main agent is the only one that writes. Helpers are read-only and run in their own context, several in parallel; they return a short report.
 
-| Helper | Does | Model tier |
-|---|---|---|
-| `tester` | Runs suites, lints and builds; returns counts and the failing lines word for word | `fast` |
-| `researcher` | Searches many files, long logs or the web; returns evidence with paths or URLs | `balanced` |
-| `reviewer` | Fresh-eyes review of a risky change against its goal | `balanced`, high effort |
-| `challenger` | Second opinion on a costly choice; also the 2 voices of `/debate` | `deep`, high effort |
+| Helper | Does |
+|---|---|
+| `tester` | Runs suites, lints and builds; returns counts and the failing lines word for word |
+| `researcher` | Searches many files, long logs or the web; returns evidence with paths or URLs |
+| `reviewer` | Fresh-eyes review of a risky change against its goal |
+| `challenger` | Second opinion on a costly choice; also the 2 voices of `/debate` |
+
+Each helper's model tier and effort are in [setup.json](setup.json).
 
 ### Always-on rules
 
-[rules/always.md](rules/always.md), about 40 lines, loaded in every chat: replies (answer first, short, plain), honesty (claim only what was read or run), code (smallest complete change), project state, helpers and safety. SQL and Python rules load only for `.sql` and `.py` files.
+[rules/always.md](rules/always.md), loaded in every chat: replies (answer first, short, plain), honesty (claim only what was read or run), code (smallest complete change), project state, helpers and safety. SQL and Python rules load only for `.sql` and `.py` files.
 
 ## Where files go
 
@@ -134,8 +136,7 @@ node --test           # tests: install, guard, vault checker, report builder
 node install.mjs      # apply the change, then start a new chat in each tool
 ```
 
-- **Add a skill:** `skills/<name>/SKILL.md` (`name` = folder name, a description that says what and when, under 500 lines) and an entry in `setup.json`; the tests fail if either is missing.
-- **Block something new:** add the check to `hooks/guard.mjs` with a test, as a regex on the call.
+- **Rules for changing this repo** (new skill, new guard check): [AGENTS.md](AGENTS.md).
 - **Decisions and state:** [docs/ai/memory.md](docs/ai/memory.md), [docs/ai/context.md](docs/ai/context.md); the full decision set: [docs/ai/plan.md](docs/ai/plan.md); smoke test per tool: [docs/ai/smoke.md](docs/ai/smoke.md).
 
 CI runs `node --test` on Windows on every push ([.github/workflows/test.yml](.github/workflows/test.yml)).

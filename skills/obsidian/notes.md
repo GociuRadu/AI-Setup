@@ -7,7 +7,6 @@
 - Properties `created` and `updated` are `YYYY-MM-DD`; `type` is `topic`, `map`, `book` or `video` where the note has one. A note made from `Templates` drops the `home-folder`, `home-label`, `home-icon` and `home-order` settings.
 - Links: `[[Name]]` to notes that exist; in a table a label needs `\|`: `[[NFR\|quality]]`. A page of a book in `Books`: `[[file.pdf#page=12|p. 12]]`, only after reading that page. PDFs are not synced, so a link to one missing on this device stays as it is. A video links to the second: `https://www.youtube.com/watch?v=ID&t=90s`.
 - Callouts: `abstract` bottom line, `example` worked case, `warning` mistake, `quote` how to say it, `info` depth. Fold with `-`. No HTML.
-- `## In my own words` belongs to the user: never touch it; add, don't rewrite.
 
 ## Study notes (`type: topic`, in `Learn`)
 

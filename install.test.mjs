@@ -42,6 +42,17 @@ test('every skill fits the format: name = folder, a description up to 1,024 char
   }
 });
 
+test('no duplicates: the README lists exactly the skills and helpers in setup.json, and no always-on rule is copied into a skill or helper', () => {
+  const s = loadSetup(REPO), readme = read(REPO, 'README.md');
+  assert.deepEqual([...readme.matchAll(/^\| `\/([\w-]+)` \|/gm)].map((m) => m[1]).sort(), Object.keys(s.skills).sort());
+  assert.deepEqual([...readme.matchAll(/^\| `(\w+)` \| (?!`)/gm)].map((m) => m[1]).sort(), Object.keys(s.agents).sort());
+  // every always-on sentence of 8+ words loads in every session already; a verbatim copy elsewhere is paid twice
+  const sentences = read(REPO, 'rules', 'always.md').split(/(?<=[.;:])\s+|\n/).map((x) => x.replace(/^[-#\s]+/, '').trim()).filter((x) => x.split(/\s+/).length >= 8);
+  const files = [...Object.keys(s.skills).flatMap((k) => readdirSync(join(REPO, 'skills', k)).filter((f) => f.endsWith('.md')).map((f) => join(REPO, 'skills', k, f))),
+    ...Object.keys(s.agents).map((k) => join(REPO, 'agents', `${k}.md`))];
+  for (const f of files) for (const x of sentences) assert.ok(!readFileSync(f, 'utf8').includes(x), `${f} repeats always.md: "${x}"`);
+});
+
 test('a first install writes every tool format, merges user settings and keeps what is not ours', () => {
   const m = machine();
   // what a machine with the old setup has

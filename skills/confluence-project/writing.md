@@ -14,7 +14,7 @@ The reader finds the answer in 30 seconds, and every claim can be checked. For H
 
 - 3+ items with the same fields (steps, parameters, options, checks, owners) go in a table; prose is for reasons.
 - `<th>` header row, 2-6 columns, first column = what readers look up. One fact per cell, at most about 15 words; units in the header (`Size (GB)`); `N/A` or `Unknown`, never an empty cell; no merged cells.
-- Editing: keep every `data-colwidth`, cell color and the column order; add rows instead of reshaping. A panel cannot hold a table.
+- Editing: keep cell colors and the column order; add rows instead of reshaping. A panel cannot hold a table.
 
 ## Schemas and contracts
 
@@ -58,4 +58,4 @@ Common top, the block for the page type, common bottom; drop sections that don't
 - **Decision:** `What needs deciding?` context and constraints. `Options:` table `Option | Pros | Cons | Effort`. `Decision:` the option, the main reason, the date, who decided. `Consequences:` what changes, what to watch.
 - **Common bottom:** `Open questions:` table `Question | Owner`, or N/A. `References:` code, docs, tickets and run evidence, with the date checked.
 
-Before publishing: the TL;DR answers the question, every section and table earns its place, links are real, nothing is invented, the counts match.
+Before publishing: the TL;DR answers the question, every section and table earns its place, links are real.

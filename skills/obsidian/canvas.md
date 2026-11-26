@@ -23,7 +23,6 @@ A canvas file (`.canvas`) contains two top-level arrays following the [JSON Canv
 2. Generate unique 16-character hex IDs for each node (e.g., `"6f0ad84f44ce9c17"`)
 3. Add nodes with required fields: `id`, `type`, `x`, `y`, `width`, `height`
 4. Add edges referencing valid node IDs via `fromNode` and `toNode`
-5. **Validate**: Parse the JSON to confirm it is valid. Verify all `fromNode`/`toNode` values exist in the nodes array
 
 ### 2. Add a Node to an Existing Canvas
 
@@ -32,7 +31,6 @@ A canvas file (`.canvas`) contains two top-level arrays following the [JSON Canv
 3. Choose position (`x`, `y`) that avoids overlapping existing nodes (leave 50-100px spacing)
 4. Append the new node object to the `nodes` array
 5. Optionally add edges connecting the new node to existing nodes
-6. **Validate**: Confirm all IDs are unique and all edge references resolve to existing nodes
 
 ### 3. Connect Two Nodes
 
@@ -42,7 +40,6 @@ A canvas file (`.canvas`) contains two top-level arrays following the [JSON Canv
 4. Optionally set `fromSide`/`toSide` (top, right, bottom, left) for anchor points
 5. Optionally set `label` for descriptive text on the edge
 6. Append the edge to the `edges` array
-7. **Validate**: Confirm both `fromNode` and `toNode` reference existing node IDs
 
 ### 4. Edit an Existing Canvas
 
@@ -50,7 +47,6 @@ A canvas file (`.canvas`) contains two top-level arrays following the [JSON Canv
 2. Locate the target node or edge by `id`
 3. Modify the desired attributes (text, position, color, etc.)
 4. Write the updated JSON back to the file
-5. **Validate**: Re-check all ID uniqueness and edge reference integrity after editing
 
 ## Nodes
 
@@ -225,19 +221,11 @@ Generate 16-character lowercase hexadecimal strings (64-bit random value):
 
 ## Validation Checklist
 
-After creating or editing a canvas file, verify:
+`vault.mjs check` already checks valid JSON, unique ids, node types, required position fields and edge references. Also check:
 
-1. All `id` values are unique across both nodes and edges
-2. Every `fromNode` and `toNode` references an existing node ID
-3. Required fields are present for each node type (`text` for text nodes, `file` for file nodes, `url` for link nodes)
-4. `type` is one of: `text`, `file`, `link`, `group`
-5. `fromSide`/`toSide` values are one of: `top`, `right`, `bottom`, `left`
-6. `fromEnd`/`toEnd` values are one of: `none`, `arrow`
-7. Color presets are `"1"` through `"6"` or valid hex (e.g., `"#FF0000"`)
-8. Double quotes in `text` and `file` values are properly escaped as `\"`
-9. JSON is valid and parseable
-
-If validation fails, check for duplicate IDs, dangling edge references, or malformed JSON strings (especially unescaped newlines in text content).
+1. Each node has its content field: `text` for text nodes, `file` for file nodes, `url` for link nodes
+2. `fromSide`/`toSide` are `top`, `right`, `bottom` or `left`; `fromEnd`/`toEnd` are `none` or `arrow`
+3. Colors are presets `"1"` to `"6"` or hex (`"#FF0000"`)
 
 ## Complete Examples
 
