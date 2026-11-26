@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Read|Edit|Write|NotebookEdit|Grep|Glob|mcp__.*",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["{{HOOK}}"], "onFailure": "block", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

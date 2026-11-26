@@ -1,5 +1,4 @@
-# Runs both test suites and the sync check on every push and pull request.
-# Windows, like the devices this setup runs on; the generated files are made first, as on a new device.
+# Runs every test on push and pull request, on Windows like the devices this setup runs on.
 name: test
 on: [push, pull_request]
 permissions:
@@ -12,12 +11,4 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - run: node _ai/sync.mjs work --tools claude,kiro,copilot
-      - run: node _ai/sync.mjs --check
-      - run: node --test "_ai/**/*.test.mjs"
-      - run: npm ci
-        working-directory: setup-ui
-      - run: npm test
-        working-directory: setup-ui
-      - run: npm run build
-        working-directory: setup-ui
+      - run: node --test

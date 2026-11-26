@@ -1,0 +1,39 @@
+{
+  "$comment": "Every component of the setup, the same on every device. false removes it on the next `node install.mjs`; a tool the device lacks is skipped. Agents name a model tier; the tiers map to each tool's model IDs. A per-device model for one agent goes in <work>/.ai-device.json: \"models\": { \"reviewer\": { \"copilot\": \"<model id>\" } }.",
+  "tools": { "claude": true, "copilot": true, "kiro": true },
+  "rules": { "always": true, "sql": true, "python": true },
+  "skills": {
+    "obsidian": true,
+    "data": true,
+    "pplan": true,
+    "review": true,
+    "confluence-project": true,
+    "ui-ux-pro-max": true,
+    "debate": true,
+    "playwright": true,
+    "handoff": true,
+    "improve": true,
+    "skill-creator": true
+  },
+  "agents": {
+    "tester": { "on": true, "tier": "fast", "effort": "medium" },
+    "researcher": { "on": true, "tier": "balanced", "effort": "medium" },
+    "reviewer": { "on": true, "tier": "balanced", "effort": "high" },
+    "challenger": { "on": true, "tier": "deep", "effort": "high" }
+  },
+  "main": { "tier": "deep" },
+  "models": {
+    "fast": { "claude": "haiku", "copilot": "claude-haiku-5.5", "kiro": "claude-haiku-5.5" },
+    "balanced": { "claude": "sonnet", "copilot": "claude-sonnet-5.5", "kiro": "claude-sonnet-5.5" },
+    "deep": { "claude": "opus", "copilot": "claude-opus-5.5", "kiro": "claude-opus-5.5" }
+  },
+  "hooks": { "guard": true },
+  "mcp": { "atlassian": true },
+  "off": {
+    "claude-auto-memory": true,
+    "claude-output-style": true,
+    "copilot-memory": true,
+    "copilot-claude-files": true,
+    "retired-mcp": ["github", "playwright"]
+  }
+}

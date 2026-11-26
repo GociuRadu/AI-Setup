@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Guard tool calls",
+      "description": "Blocks hard stops, writing SQL, secret files, personal/ and encrypted vault notes; asks before pushes, work-discarding Git, wide or vault deletes, Personal/, publishing, loaders, cloud CLIs and shared writes (.ai/hooks/guard.mjs).",
+      "trigger": "PreToolUse",
+      "action": { "type": "command", "command": "node .ai/hooks/kiro/hook.mjs" },
+      "timeout": 10
+    }
+  ]
+}

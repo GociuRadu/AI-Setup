@@ -1,29 +1,9 @@
-# Only the AI source is versioned. Generated tool folders, project folders, device files and tool caches stay local.
-/*
-!/.gitignore
-!/.gitattributes
-!/AGENTS.md
-!/README.md
-!/_ai/
-# Local setup page (React + Vite); its build output stays local
-!/setup-ui/
-setup-ui/dist/
-# Reports about the setup itself
-!/docs/
-# CI only; the rest of .github/ is generated per device
-!/.github/
-/.github/*
-!/.github/workflows/
-# Search skip list (ripgrep, VS Code, Kiro): folders that are not AI context
-!/.ignore
-
-# Never commit secrets or caches anywhere
+node_modules/
+__pycache__/
+*.pyc
 .env
 .env.*
 !.env.example
 *.env
-node_modules/
-__pycache__/
-*.pyc
 .DS_Store
 Thumbs.db
