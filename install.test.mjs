@@ -26,7 +26,7 @@ function machine() {
 
 test('setup.json names exactly the components the repo has', () => {
   const s = loadSetup(REPO);
-  assert.equal(Object.keys(s.skills).length, 8);
+  assert.equal(Object.keys(s.skills).length, 9);
   assert.deepEqual(Object.keys(s.agents).sort(), ['challenger', 'researcher', 'reviewer', 'tester']);
   const m = machine();
   mkdirSync(join(m.repo, 'skills', 'extra'));
@@ -243,6 +243,29 @@ test('false in setup.json removes only that component; a tool turned off loses i
   m.run();
   assert.ok(!existsSync(join(m.work, '.kiro', 'skills')) && !existsSync(join(m.work, '.kiro', 'hooks', 'guard.json')));
   assert.doesNotMatch(read(m.home, '.kiro', 'settings', 'permissions.yaml'), /mdenc/);
+});
+
+test('a list of tools in setup.json installs a skill, an agent or an MCP server only for those tools', () => {
+  const m = machine();
+  m.run();
+  // a server the user added by hand stays when ours moves to Kiro only
+  const mcp = readJson(m.work, '.mcp.json');
+  mcp.mcpServers.mine = { type: 'stdio', command: 'x' };
+  put(join(m.work, '.mcp.json'), JSON.stringify(mcp));
+  m.setSetup((s) => { s.skills.debate = ['kiro']; s.agents.tester.on = ['claude']; s.mcp.atlassian = ['kiro']; });
+  m.run();
+  assert.ok(existsSync(join(m.work, '.kiro/skills/debate/SKILL.md')));
+  for (const dir of ['.claude/skills', '.github/skills']) assert.ok(!existsSync(join(m.work, dir, 'debate')), dir);
+  assert.ok(existsSync(join(m.work, '.claude/agents/tester.md')));
+  assert.ok(!existsSync(join(m.work, '.github/agents/tester.agent.md')) && !existsSync(join(m.work, '.kiro/agents/tester.json')));
+  assert.ok('atlassian' in readJson(m.work, '.kiro/settings/mcp.json').mcpServers);
+  assert.deepEqual(Object.keys(readJson(m.work, '.mcp.json').mcpServers), ['mine']);
+  assert.deepEqual(m.run().changes, [], 'a second run changes nothing');
+  for (const [set, msg] of [[(s) => { s.skills.debate = ['claude', 'cursor']; }, /skills\.debate must be true, false or a list of tools/],
+    [(s) => { s.skills.debate = true; s.agents.tester.on = []; }, /agents\.tester needs on/], [(s) => { s.agents.tester.on = true; s.mcp.atlassian = ['vim']; }, /mcp\.atlassian must be/]]) {
+    m.setSetup(set);
+    assert.throws(() => m.run(), msg);
+  }
 });
 
 test('Kiro rules are matched by content, so a rule Kiro rewrote in block style is not duplicated', () => {

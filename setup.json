@@ -1,5 +1,5 @@
 {
-  "$comment": "Every component of the setup, the same on every device. false removes it on the next `node install.mjs`; a tool the device lacks is skipped. Agents name a model tier; the tiers map to each tool's model IDs. A per-device model for one agent goes in <work>/.ai-device.json: \"models\": { \"reviewer\": { \"copilot\": \"<model id>\" } }.",
+  "$comment": "Every component of the setup, the same on every device. false removes it on the next `node install.mjs`; a tool the device lacks is skipped. A skill, an agent's on or an MCP server can also list the tools that get it, as in [\"kiro\"]; Claude Code and Copilot share .mcp.json, so an MCP server on for one is seen by both. Agents name a model tier; the tiers map to each tool's model IDs. A per-device model for one agent goes in <work>/.ai-device.json: \"models\": { \"reviewer\": { \"copilot\": \"<model id>\" } }.",
   "tools": { "claude": true, "copilot": true, "kiro": true },
   "rules": { "always": true, "sql": true, "python": true },
   "skills": {
@@ -10,7 +10,8 @@
     "confluence-project": true,
     "debate": true,
     "handoff": true,
-    "improve": true
+    "improve": true,
+    "playwright": ["kiro"]
   },
   "agents": {
     "tester": { "on": true, "tier": "fast", "effort": "medium" },

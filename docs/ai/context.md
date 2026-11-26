@@ -14,8 +14,10 @@ Current state and open work, under 40 lines. Decisions: [memory.md](memory.md).
 | Item | Status | Next action |
 |---|---|---|
 | Guard gaps (eval) | open | `echo x > .env` (a write) and Gmail MCP `trash_thread`/`label`/`forward` are allowed; add checks with tests |
-| Smoke prompts | Claude Code 4/4 pass; Kiro pass; Copilot: rules and skills pass, `tester` model and the guard ask not yet confirmed (this laptop has no Copilot account); new step 5 (built-in browser) not run in any tool yet: run it in Claude Code and Kiro here | part of the Work laptop row ([smoke.md](smoke.md)) |
+| Smoke prompts | Claude Code 4/4 pass, step 5 (browser) not run yet; Kiro (2026-11-26): rules, 8 skills (before `playwright`), 4 agents with their models, `tester` run and push block pass, no built-in browser (expected); Copilot: rules and skills pass, `tester` model and the guard ask not yet confirmed (this laptop has no Copilot account) | run step 5 in Claude Code; Copilot is part of the Work laptop row ([smoke.md](smoke.md)) |
+| Kiro account leftovers | open | 2 old skills `confluence` and `confluence-learn` sync from the Kiro account (`~/.kiro/cloud-cache/user/config/skills/`) and overlap `confluence-project`: delete them in Kiro's account skills, not in the cache (it resyncs). Atlassian MCP not connected in Kiro: sign in once from Kiro's MCP panel |
 | Work laptop | not started | clone into `work/`, `node AI-Setup/install.mjs --vault <path>`, Copilot smoke prompt, run `Developer: Policy Diagnostics` (no server-managed `strictPluginOnlyCustomization`), check Claude 5.5 in the Copilot and Kiro model pickers |
-| Missing CLIs | open | install `gh`, `gitleaks` on both laptops |
+| Missing CLIs | open | install `gh`, `gitleaks` on both laptops; `npm install -g @playwright/cli` on the work laptop (home laptop has 0.1.25) |
+| Kiro browser | `playwright` skill installed in `.kiro/skills` only | in a new Kiro chat: "open https://example.com with playwright and quote the title", then one signed-in site with `--persistent --headed` |
 | Remaining checks | open | Copilot writes to the vault, Copilot skill discovery with `.claude/skills` off, Obsidian Sync of edits made while closed, `/review` vs `/code-review` precedence in Claude Code |
 | Vault notes | open | `Agentic AI Design Patterns` (too long, footnotes) and `Git` (footnotes) fail `vault.mjs check`; `My AI Coding Setup` rewritten and clean |

@@ -54,6 +54,7 @@ Type `/<name>`, or describe the task and the matching skill starts.
 | `/confluence-project` | Read or update a project's Confluence page |
 | `/handoff` | Update `context.md` and print a short brief for a new chat |
 | `/improve` | Turn repeated failures into the smallest change to this setup |
+| `/playwright` | Kiro only: open, check, search or automate web pages from the shell (needs `playwright-cli`); Claude Code and Copilot use their built-in browser |
 
 ### Helpers
 
@@ -97,9 +98,11 @@ Everything is in [setup.json](setup.json). After a change, rerun `node install.m
 
 ```json
 {
-  "skills": { "debate": false }
+  "skills": { "debate": false, "playwright": ["kiro"] }
 }
 ```
+
+`false` removes a part, `true` installs it for all 3 tools, and a list such as `["kiro"]` installs it only there; this works for skills, helpers (`on`) and MCP servers. Claude Code and Copilot share `.mcp.json`, so an MCP server on for one is seen by both; a server of ours that is off for a file is removed from it on every run, even if you add it there by hand.
 
 - **Models:** each helper names a tier; `models` maps the tier to a model ID per tool. A per-device model for one helper: see the `$comment` in `setup.json`.
 - **Built-ins turned off** (`off`), because this setup replaces them: Claude auto memory, Claude's Concise output style, Copilot local memory, Copilot reading `.claude/` files, and the retired GitHub and Playwright MCP servers. Kiro's memory is off by default; Copilot's cloud memory is a GitHub account setting. Review the list after vendor updates.
@@ -143,4 +146,5 @@ CI runs `node --test` on Windows on every push ([.github/workflows/test.yml](.gi
 
 - Code rules follow [Ponytail](https://github.com/DietrichGebert/ponytail) (MIT); the version last compared is in `docs/ai/memory.md`.
 - `skills/obsidian/bases*.md` and `canvas*.md`: [kepano/obsidian-skills](https://github.com/kepano/obsidian-skills) `9c9560a` (MIT, Copyright (c) 2026 Steph Ango).
+- `skills/playwright/`: [microsoft/playwright-cli](https://github.com/microsoft/playwright-cli) `dc5f4d5` (Apache-2.0, see its LICENSE).
 - The decision Review column in the `memory.md` template is adapted from [chief-of-staff](https://github.com/alirezarezvani/claude-skills/tree/main/c-level-advisor/skills/chief-of-staff) (MIT).

@@ -45,6 +45,9 @@ const walk = (dir, base = dir) => existsSync(dir) ? readdirSync(dir, { withFileT
 const json = (v, like = '') => JSON.stringify(v, null, /^\{\s*\n(\t|[ ]+)\S/.exec(like)?.[1] ?? 2) + '\n';
 const textOf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 const isObj = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+// a skill, agent or MCP server is on for every tool (true), for none (false) or for the tools listed (["kiro"])
+const forTool = (v, tool) => v === true || (Array.isArray(v) && v.includes(tool));
+const isSwitch = (v) => typeof v === 'boolean' || (Array.isArray(v) && v.length > 0 && v.every((t) => TOOLS.includes(t)));
 
 // frontmatter: `key: value`, "quoted" strings and [a, b] lists only
 export function frontmatter(text) {
@@ -79,10 +82,11 @@ export function loadSetup(repo = REPO) {
   same('hooks', Object.keys(s.hooks), ['guard']);
   for (const t of TIERS) for (const tool of TOOLS) if (typeof s.models[t]?.[tool] !== 'string' || !s.models[t][tool]) throw new Error(`setup.json: models.${t}.${tool} must be a model id`);
   for (const [n, a] of Object.entries(s.agents)) {
-    if (!isObj(a) || typeof a.on !== 'boolean' || !TIERS.includes(a.tier)) throw new Error(`setup.json: agents.${n} needs on (true/false) and tier (${TIERS.join(', ')})`);
+    if (!isObj(a) || !isSwitch(a.on) || !TIERS.includes(a.tier)) throw new Error(`setup.json: agents.${n} needs on (true, false or a list of tools) and tier (${TIERS.join(', ')})`);
   }
   for (const k of ['main', 'builtins']) if (s[k] && !TIERS.includes(s[k].tier)) throw new Error(`setup.json: ${k}.tier must be one of ${TIERS.join(', ')}`);
-  for (const group of ['tools', 'rules', 'skills', 'hooks', 'mcp']) for (const [n, v] of Object.entries(s[group])) if (typeof v !== 'boolean') throw new Error(`setup.json: ${group}.${n} must be true or false`);
+  for (const group of ['tools', 'rules', 'hooks']) for (const [n, v] of Object.entries(s[group])) if (typeof v !== 'boolean') throw new Error(`setup.json: ${group}.${n} must be true or false`);
+  for (const group of ['skills', 'mcp']) for (const [n, v] of Object.entries(s[group])) if (!isSwitch(v)) throw new Error(`setup.json: ${group}.${n} must be true, false or a list of tools (${TOOLS.join(', ')})`);
   return s;
 }
 
@@ -111,7 +115,7 @@ export function workFiles({ repo, setup, tools, work, vault }) {
   for (const skill of Object.keys(setup.skills).filter((s) => setup.skills[s])) {
     for (const rel of walk(join(repo, 'skills', skill)).filter((f) => !SKIP.test(f))) {
       const src = join(repo, 'skills', skill, rel);
-      for (const tool of tools) {
+      for (const tool of tools.filter((t) => forTool(setup.skills[skill], t))) {
         const dest = `${SKILL_DIR[tool]}/${skill}/${rel}`;
         if (rel !== 'SKILL.md') { out[dest] = readFileSync(src); continue; }
         const { meta, body } = frontmatter(readText(src));
@@ -132,6 +136,7 @@ export function workFiles({ repo, setup, tools, work, vault }) {
       if (!AGENT_TOOLS[tool][t]) throw new Error(`agents/${name}.md: unknown tool ${t}`);
       return AGENT_TOOLS[tool][t];
     }))];
+    const on = (t) => tools.includes(t) && forTool(cfg.on, t);
     if (on('claude')) out[`.claude/agents/${name}.md`] = yaml({ name, description: meta.description, model: model('claude'), ...(cfg.effort && { effort: cfg.effort }), tools: list('claude').join(', ') }) + header(`agents/${name}.md`) + body;
     if (on('copilot')) out[`.github/agents/${name}.agent.md`] = yaml({ name, description: meta.description, tools: list('copilot'), model: model('copilot'), ...(cfg.effort && { 'reasoning-effort': cfg.effort }) }) + header(`agents/${name}.md`) + body;
     if (on('kiro')) {
@@ -452,7 +457,7 @@ export function install(opts = {}) {
     kiro: existsSync(join(home, '.kiro')) || detect('kiro'),
   };
   const tools = TOOLS.filter((t) => setup.tools[t] && found[t]);
-  const clis = Object.fromEntries([['claude', 'claude'], ['gh', 'gh'], ['gitleaks', 'gitleaks']].map(([k, c]) => [k, detect(c)]));
+  const clis = Object.fromEntries([['claude', 'claude'], ['gh', 'gh'], ['gitleaks', 'gitleaks'], ['playwright', 'playwright-cli']].map(([k, c]) => [k, detect(c)]));
   const projects = readdirSync(work, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.') && existsSync(join(work, e.name, 'code'))).map((e) => e.name).sort();
   setup.deviceModels = isObj(device.models) ? device.models : {};
 
@@ -510,22 +515,25 @@ export function install(opts = {}) {
     if (existsSync(file) && !before.has(rel) && !same(readFileSync(file), data)) backup(file, rel);
     write(file, data);
   }
-  const ignoreLines = ['/AI-Setup/'];
+  const ignoreLines = ['/AI-Setup/', '/.playwright-cli/'];
   write(join(work, '.ignore'), mergeIgnore(existsSync(join(work, '.ignore')) ? readFileSync(join(work, '.ignore'), 'utf8') : '', ignoreLines, managed.ignore ?? []));
 
   // 2. MCP: workspace files only (~/.claude.json is never touched)
   const servers = Object.fromEntries(Object.keys(setup.mcp).filter((n) => setup.mcp[n]).map((n) => [n, JSON.parse(readText(join(repo, 'mcp', `${n}.json`)))]));
   const dropMcp = [...new Set([...(setup.off['retired-mcp'] ?? []), ...(device.mcpSynced ?? []).filter((n) => !(n in servers))])];
-  const mcpFile = (file, key, enabled, entry) => {
+  // fileTools: the tools that read the file; a server goes in when it is on for one of them
+  const mcpFile = (file, key, fileTools, entry) => {
     const cur = readJson(file);
     if (cur === null) { warnings.push(`${file} is not plain JSON: MCP servers not merged`); return; }
-    if (!existsSync(file) && !enabled) return;
-    const next = mergeMcp(cur, { key, servers: enabled ? servers : {}, remove: enabled ? dropMcp : [...dropMcp, ...Object.keys(servers)], entry });
+    const mine = Object.fromEntries(Object.entries(servers).filter(([n]) => fileTools.some((t) => tools.includes(t) && forTool(setup.mcp[n], t))));
+    if (!existsSync(file) && !Object.keys(mine).length) return;
+    const next = mergeMcp(cur, { key, servers: mine, remove: [...dropMcp, ...Object.keys(servers).filter((n) => !(n in mine))], entry });
     if (existsSync(file) || Object.keys(next[key] ?? {}).length) write(file, json(next, textOf(file)));
   };
   const plainEntry = ({ type, url, command, args, env, headers }) => ({ type, ...(url && { url }), ...(command && { command }), ...(args && { args }), ...(env && { env }), ...(headers && { headers }) });
-  mcpFile(join(work, '.mcp.json'), 'mcpServers', tools.includes('claude') || tools.includes('copilot'), (d) => ({ ...plainEntry(d), tools: ['*'] }));
-  mcpFile(join(work, '.kiro/settings/mcp.json'), 'mcpServers', tools.includes('kiro'), (d) => { const { type, ...rest } = plainEntry(d); return rest; });
+  // Claude Code and Copilot share .mcp.json, so a server on for either one is seen by both
+  mcpFile(join(work, '.mcp.json'), 'mcpServers', ['claude', 'copilot'], (d) => ({ ...plainEntry(d), tools: ['*'] }));
+  mcpFile(join(work, '.kiro/settings/mcp.json'), 'mcpServers', ['kiro'], (d) => { const { type, ...rest } = plainEntry(d); return rest; });
   if (existsSync(join(work, '.vscode/mcp.json'))) {
     const cur = readJson(join(work, '.vscode/mcp.json'));
     if (cur) write(join(work, '.vscode/mcp.json'), json(mergeMcp(cur, { key: 'servers', servers: {}, remove: dropMcp, entry: (d) => d })));

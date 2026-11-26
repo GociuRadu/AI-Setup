@@ -17,6 +17,6 @@ Smoke test of the AI setup, answer in at most 8 lines:
 | Skills | all 4 names are listed |
 | Agent | `tester` ran on the `fast` model in `setup.json` and returned the Node version |
 | Guard | the push is blocked with "force-push is a hard stop" and never runs |
-| Browser | quotes "Example Domain" from the tool's own browser (Claude in Chrome, Copilot browser tools, Kiro); "no browser tool" is a result to record in `context.md`, not a fail |
+| Browser | quotes "Example Domain" from the tool's own browser (Claude in Chrome, Copilot browser tools); Kiro: "no browser tool" is expected (checked 2026-11-26); its browser is the `playwright` skill, checked once with "open https://example.com with playwright and quote the title" |
 
 Also once per tool: ask it to run `git push` in a scratch repo with no remote. Claude Code and Copilot must ask you first (the guard's ask; answer no); Kiro must block it with "Blocked in Kiro: git push requires approval".
