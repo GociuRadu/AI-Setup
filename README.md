@@ -133,7 +133,7 @@ Missing files are created from [templates/](templates/) (`app` or `data-eng`).
 ## Maintain
 
 ```powershell
-node --test           # 41 tests: install, guard, vault checker, report builder
+node --test           # tests: install, guard, vault checker, report builder
 node install.mjs      # apply the change, then start a new chat in each tool
 ```
 

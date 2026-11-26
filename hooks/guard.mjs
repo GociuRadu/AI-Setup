@@ -10,7 +10,8 @@
 // Ask (one list on every device): git push, Git that discards work or rewrites history, deletes outside the workspace, of a
 // whole project or in the vault, the vault's Personal folder, publishing, data loaders, cloud CLIs, writing gh and HTTP
 // calls, writes to shared MCP servers and deleting MCP tools.
-// shortcut: matches command text and path arguments only; code that opens its own connection (pytest, a loader) is not seen.
+// shortcut: matches command text and path arguments only (strings in inline -c/-e code included); code that opens its own
+// connection or builds a command at run time (pytest, a loader, a script file) is not seen; upgrade if an agent does that.
 // Speed: every check is a regex on the call; the file system is touched only for paths a regex already picked out.
 import { readFileSync, existsSync, realpathSync, statSync } from 'node:fs';
 import { resolve, relative, isAbsolute, join, dirname, basename } from 'node:path';
@@ -147,6 +148,9 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
       return HARD_STOPS.filter(([re], i) => (i === 0 ? re.test(s) || re.test(u) : re.test(s) && !SEARCH.test(s)));
     })[0];
     if (hard) return `${hard[1]} is a hard stop`;
+    // code an interpreter runs inline: the strings inside it are checked as commands (os.system('git push -f'))
+    const bare = part.replace(WRAPPERS, '');
+    if (INLINE.test(bare)) for (const q of quotedDeep(bare)) { const r = check(q, cwd, root); if (r) return r; }
     // a program that only receives an env file (docker compose --env-file local.env) is fine; reading it is not
     if (part.split('|').some((s) => READER.test(s) && isSecret(s))) return 'secret files (.env and similar) are never opened by the agent';
     if (tokens(part).some((t) => /personal/i.test(t) && isPersonal(t.replace(/^[\w-]+[=:](?![\\/])/, ''), cwd, root))) return 'the personal/ folder is private';
@@ -252,6 +256,11 @@ export function checkToolHardStop(toolName = '') {
 // also `env [-i] [-u NAME]` and `NAME=value` prefixes, so `env git push -f` and `GIT_TRACE=1 git push` are seen
 const WRAPPERS = /^\s*(?:&\s*|[({]\s*|(?:cmd(?:\.exe)?\s+\/[ck]|(?:bash|sh|zsh)(?:\.exe)?\s+-l?c|powershell(?:\.exe)?\s+(?:-\w+\s+)*-Command|pwsh(?:\.exe)?\s+(?:-\w+\s+)*-Command|wsl(?:\.exe)?(?:\s+-d\s+\S+)?|sudo|exec|env(?:\s+(?:-u\s+\S+|-\w+))*|[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|[^\s"']*))\s+["']?)*/i;
 const PRINT = /^\s*(grep|egrep|rg|findstr|Select-String|sls|echo|Write-Host|Write-Output)\b/i;
+// interpreters running code given inline (python -c, node -e, perl -e, ...)
+const INLINE = /^\s*(python[\d.]*|py|node|deno|bun|perl|ruby|php)(\.exe)?\b[^|]*?\s(-c|-e|--eval|-r|-p)(\s|$)/i;
+// the strings in a command, and the strings inside those: the inline code, then the commands it runs
+const quoted = (s) => [...String(s).matchAll(/"([^"]*)"|'([^']*)'/g)].map((m) => m[1] ?? m[2]);
+const quotedDeep = (s) => { const one = quoted(s); return [...one, ...one.flatMap(quoted)]; };
 // git, its global options (those with a value first, then any --flag[=x] or -X such as -P), the subcommand and the rest
 const GIT = /^\s*git(?:\.exe)?((?:\s+(?:-C\s+(?:"[^"]+"|'[^']+'|\S+)|-c\s+\S+|--(?:git-dir|work-tree|namespace|exec-path|config-env|super-prefix)[=\s]\S+|--[\w-]+(?:=\S+)?|-[A-Za-z]))*)\s+([\w-]+)(.*)$/i;
 // local Git that discards work or rewrites history; everything else local (add, commit, switch, stash, fetch, pull, merge) runs
@@ -279,6 +288,8 @@ function gitAsk(stage) {
   const m = GIT.exec(stage);
   if (!m) return null;
   const sub = m[2].toLowerCase(), rest = m[3];
+  // `git -c alias.p=push p -f`: an alias set on the command line can stand for any command
+  if (/(^|\s)-c\s+["']?alias\./i.test(m[1])) return 'a git alias set on the command line can run anything and requires approval';
   if (sub === 'push') return 'git push requires approval';
   return GIT_DISCARD[sub]?.(rest) ? `git ${sub} can discard work or rewrite history and requires approval` : null;
 }
@@ -350,6 +361,7 @@ function shellAsk(command, cwd, root) {
     for (const s of part.split('|')) {
       const stage = s.replace(WRAPPERS, '');
       if (PRINT.test(stage)) continue;
+      if (INLINE.test(stage)) for (const q of quotedDeep(stage)) { const r = shellAsk(q, cwd, root); if (r) return r; }
       const git = gitAsk(stage);
       if (git) return git;
       if (DELETE_CMD.test(stage)) { const d = deleteAsk(stage, cwd, root); if (d) return d; }

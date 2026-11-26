@@ -153,8 +153,8 @@ const same = (a, b) => Buffer.from(a).equals(Buffer.from(b));
 
 // ---- user-level and shared files: only managed keys change ----
 
-// JSON with comments cannot be rewritten without losing them; such a file is left for the user (with the keys to set).
-// shortcut: comments or trailing commas in a settings file stop the merge, upgrade to a comment-preserving editor if it happens often
+// Claude's settings and the MCP files are plain JSON; one with comments is left for the user (with the keys to set).
+// VS Code settings, which often have comments, go through editJsonc instead.
 function readJson(file) {
   if (!existsSync(file)) return {};
   const text = readFileSync(file, 'utf8');
@@ -193,13 +193,19 @@ export function mergeClaudeSettings(cur, { setup, work, enabled, managed, repo =
   if (pre.length) s.hooks = { ...s.hooks, PreToolUse: pre };
   else if (s.hooks) { delete s.hooks.PreToolUse; if (!Object.keys(s.hooks).length) delete s.hooks; }
   const keys = [];
+  let model;
   if (enabled) {
     if (setup.off['claude-auto-memory']) { s.autoMemoryEnabled = false; keys.push('autoMemoryEnabled'); }
     if (setup.off['claude-output-style'] && s.outputStyle === 'Concise') delete s.outputStyle;
-    if (setup.main) { s.model = setup.models[setup.main.tier].claude; keys.push('model'); }
+    // the main model, unless the user picked another one (with /model or by hand) after the install last set it
+    if (setup.main) {
+      const want = setup.models[setup.main.tier].claude;
+      const ours = managed.claudeModel ?? (managed.claudeKeys?.includes('model') ? want : undefined);
+      if (s.model === undefined || s.model === ours) { s.model = want; model = want; }
+    }
     keys.push('defaultMode');
   } else if (managed.claudeKeys?.includes('autoMemoryEnabled')) delete s.autoMemoryEnabled;
-  return { settings: s, deny, keys };
+  return { settings: s, deny, keys, model };
 }
 
 // VS Code User settings.json: hooks on, Claude's files and hooks off for Copilot, Copilot memory off, never-auto-approve rules
@@ -220,6 +226,77 @@ export function vscodeKeys(setup) {
   keys['chat.tools.edits.autoApprove'] = { '**/.env': false, '**/.env.*': false, '**/*.env': false, '**/*.mdenc': false, '**/personal/**': false };
   return keys;
 }
+// JSON with comments (VS Code settings.json): comments and trailing commas become spaces, so the text parses as JSON and
+// every offset still points at the same place in the original
+export function blankJsonc(text) {
+  const c = text.split('');
+  const pass = (fn) => { for (let i = 0, str = false; i < c.length; i++) {
+    if (str) { if (c[i] === '\\') i++; else if (c[i] === '"') str = false; continue; }
+    if (c[i] === '"') str = true; else i = fn(i);
+  } };
+  pass((i) => {
+    if (c[i] !== '/' || (c[i + 1] !== '/' && c[i + 1] !== '*')) return i;
+    const end = c[i + 1] === '/' ? text.indexOf('\n', i) : text.indexOf('*/', i + 2) + 2;
+    const stop = end <= 1 || end < 0 ? c.length : end;
+    for (let j = i; j < stop; j++) if (c[j] !== '\n') c[j] = ' ';
+    return stop - 1;
+  });
+  pass((i) => { if (c[i] === ',') { let j = i + 1; while (/\s/.test(c[j] ?? '')) j++; if (c[j] === '}' || c[j] === ']') c[i] = ' '; } return i; });
+  return c.join('');
+}
+// the top-level keys of a JSON object text: where each key starts and where its value starts and ends
+function topLevelKeys(b) {
+  const spans = new Map();
+  let depth = 0, key = null, keyStart = -1, valStart = -1, open = -1;
+  for (let i = 0; i < b.length; i++) {
+    const ch = b[i];
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < b.length && b[j] !== '"') j += b[j] === '\\' ? 2 : 1;
+      if (depth === 1 && key === null) { key = JSON.parse(b.slice(i, j + 1)); keyStart = i; }
+      i = j;
+    } else if (ch === ':' && depth === 1 && valStart < 0) valStart = i + 1;
+    else if (ch === '{' || ch === '[') { if (depth === 0) open = i; depth++; }
+    else if ((ch === ',' || ch === '}') && depth === 1) {
+      if (key !== null) spans.set(key, { keyStart, valStart, valEnd: b.slice(0, i).trimEnd().length });
+      key = null; valStart = -1;
+      if (ch === '}') depth--;
+    } else if (ch === '}' || ch === ']') depth--;
+  }
+  return { spans, open };
+}
+// writes only the top-level keys that changed from `cur` to `next` into the JSONC text, so the user's comments stay
+// (comments inside a value that changes are lost with that value)
+export function editJsonc(text, cur, next) {
+  const b = blankJsonc(text);
+  const { spans, open } = topLevelKeys(b);
+  const unit = /\n([ \t]+)"/.exec(text)?.[1] ?? '  ';
+  const val = (v) => JSON.stringify(v, null, unit).replace(/\n/g, `\n${unit}`);
+  const edits = [];
+  const adds = [];
+  for (const k of new Set([...Object.keys(cur), ...Object.keys(next)])) {
+    if (JSON.stringify(cur[k]) === JSON.stringify(next[k])) continue;
+    const sp = spans.get(k);
+    if (sp && k in next) edits.push([sp.valStart, sp.valEnd, ` ${val(next[k])}`]);
+    else if (sp) {
+      // the member and one comma: the one after it, else the one before it
+      const after = b.slice(sp.valEnd).search(/\S/) + sp.valEnd;
+      const lineStart = b.lastIndexOf('\n', sp.keyStart - 1) + 1;
+      const from = /^\s*$/.test(b.slice(lineStart, sp.keyStart)) ? lineStart : sp.keyStart;
+      if (b[after] === ',') edits.push([from, after + 1, '']);
+      else { const before = b.slice(0, sp.keyStart).trimEnd(); edits.push([before.endsWith(',') ? before.length - 1 : from, sp.valEnd, '']); }
+    } else adds.push(`${unit}${JSON.stringify(k)}: ${val(next[k])}`);
+  }
+  if (adds.length) {
+    const last = [...spans.values()].filter((s) => edits.every(([f, t, r]) => r !== '' || s.keyStart < f || s.keyStart >= t)).sort((x, y) => y.valEnd - x.valEnd)[0];
+    if (last) edits.push([last.valEnd, last.valEnd, `,\n${adds.join(',\n')}`]);
+    else edits.push([open + 1, open + 1, `\n${adds.join(',\n')}\n`]);
+  }
+  let out = text;
+  for (const [from, to, rep] of edits.sort((x, y) => y[0] - x[0])) out = out.slice(0, from) + rep + out.slice(to);
+  return out;
+}
+
 export function mergeVscode(cur, { setup, enabled, managed }) {
   const s = structuredClone(cur);
   // previous managed entries: [key] or [key, subkey]
@@ -445,19 +522,24 @@ export function install(opts = {}) {
     const cur = readJson(claudeFile);
     if (cur === null) warnings.push(`${claudeFile} is not plain JSON: set permissions.defaultMode "auto", autoMemoryEnabled false and the guard hook by hand`);
     else {
-      const { settings, deny, keys } = mergeClaudeSettings(cur, { setup, work, enabled: tools.includes('claude'), managed, repo });
+      const { settings, deny, keys, model } = mergeClaudeSettings(cur, { setup, work, enabled: tools.includes('claude'), managed, repo });
       writeUser(claudeFile, json(settings, textOf(claudeFile)));
       if (deny.length) next.claudeDeny = deny;
       if (keys.length) next.claudeKeys = keys;
+      if (model) next.claudeModel = model;
     }
   }
   const vsFile = join(vscodeUser, 'settings.json');
   if (tools.includes('copilot') || managed.vscode) {
-    const cur = readJson(vsFile);
-    if (cur === null) warnings.push(`${vsFile} has comments or trailing commas: add these keys by hand: ${JSON.stringify(vscodeKeys(setup))}`);
+    // VS Code allows comments and trailing commas; with any, only the changed keys are edited in place
+    const text = textOf(vsFile).replace(/^﻿/, '');
+    const blank = blankJsonc(text);
+    let cur = null;
+    try { cur = JSON.parse(blank.trim() || '{}'); } catch { /* not JSON even without comments */ }
+    if (!isObj(cur)) warnings.push(`${vsFile} is not valid JSON: add these keys by hand: ${JSON.stringify(vscodeKeys(setup))}`);
     else {
       const { settings, entries } = mergeVscode(cur, { setup, enabled: tools.includes('copilot'), managed });
-      writeUser(vsFile, json(settings, textOf(vsFile)));
+      writeUser(vsFile, blank === text || !text.trim() ? json(settings, text) : editJsonc(text, cur, settings));
       if (entries.length) next.vscode = entries;
     }
   }

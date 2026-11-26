@@ -1,4 +1,5 @@
-# Runs every test on push and pull request, on Windows like the devices this setup runs on.
+# Runs every test on push and pull request, on Windows like the devices this setup runs on, and scans the whole Git
+# history for secrets (gitleaks; no license needed for a personal account's repos).
 name: test
 on: [push, pull_request]
 permissions:
@@ -12,3 +13,12 @@ jobs:
         with:
           node-version: 24
       - run: node --test
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
