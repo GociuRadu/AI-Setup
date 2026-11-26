@@ -1,27 +1,24 @@
 # AI setup context
 
-Current state and open work, under 40 lines. Decisions: [memory.md](memory.md); full decision set and build plan: [plan.md](plan.md).
+Current state and open work, under 40 lines. Decisions: [memory.md](memory.md) (replaced ones in [memory-archive.md](memory-archive.md)); full decision set and build plan: [plan.md](plan.md).
 
 ## Current state
 
-- Updated: 2026-11-26
-- Built on the home laptop from plan.md section 4, steps 1-10, and pushed to GitHub `main` as one commit on top of the old setup (a normal push, no force). The old setup stays on the branches `old-setup` (`31bf710`) and `ai-setup-port` (`55c4bc8`).
-- `node --test`: 44 tests pass (2026-11-26, after the grade improvements).
-- Home laptop: installed for Claude Code, Copilot and Kiro; the old setup is gone (step 12 done here before step 11, by the user's choice): `_ai/`, `setup-ui/`, `work/.github/workflows/`, the old repo files and `work/.git` deleted; old generated files and `work/docs/` are in `work/.ai/backup/old-setup-2026-11-26/`; the old Kiro workspace-roots block removed.
-- Step 3 check: every rule of the old `work/AGENTS.md` is in `rules/always.md` or a skill, except 3 dropped on purpose: the `home`/`work` profiles (one ask list in the guard), "never a built-in subagent" (built-ins stay on, plan 3.1), "generated from `_ai/`" (the repo replaces it).
-- Claude auto-memory preferences moved: replies and the heredoc gotcha to `rules/always.md`; decide before building, deep research, industry-standard and future-proof options to `pplan`; one-file study notes and content-only notes to `obsidian`; no headline numbers to `review`. The old memory files stay on disk, unloaded (`autoMemoryEnabled: false`).
+- Updated: 2026-11-26. `main` = `review-fixes` = `6f3a3c7` on GitHub; CI (Windows `node --test` + gitleaks) green on `24bca62`, later pushes not checked.
+- `node --test`: 44 tests pass (2026-11-26). `node install.mjs` twice: "nothing to change".
+- Home laptop: installed for Claude Code, Copilot and Kiro; the old setup is gone (backup in `work/.ai/backup/old-setup-2026-11-26/`).
+- Today's review and fixes: [report](reports/2026-11-26-review-ai-setup.html); every fix with its reason is in memory.md (guard bypasses, Kiro asks are blocks, Copilot hook writes `hookSpecificOutput`, Kiro YAML and backups, CI 8.3 temp path, Copilot models as `"Claude Haiku 5.5 (copilot)"`).
+- A `reviewer` graded the setup 7.5/10 before the last improvements (weakest: per-tool integration 7, MCP and tools 6.5, docs 7).
+- Helpers: rules send commands and Git history to `tester` (Haiku) and searches to `researcher` (Sonnet); built-in agents in Claude Code default to Sonnet (`CLAUDE_CODE_SUBAGENT_MODEL`); forks run on the main model, so last resort.
 
 ## Open work
 
 | Item | Status | Next action |
 |---|---|---|
-| Review fixes and grade improvements | done 2026-11-26, on `main` at `24bca62` (pushed as a fast-forward): see [report](reports/2026-11-26-review-ai-setup.html) and memory.md. CI had failed since `fc8fa76` (8.3 short temp path on the runner), fixed in `d3af46f` | none: CI green on `main` (2026-11-26) |
-| Smoke prompts (step 10) | Claude Code: 4/4 pass. Kiro: pass after the fix (asks are blocks). Copilot (2026-11-26): rules and skills pass; `tester` failed with "400 The requested model is not supported" (`claude-haiku-5.5`); `git push` ran unprompted because VS Code reads only `hookSpecificOutput.permissionDecision`, fixed in `24bca62` | Copilot models now written as `"Claude Haiku 5.5 (copilot)"` (VS Code's documented form, as the old setup had them); this laptop has no Copilot account, so rerun the Copilot smoke prompt on the work laptop (step 11) |
-| `~/.kiro/skills` | done 2026-11-26: 3 broken junctions removed by hand; the install now does it | none |
-| Work laptop (step 11) | not started | clone into `work/`, `node AI-Setup/install.mjs --vault <path>` (now also clears the old Kiro workspace block and broken skill links), Policy Diagnostics; then the step 12 clean-up there (old `_ai/` workspace) |
-| Kiro prompts | not checked | the old workspace block allowed everything in `work/`; Kiro now uses only the user-level rules, so it may ask more often |
-| Remaining checks (plan 5) | open | Copilot writes to the vault, Copilot skill discovery with `.claude/skills` off, Kiro model IDs, Obsidian Sync of edits made while closed |
-
-## Open questions
-
-- Copilot `claude-*-5.5` model IDs are not in the SDK's static list (2026-11-17): confirm in the model picker at work.
+| Skill and helper evaluation | next (user, 2026-11-26) | per skill and helper, run a few real tasks with and without it and compare result, tokens and time; keep, trim or drop it; changes go into the repo (setup level), not local copies |
+| Duplicate and bloat review | after the evaluation | a fresh `reviewer` (Sonnet) audits the whole repo for duplicated or useless text across rules, skills, agents, README and docs; fix in the repo, add a test where a duplicate could come back |
+| Smoke prompts (step 10) | Claude Code 4/4 pass; Kiro pass; Copilot: rules and skills pass, `tester` model and the guard ask not yet confirmed (this laptop has no Copilot account) | rerun [smoke.md](smoke.md) in Copilot on the work laptop |
+| Work laptop (step 11) | not started | clone into `work/`, `node AI-Setup/install.mjs --vault <path>`, Copilot smoke prompt, check Claude 5.5 in the Copilot and Kiro model pickers |
+| Missing CLIs | open | install `gh`, `gitleaks`, `playwright-cli` on both laptops |
+| Remaining checks (plan 5) | open | Copilot writes to the vault, Copilot skill discovery with `.claude/skills` off, Obsidian Sync of edits made while closed |
+| Vault notes | open | `Agentic AI Design Patterns` (too long, footnotes) and `Git` (footnotes) fail `vault.mjs check`; `My AI Coding Setup` rewritten and clean |
