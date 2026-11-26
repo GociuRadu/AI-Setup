@@ -111,7 +111,7 @@ Everything is in [setup.json](setup.json). After a change, rerun `node install.m
 
 | Layer | What it does |
 |---|---|
-| Guard ([hooks/guard.mjs](hooks/guard.mjs)), all 3 tools | **Blocks** writing SQL, anything on PRODUCTION or staging, force-push, `docker compose down -v`, SSH, Hostinger `execute`, Atlassian `executeDestructive`, `.env` files, the `personal/` folder and encrypted `.mdenc` notes. **Asks** before `git push`, Git that discards work, deletes outside the workspace, of a whole project or in the vault, the vault's `Personal/`, publishing, data loaders, `az`, `kubectl`, `helm`, `terraform`, writing `gh` or HTTP calls, and writes to shared MCP servers; in Kiro these are blocked instead, and you run them, because a Kiro allow rule can approve the ask without showing it. If it fails, or its input is not JSON, it blocks. |
+| Guard ([hooks/guard.mjs](hooks/guard.mjs)), all 3 tools | **Blocks** writing SQL, anything on PRODUCTION or staging, force-push, `docker compose down -v`, SSH, Hostinger `execute`, Atlassian `executeDestructive`, `.env` files, the `personal/` folder and encrypted `.mdenc` notes. **Asks** before `git push`, Git that loses uncommitted work, deletes outside the workspace (the vault included) or of a whole project, the vault's `Personal/`, publishing, data loaders, `az`, `kubectl`, `helm`, `terraform`, `gh` merges, deletes and releases, HTTP calls that send data to a host other than localhost, deleting MCP tools and Hostinger changes; in Kiro these are blocked instead, and you run them, because a Kiro allow rule can approve the ask without showing it. If it fails, or its input is not JSON, it blocks. |
 | Tool settings | Claude Code auto mode and deny rules; Copilot never-auto-approve rules (Copilot runs a call when a hook times out); Kiro deny rules |
 | Rules | The safety section of [rules/always.md](rules/always.md): databases are read-only, every write is a draft with a rollback |
 
@@ -144,6 +144,7 @@ CI runs `node --test` on Windows and a gitleaks secret scan on every push ([.git
 
 ## Credits
 
+- The reply rules in `rules/always.md` adapt [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd) (MIT): next action first, numbered steps, state each turn, lists of 5 at most.
 - Code rules follow [Ponytail](https://github.com/DietrichGebert/ponytail) (MIT); the version last compared is in `docs/ai/memory.md`.
 - `skills/obsidian/bases*.md` and `canvas*.md`: [kepano/obsidian-skills](https://github.com/kepano/obsidian-skills) `9c9560a` (MIT, Copyright (c) 2026 Steph Ango).
 - `skills/playwright/`: [microsoft/playwright-cli](https://github.com/microsoft/playwright-cli) `dc5f4d5` (Apache-2.0, see its LICENSE).

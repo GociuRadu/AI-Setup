@@ -6,10 +6,10 @@
 // - hard stops: force-push, deleting Docker volumes, production compose files, release scripts, SSH, Hostinger execute,
 //   Atlassian executeDestructive;
 // - secret files (.env, local.env, ...) and the workspace's personal/ folder, by shell or file tools;
-// - encrypted .mdenc notes of the Obsidian vault named in .ai-device.json.
-// Ask (one list on every device): git push, Git that discards work or rewrites history, deletes outside the workspace, of a
-// whole project or in the vault, the vault's Personal folder, publishing, data loaders, cloud CLIs, writing gh and HTTP
-// calls, writes to shared MCP servers and deleting MCP tools.
+// - encrypted .mdenc notes, by name, anywhere.
+// Ask (one list on every device): git push, Git that discards uncommitted work, deletes outside the workspace (the vault
+// included) or of a whole project, the vault's Personal folder, publishing, data loaders, cloud CLIs, gh merges, deletes
+// and releases, HTTP calls that send data to a host other than localhost, and deleting MCP tools.
 // shortcut: matches command text and path arguments only (strings in inline -c/-e code included); code that opens its own
 // connection or builds a command at run time (pytest, a loader, a script file) is not seen; upgrade if an agent does that.
 // Speed: every check is a regex on the call; the file system is touched only for paths a regex already picked out.
@@ -38,9 +38,7 @@ const HARD_STOPS = [
   [/\bdocker\s+(volume\s+(rm|prune)|system\s+prune)\b/i, 'deleting Docker volumes'],
   [/\bcompose\b.*\b(prod|production|staging|hostinger|monitoring)\b/i, 'a production or staging compose file'],
   [/\b(release|rollback)\.sh\b/i, 'a release or rollback script'],
-  // ssh as the command word: first, after &, wsl [-d X], sudo, exec, or inside -c/-lc/-Command/cmd /c
-  [/(^\s*&?\s*([A-Za-z_]\w*=\S*\s+)*|\b(wsl(\s+-d\s+\S+)?|sudo|exec|env)\s+|(-l?c|-Command|\/c)\s+["']?)(ssh|scp|sftp)(\.exe)?\s/i, 'SSH to a server'],
-  // the command word after bareCmd: `Start-Process ssh`, `/usr/bin/ssh host`
+  // the command word after bareCmd (wrappers, VAR=, paths off): `wsl ssh host`, `Start-Process ssh`, `/usr/bin/ssh host`
   [/^(ssh|scp|sftp)(\.exe)?(["']?\s|$)/i, 'SSH to a server'],
 ];
 // the workspace root (this file is <workspace>/.ai/hooks/guard.mjs), so personal/ is found from any working folder
@@ -68,7 +66,8 @@ function vaultOf(root) {
     return typeof v === 'string' && isAbsolute(v) ? v : null;
   } catch { return null; }
 }
-const MDENC = 'encrypted .mdenc notes of the Obsidian vault are never opened by the agent';
+const MDENC = 'encrypted .mdenc notes are never opened by the agent';
+const isMdenc = (text) => String(text).split(/[\s,;<>()"'|=]+/).some((w) => /\.mdenc$/i.test(w));
 const PERSONAL = "this reads or touches the Obsidian vault's Personal folder";
 const WHOLE = "this reads the whole Obsidian vault, Personal folder included; name one folder, for example Learn, to skip the prompt";
 // the real path, so a short Windows name or a link is seen; for a file that does not exist yet, that of its nearest folder
@@ -76,7 +75,7 @@ const real = (p) => { try { return realpathSync.native(p); } catch { const up = 
 // a path as the shell would see it: home folder, file:, \\?\, Git Bash drive
 const plain = (path) => String(path).replace(/^(~|\$HOME|\$\{HOME\}|\$env:USERPROFILE|\$\{env:USERPROFILE\}|\$USERPROFILE|%USERPROFILE%)(?=[\\/]|$)/i, () => homedir())
   .replace(/^file:\/+(?=[A-Za-z]:)/i, '').replace(/^[\\/]{2}[?.][\\/]/, '').replace(/^\/([A-Za-z])(?=\/|$)/, '$1:/');
-// 'mdenc' for an encrypted note; 'personal' for the vault's Personal folder (or a wildcard that can climb into it);
+// 'personal' for the vault's Personal folder (or a wildcard that can climb into it);
 // 'whole' for the vault root or a wildcard in its first level; 'above' for a folder that holds the vault; 'in' for any
 // other vault path; else null. Windows drops dots and spaces at the end of a folder name.
 function vaultPart(path, cwd, vault) {
@@ -84,7 +83,6 @@ function vaultPart(path, cwd, vault) {
   const [fixed, ...wild] = text.split(/[*?{[]/);
   const full = resolve(cwd, fixed);
   const rel = relative(real(vault), real(full)).replace(/\\/g, '/');
-  if (!outside(rel) && /\.mdenc$/i.test(text)) return 'mdenc';
   // after a wildcard, .. can climb back to any folder
   if (!outside(rel) && (/^personal($|[\/:])/i.test(rel) || wild.some((w) => /\.\.[\\/]/.test(w)))) return 'personal';
   if (!outside(rel) && (rel === '' || (wild.length && !rel.includes('/') && !/[\\/]$/.test(fixed)))) return 'whole';
@@ -97,8 +95,8 @@ const TREE = /(\s--?recurs(e|ive)\b|\s\/s(\s|$)|^\s*(find|rg|tree|tar|robocopy|x
 // a short flag cluster with r (-r, -rn, -R); a PowerShell -Word parameter such as -Pattern or -Raw is not one
 const SHORT_R = /\s-(?![A-Z][a-z]{2})[a-zA-Z]*[rR][a-zA-Z]*(\s|$)/;
 const CD = /^\s*(?:cd|chdir|pushd|sl|Set-Location|Push-Location)\s+(?:(?:\/d|-Path|-LiteralPath|--)\s+)*("[^"]*"|'[^']*'|[^\s)]+)/i;
-const SEVERITY = { mdenc: 3, personal: 2, whole: 1 };
-// the vault rule a shell command meets ('mdenc', 'personal' or 'whole', the most severe), or null; follows cd, looks into
+const SEVERITY = { personal: 2, whole: 1 };
+// the vault rule a shell command meets ('personal' or 'whole', the most severe), or null; follows cd, looks into
 // bash -c and the like, and into lists and redirects
 function vaultCommand(command, cwd, vault) {
   let dir = cwd, worst = null;
@@ -112,13 +110,13 @@ function vaultCommand(command, cwd, vault) {
       const where = vaultPart(value, dir, vault);
       const wildcard = READER.test(part) && /[*?{[]/.test(t);
       const reads = t === value && (walks || wildcard);
-      if (where === 'mdenc' || where === 'personal') seen(where);
+      if (where === 'personal') seen(where);
       // a wildcard above the vault counts when a folder is named before it; '/{/p' is a search pattern
       if (reads && (where === 'whole' || ((where === 'above') && (walks || /[\w.][\\/][^*?{[]*[*?{[]/.test(t))))) seen('whole');
       // one token can hold several paths: a,b  >file  "gc path"
       for (const piece of t.split(/[\s,;<>()"'|=]+/).filter((x) => x && x !== t)) {
         const at = vaultPart(piece, dir, vault);
-        if (at === 'mdenc' || at === 'personal') seen(at);
+        if (at === 'personal') seen(at);
         if (at === 'whole' && reads) seen('whole');
       }
     }
@@ -166,6 +164,8 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
     // a glob counts when it can match a secret file name (cat *.env, .env.*, .en*)
     if (part.split('|').some((s) => { const u = bareCmd(s); return READER.test(u) && (isSecret(u) || tokens(u).some((t) => /[*?[]/.test(t) && globMatchesSecret(t))); })) return 'secret files (.env and similar) are never opened by the agent';
     if (tokens(part).some((t) => /personal/i.test(t) && isPersonal(t.replace(/^[\w-]+[=:](?![\\/])/, ''), cwd, root))) return 'the personal/ folder is private';
+    // a stage that only prints or commits text (echo, git commit -m) may name an .mdenc note; reading one may not
+    if (part.split('|').some((s) => { const u = bareCmd(s); return (READER.test(u) || !SEARCH.test(u)) && isMdenc(u); })) return MDENC;
     if (WRITE_TOOL.test(part) && !SEARCH.test(part)) return 'this tool writes to a database';
     if (!CLIENT.test(part)) continue;
     const stages = part.split('|');
@@ -189,8 +189,7 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
       if (writesSql(readFileSync(file, 'utf8'))) return `the SQL script ${raw} contains writing SQL`;
     }
   }
-  const vault = vaultOf(root);
-  return vault && vaultCommand(command, cwd, vault) === 'mdenc' ? MDENC : null;
+  return null;
 }
 
 // {a,b} groups into separate globs; globMatchesSecret tests whether a file glob can match a secret file name
@@ -232,7 +231,7 @@ const GLOB_QUERY = /(^|_)(file_search|fileSearch|findFiles|glob)$/i;
 // the paths and globs a file tool call names; a content search's text is not one
 const filePaths = (args, toolName = '') => pathArgs(args ?? {}, '', CONTENT_GREP.test(String(toolName)), GLOB_QUERY.test(String(toolName)));
 const SEARCH_TOOL = /(^|_)(grep|rg|glob|grep_search|file_search|grepSearch|fileSearch|findTextInFiles|findFiles|semantic_search|list_dir)$/i;
-// the vault rule a file tool call meets ('mdenc', 'personal' or 'whole'), or null
+// the vault rule a file tool call meets ('personal' or 'whole'), or null
 function vaultPaths(args, cwd, root, toolName) {
   const vault = vaultOf(root);
   if (!vault) return null;
@@ -254,8 +253,9 @@ export function checkPaths(args, cwd = process.cwd(), root = ROOT, toolName = ''
   for (const p of filePaths(args, toolName)) {
     if (isSecret(p)) return 'secret files (.env and similar) are never opened by the agent';
     if (isPersonal(p, cwd, root)) return 'the personal/ folder is private';
+    if (/\.mdenc$/i.test(p)) return MDENC;
   }
-  return vaultPaths(args, cwd, root, toolName) === 'mdenc' ? MDENC : null;
+  return null;
 }
 
 // MCP tools that are hard stops by name
@@ -288,26 +288,16 @@ const quoted = (s) => [...String(s).matchAll(/"([^"]*)"|'([^']*)'/g)].map((m) =>
 const quotedDeep = (s) => { const one = quoted(s); return [...one, ...one.flatMap(quoted)]; };
 // git, its global options (those with a value first, then any --flag[=x] or -X such as -P), the subcommand and the rest
 const GIT = /^\s*git(?:\.exe)?((?:\s+(?:-C\s+(?:"[^"]+"|'[^']+'|\S+)|-c\s+\S+|--(?:git-dir|work-tree|namespace|exec-path|config-env|super-prefix)[=\s]\S+|--[\w-]+(?:=\S+)?|-[A-Za-z]))*)\s+([\w-]+)(.*)$/i;
-// local Git that discards work or rewrites history; everything else local (add, commit, switch, stash, fetch, pull, merge) runs
+// local Git that discards uncommitted work, which Git cannot bring back; history changes (rebase, branch -D, tag -d) run,
+// because the reflog undoes them and publishing a rewrite needs a force-push (a hard stop)
 const GIT_DISCARD = {
   reset: (r) => /\s--(hard|merge|keep)\b/.test(r),
   clean: (r) => !/\s(-n|--dry-run)\b/.test(r),
-  rebase: () => true,
   restore: (r) => !/\s(--staged|-S)\b/.test(r) || /\s(--worktree|-W)\b/.test(r),
   checkout: (r) => /\s(--|-f|--force|\.)(?=\s|$)/.test(r),
   switch: (r) => /\s(-f|--force|--discard-changes)\b/.test(r),
-  branch: (r) => /\s-[a-zA-Z]*D|\s-M\b|\s--delete\b.*\s(-f|--force)\b|\s(-f|--force)\b.*\s(-d|--delete)\b/.test(r),
   stash: (r) => /^\s+(drop|clear)\b/.test(r),
-  tag: (r) => /\s(-d|--delete)\b/.test(r),
-  'update-ref': (r) => /\s-d\b/.test(r),
-  reflog: (r) => /^\s+(expire|delete)\b/.test(r),
-  gc: (r) => /\s--prune\b/.test(r),
-  'filter-branch': () => true,
-  'filter-repo': () => true,
   worktree: (r) => /^\s+remove\b.*\s(-f|--force)\b/.test(r),
-  // reading one key is fine; setting, unsetting or editing changes the user's Git config
-  config: (r) => !/\s(--get|--get-all|--get-regexp|--list|-l|--show-origin|--show-scope)\b/.test(r) && r.trim().split(/\s+/).filter((w) => w && !w.startsWith('-')).length !== 1
-    || /\s(--unset|--unset-all|--add|--replace-all|--edit|-e)\b/.test(r),
 };
 function gitAsk(stage) {
   const m = GIT.exec(stage);
@@ -316,7 +306,7 @@ function gitAsk(stage) {
   // `git -c alias.p=push p -f`: an alias set on the command line can stand for any command
   if (/(^|\s)-c\s+["']?alias\./i.test(m[1])) return 'a git alias set on the command line can run anything and requires approval';
   if (sub === 'push') return 'git push requires approval';
-  return GIT_DISCARD[sub]?.(rest) ? `git ${sub} can discard work or rewrite history and requires approval` : null;
+  return GIT_DISCARD[sub]?.(rest) ? `git ${sub} can discard uncommitted work and requires approval` : null;
 }
 
 const DELETE_CMD = /^\s*(rm|del|erase|rmdir|rd|ri|Remove-Item|Clear-Content|Clear-Item)(\.exe)?(\s|$)/i;
@@ -327,13 +317,11 @@ const DELETE_INLINE = /\b(rmSync|rmdirSync|unlinkSync|fs\.rm|promises\.rm|shutil
 const recursive = (s) => /\s-(?![A-Z][a-z]{2})[a-zA-Z]*[rR][a-zA-Z]*(?=\s|$)/.test(s) || /\s-Recurse\b|\s\/s(?=\s|$)/i.test(s);
 const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return false; } };
 const inTemp = (p) => { const r = relative(real(tmpdir()), real(p)); return r !== '' && !outside(r); };
-// a delete of these paths asks when it reaches the vault, outside the workspace (the temp folder is fine), a whole project,
-// repo or .git, or a wildcard at the top level or in a recursive delete
+// a delete of these paths asks when it reaches outside the workspace (the vault too; the temp folder is fine), a whole
+// project, repo or .git, or a wildcard at the top level or in a recursive delete
 function deleteTargetsAsk(targets, deep, cwd, root) {
-  const vault = vaultOf(root);
   for (const t of targets) {
     const full = resolve(cwd, plain(t));
-    if (vault && vaultPart(t, cwd, vault) && vaultPart(t, cwd, vault) !== 'above') return 'deleting files in the Obsidian vault requires approval (Sync is its only undo)';
     const rel = relative(real(root), real(full)).replace(/\\/g, '/');
     if (outside(rel)) {
       if (inTemp(full)) continue;
@@ -368,9 +356,13 @@ const LOADER = /\b(run_notebook\.py|seed_lake\.py|copy-from-dev\.ps1)\b|\bdev\.p
 const PUBLISH = /^\s*((npm|pnpm|yarn|twine|poetry|uv)\s+publish|twine\s+upload|docker\s+push)\b/i;
 // cloud CLIs can reach any environment, so even their reads ask (unknown environment = PRODUCTION)
 const CLOUD = /^\s*(az|kubectl|helm|terraform)(\.exe)?(\s|$)/i;
-const GH = /^\s*gh(\.exe)?(\s|$)/i;
-const GH_READ = /^\s*gh(\.exe)?\s+(--version|help\b|status\b|browse\b|search\s|auth\s+status\b|repo\s+clone\b|(pr|issue|run|workflow|release|repo|label|cache|gist|ruleset|variable|secret|project)\s+(view|list|ls|status|diff|checks|watch|download)\b|api\s)/i;
-const GH_API_WRITE = /\s(-X|--method)[\s=]*["']?(?!GET\b)\w|\s(-f|-F|--field|--raw-field|--input)(?=[\s=]|$)/;
+// gh that cannot be undone from a PR page: merges, repo deletes, releases, API deletes; PRs, issues and comments run
+const GH_RISKY = /^\s*gh(\.exe)?\s+(pr\s+merge|repo\s+(delete|archive|rename)|release\s+(create|delete|edit|upload)|api\s.*(-X|--method)[\s=]*["']?DELETE)\b/i;
+// a call whose every URL is this machine (a local dev server)
+const LOCAL_ONLY = (stage) => {
+  const urls = tokens(stage).filter((t) => /^(https?:\/\/|localhost\b|127\.0\.0\.1\b)/i.test(t));
+  return urls.length > 0 && urls.every((u) => /^(https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(u));
+};
 const HTTP = /^\s*(curl|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr)(\.exe)?(\s|$)/i;
 // curl flags are case-sensitive (-f fails quietly, -F posts a form); PowerShell parameters are not
 const HTTP_WRITE = /\s(-X|--request|--method)[\s=]*["']?(?!GET\b|HEAD\b)\w|\s(-d|--data[\w-]*|-F|--form|-T|--upload-file|--post-data|--post-file|--json)(?=[\s=]|$)/;
@@ -395,16 +387,15 @@ function shellAsk(command, cwd, root) {
       if (LOADER.test(stage)) return 'running data loaders or notebooks requires approval';
       if (PUBLISH.test(stage)) return 'publishing requires approval';
       if (CLOUD.test(stage)) return 'cloud CLIs require approval';
-      if (GH.test(stage) && (!GH_READ.test(stage) || (/^\s*gh(\.exe)?\s+api\s/i.test(stage) && GH_API_WRITE.test(stage)))) return 'a writing gh command requires approval';
-      if (HTTP.test(stage) && (HTTP_WRITE.test(stage) || PS_HTTP_WRITE.test(stage))) return 'an HTTP call that sends data requires approval';
+      if (GH_RISKY.test(stage)) return 'a gh merge, delete or release requires approval';
+      if (HTTP.test(stage) && (HTTP_WRITE.test(stage) || PS_HTTP_WRITE.test(stage)) && !LOCAL_ONLY(stage)) return 'an HTTP call that sends data requires approval';
     }
   }
   return null;
 }
 
-// Case-sensitive so camelCase boundaries ([a-z] -> [A-Z]) work without matching `settings` on `set`. `run` is left out:
-// read-only names such as describe_run must not match; `run_query` is listed whole.
-const MUTATING_MCP = /(?:^|_|-|[a-z])(create|Create|update|Update|delete|Delete|remove|Remove|add|Add|edit|Edit|transition|Transition|comment|Comment|send|Send|post|Post|put|Put|patch|Patch|register|Register|rename|Rename|restore|Restore|set|Set|log|Log|link|Link|evaluate|Evaluate|write|Write|exec|Exec|execute|Execute|apply|Apply|upload|Upload|insert|Insert|merge|Merge|push|Push|deploy|Deploy|publish|Publish|drop|Drop|destroy|Destroy|run_query)(?:$|_|-|[A-Z])/;
+// MCP tools that delete; other writes (Confluence, Jira) run: the skills show a draft first and page history undoes them.
+// Case-sensitive so camelCase boundaries ([a-z] -> [A-Z]) work: deletePage, delete_run
 const DESTRUCTIVE_MCP = /(?:^|_|-|[a-z])(delete|Delete|remove|Remove|drop|Drop|destroy|Destroy|purge|Purge)(?:$|_|-|[A-Z])/;
 // file tools that delete what they name
 const DELETE_TOOL = /(^|_)(delete|delete_file|deleteFile|remove_file|fs_delete)$/i;
@@ -426,11 +417,9 @@ export function checkAsk(command, args = {}, cwd = process.cwd(), root = ROOT, t
   const v = vaultPaths(args, cwd, root, name);
   if (v === 'personal') return PERSONAL;
   if (v === 'whole') return WHOLE;
-  if (/^mcp_/i.test(name)) {
-    if (DESTRUCTIVE_MCP.test(name)) return 'a deleting MCP tool requires approval';
-    if (MUTATING_MCP.test(name) && !/executeRead$/i.test(name)) return 'writing to a shared MCP server requires approval';
-  }
-  if (/^mssql_dab$/i.test(name) && args?.operation === 'apply_changes') return 'modifying Data API builder config requires approval';
+  if (/^mcp_/i.test(name) && DESTRUCTIVE_MCP.test(name)) return 'a deleting MCP tool requires approval';
+  // Hostinger hosts production: anything but a read asks
+  if (/^mcp_.*hostinger/i.test(name) && !/(get|list|show|search|describe|check)/i.test(name)) return 'a Hostinger change reaches production and requires approval';
   return null;
 }
 

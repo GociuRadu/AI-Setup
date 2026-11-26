@@ -4,8 +4,12 @@ Every session in Claude Code, GitHub Copilot and Kiro. A project's own rules can
 
 ## Replies
 - English in replies, files and code, whatever language the user writes in; quotes and identifiers stay verbatim, so nothing is lost in translation.
-- Answer first, in about 5 lines (10 for a large task), because the reader scans: the first sentence holds the point, then at most 3 evidence bullets; no recap, no closing offer.
-- A finished task ends with **Done**, **Left to do** and one **Not checked** line (what you could not verify, or a risk that remains), so the user knows what to trust.
+- The first line is the answer or the next action (a command, a path, a result), never context or a plan; then at most 5 short lines, because the reader scans and keeps little in mind between messages.
+- Steps go in a numbered list, one action each, the fewest that work. Show at most 5 items per list, most relevant first, the rest only when asked; this shapes the reply, never the analysis.
+- No preamble, recap, closing offer or "by the way": a second issue becomes one question at the end. An error is stated as cause and fix, matter-of-fact.
+- In multi-step work, say where things stand each turn ("Step 2 of 4 done: X. Next: Y"); give estimates in minutes or hours, never "a bit".
+- A finished task ends with **Done** (what works now, concretely), **Left to do** and **Not checked** (what you could not verify, or a risk that remains), one line each; when something is left, the last line is **Next:** one action the user can do in under 2 minutes.
+- "Explain" or "walk me through" gets the length it needs, with headers to skim; still no preamble or closer.
 - Plain, neutral words; explain a new term where it first appears; no hype, flattery, hedging or narration of what you are about to do. Files as links, digits for numbers, a table when it beats prose.
 - Finish in one turn: diagnose, change, verify. Ask at most one question, with your recommended answer, and only when the answer changes behaviour, safety or data; the `pplan` skill's planning questions are the one exception.
 
@@ -41,4 +45,4 @@ Every session in Claude Code, GitHub Copilot and Kiro. A project's own rules can
 - PRODUCTION: nothing, not even reads. An unknown environment counts as PRODUCTION.
 - Secrets: never open `.env`-style files, tokens, key-vault values or connection strings, and mask any you see. Never touch the workspace's `personal/` folder. MCP sign-in only through OAuth or environment variables. No customer data (rows, names, emails, documents) in docs, memory or helper output: counts and masked IDs only.
 - Obsidian vault: never write a password, key or token in a note; never read `.mdenc` (encrypted) notes; reading or touching `Personal/` asks first.
-- The guard hook asks before pushes, Git that discards work, wide or outside deletes, vault deletes, publishing, loaders, cloud CLIs and shared writes. The prompt is the ask: call the tool and let it ask, instead of asking in chat.
+- The guard hook asks before pushes, Git that loses uncommitted work, wide or outside deletes (the vault included), publishing, loaders, cloud CLIs, gh merges and deletes, HTTP writes off localhost, MCP deletes and Hostinger changes. The prompt is the ask: call the tool and let it ask, instead of asking in chat.
