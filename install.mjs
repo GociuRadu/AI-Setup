@@ -622,7 +622,7 @@ export function install(opts = {}) {
   log(`${dry ? 'dry run: ' : ''}${changes.length ? `${changes.length} changes` : 'nothing to change'}; tools: ${tools.join(', ') || 'none'}; vault: ${vault ?? 'none'}`);
   for (const c of changes) log(`  ${c}`);
   for (const w of warnings) log(`warning: ${w}`);
-  if (missing.length) log(`not installed: ${missing.join(', ')} (skills that need them fall back or say so)`);
+  if (missing.length) log(`not installed (optional): ${missing.join(', ')}`);
   if (changes.length && !dry) log('Start a new chat in each tool so it loads the new files; Claude Code asks once to approve the servers in .mcp.json.');
   return { changes, warnings, tools, vault };
 }

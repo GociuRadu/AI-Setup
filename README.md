@@ -20,7 +20,7 @@ flowchart LR
 
 ## Quick start
 
-Needs Git and Node.js 22 or newer; no npm packages.
+Needs Git, Node.js 22 or newer, and each tool opened once on the device: the install skips a tool it cannot find, so check the `tools:` line it prints. The install itself uses no npm packages; Kiro's `/playwright` skill needs `npm install -g @playwright/cli`.
 
 ```powershell
 cd C:\Users\<you>\Desktop\work                       # the folder you open in VS Code and Kiro
@@ -28,12 +28,12 @@ git clone https://github.com/GociuRadu/AI-Setup.git
 node AI-Setup/install.mjs --vault "C:\path\to\vault"  # first run; later runs need no flags
 ```
 
-Then open the `work` folder (not a project inside it) and start a new chat in each tool.
+Then open the `work` folder (not a project inside it) and start a new chat in each tool. Claude Code asks once to approve the servers in `.mcp.json`; sign in to Atlassian once per tool when it asks (Kiro: its MCP panel).
 
 | Flag | Does |
 |---|---|
 | `--dry-run` | Lists every change without making it |
-| `--vault <folder>` | The Obsidian vault the `obsidian` skill writes to; saved for later runs |
+| `--vault <folder>` | The Obsidian vault the `obsidian` skill writes to (an existing vault with its `.obsidian` folder, outside the work folder; else it is left out with a warning); saved for later runs |
 | `--work <folder>` | Installs into another folder than the repo's parent |
 
 The install skips tools the device lacks, deletes only files it wrote itself (listed in `work/.ai-device.json`), and moves any other file at a path it needs to `work/.ai/backup/`. A second run changes nothing.
@@ -84,11 +84,11 @@ Each helper's model tier and effort are in [setup.json](setup.json).
 | Guard | `hooks/` | `~/.claude/settings.json` | `.github/hooks/guard.json` | `.kiro/hooks/guard.json` |
 | MCP | `mcp/atlassian.json` | `.mcp.json` | `.mcp.json` | `.kiro/settings/mcp.json` |
 
-All paths except `~/` are inside the work folder; the guard and the project templates are copied to `work/.ai/`. Outside it, the install changes only its own keys in 3 files the tools require:
+All paths except `~/` are inside the work folder; the guard and the project templates are copied to `work/.ai/`, and `work/.ignore` keeps `AI-Setup/` and `.playwright-cli/` out of file searches. Outside it, the install changes only its own keys in 3 files the tools require:
 
 | File | Keys |
 |---|---|
-| `~/.claude/settings.json` | auto mode, the guard hook, deny rules, auto memory off, no Concise output style |
+| `~/.claude/settings.json` | auto mode, the guard hook, deny rules, auto memory off, no Concise output style; the main model (`main` in `setup.json`) and the model of built-in agents (`CLAUDE_CODE_SUBAGENT_MODEL`, `builtins`), each only while you have not set your own |
 | VS Code User `settings.json` | hooks on, Copilot ignores `.claude/` files and hooks, local memory off, never-auto-approve rules |
 | `~/.kiro/settings/permissions.yaml` | deny rules for secrets, `personal/`, encrypted notes and hard stops |
 
@@ -140,7 +140,7 @@ node install.mjs      # apply the change, then start a new chat in each tool
 - **Rules for changing this repo** (new skill, new guard check): [AGENTS.md](AGENTS.md).
 - **Decisions and state:** [docs/ai/memory.md](docs/ai/memory.md), [docs/ai/context.md](docs/ai/context.md); the design record of the rebuild: [docs/ai/plans/2026-11-26-ai-setup-rebuild.md](docs/ai/plans/2026-11-26-ai-setup-rebuild.md); smoke test per tool: [docs/ai/smoke.md](docs/ai/smoke.md).
 
-CI runs `node --test` on Windows on every push ([.github/workflows/test.yml](.github/workflows/test.yml)).
+CI runs `node --test` on Windows and a gitleaks secret scan on every push ([.github/workflows/test.yml](.github/workflows/test.yml)).
 
 ## Credits
 

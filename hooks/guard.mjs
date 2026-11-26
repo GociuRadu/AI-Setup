@@ -22,6 +22,10 @@ const CLIENT = /\b(sqlcmd|osql|isql|bcp|psql|mysql|mariadb|sqlite3|duckdb|mssql-
 // tools whose job is to write a database
 const WRITE_TOOL = /\b(pg_restore|sqlpackage|mysqlimport|Import-Dba\w+|Write-Dba\w+|Invoke-DbaDbDataMasking|flyway|liquibase|alembic\s+(upgrade|downgrade)|dotnet\s+ef\s+database\s+update)\b/i;
 const WRITE = /\b(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|DROP|CREATE|ALTER|EXEC|EXECUTE|GRANT|REVOKE|DENY|BACKUP|RESTORE|DBCC|INTO|sp_rename|sp_executesql|sp_configure)\b/i;
+// statements that change data or the server without those words, counted only at the start of a statement, so a column
+// or a LIKE '%copy%' in a read does not count
+const WRITE_STMT = /(?:^|;)\s*(?:(?:CALL|COPY|KILL|SHUTDOWN|VACUUM|REINDEX|CLUSTER|REFRESH|OPTIMIZE|FLUSH|LOCK|UNLOCK|RENAME|ATTACH|DETACH|ENABLE|DISABLE|LOAD|REPLACE|UPSERT|DISCARD|REASSIGN|IMPORT)\b|COMMENT\s+ON\b|SET\s+(?:GLOBAL|PERSIST)\b|PRAGMA\s+[\w.]+\s*=)/im;
+const writesSql = (text) => WRITE.test(text) || WRITE_STMT.test(text);
 // script input: -i/-f/-InputFile/--file (a .sql path), or a < redirect (any file)
 const FILES = /(?:\s-[if]\s*|\s-InputFile\s+|\s--file[=\s]+)("[^"]+\.sql"|'[^']+\.sql'|[^\s"']+\.sql)\b|<\s*("[^"]+"|'[^']+'|[^\s<>|&;]+)/gi;
 // commands that only mention text (a commit message, a search pattern) are not checked for SQL or hard stops
@@ -29,19 +33,23 @@ const SEARCH = /^\s*(git|grep|rg|findstr|Select-String|echo|Write-Host|Write-Out
 const HARD_STOPS = [
   // -f alone or in a short-flag cluster (-uf); --force-with-lease and +branch
   [/^\s*git\b[^|;&]*\spush\b.*(\s--force(-with-lease)?\b|\s-[a-z]*f[a-z]*\b|\s\+\S)/i, 'force-push'],
-  [/\bdown\b.*(\s-v\b|\s--volumes\b)/i, 'deleting Docker volumes (down -v)'],
+  // -v alone or in a cluster (-fv, -vf)
+  [/\bdown\b.*(\s-[a-z]*v[a-z]*\b|\s--volumes\b)/i, 'deleting Docker volumes (down -v)'],
   [/\bdocker\s+(volume\s+(rm|prune)|system\s+prune)\b/i, 'deleting Docker volumes'],
   [/\bcompose\b.*\b(prod|production|staging|hostinger|monitoring)\b/i, 'a production or staging compose file'],
   [/\b(release|rollback)\.sh\b/i, 'a release or rollback script'],
   // ssh as the command word: first, after &, wsl [-d X], sudo, exec, or inside -c/-lc/-Command/cmd /c
   [/(^\s*&?\s*([A-Za-z_]\w*=\S*\s+)*|\b(wsl(\s+-d\s+\S+)?|sudo|exec|env)\s+|(-l?c|-Command|\/c)\s+["']?)(ssh|scp|sftp)(\.exe)?\s/i, 'SSH to a server'],
+  // the command word after bareCmd: `Start-Process ssh`, `/usr/bin/ssh host`
+  [/^(ssh|scp|sftp)(\.exe)?(["']?\s|$)/i, 'SSH to a server'],
 ];
 // the workspace root (this file is <workspace>/.ai/hooks/guard.mjs), so personal/ is found from any working folder
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // .env, .env.local, local.env, prod.env, .test.env; examples and templates are fine
 const SECRET = /(^|[\\/\s"'=])(\.?[\w-]*\.env(\.[\w-]+)*)(?=$|[\s"';|&)])/i;
 const EXAMPLE = /\.(example|sample|template|dist)\b/i;
-const READER = /^\s*(cat|type|gc|Get-Content|Select-String|sls|grep|egrep|rg|findstr|less|more|head|tail|awk|sed|cp|copy|Copy-Item|mv|move|Move-Item|notepad|code|strings|xxd|Format-Hex|base64)\b/i;
+// commands that read, copy, pack, load or stage a file they name (`. ./.env` and `source .env` load it into the shell)
+const READER = /^\s*(?:(cat|type|gc|Get-Content|Select-String|sls|grep|egrep|rg|findstr|less|more|head|tail|awk|sed|cp|copy|Copy-Item|mv|move|Move-Item|notepad|code|strings|xxd|Format-Hex|base64|source|tar|zip|7z|Compress-Archive|scp)\b|\.(?=\s)|git\s+add\b)/i;
 
 const SECRETS = new RegExp(SECRET.source, 'gi');
 const isSecret = (text) => [...String(text).matchAll(SECRETS)].some((m) => !EXAMPLE.test(m[2]));
@@ -142,17 +150,21 @@ function parts(command) {
 export function check(command, cwd = process.cwd(), root = ROOT) {
   // each simple command on its own; a pipe keeps its parts together so `x | sqlcmd` is seen
   for (const part of parts(command)) {
-    // per pipe stage, so `echo y | ssh host` is seen; a stage that only prints or searches text is skipped
+    // $( ... ) and `...` run as commands of their own, also inside echo or an assignment
+    for (const [, a, b] of part.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) { const r = check(a ?? b, cwd, root); if (r) return r; }
+    // per pipe stage, so `echo y | ssh host` is seen; a stage that only prints or searches text is skipped (git is in
+    // SEARCH for its messages, so the force-push check, which needs git first, always runs)
     const hard = part.split('|').flatMap((s) => {
-      const u = s.replace(WRAPPERS, ''); // `& git push -f` and `bash -c "git push -f"` unwrap to the plain command
-      return HARD_STOPS.filter(([re], i) => (i === 0 ? re.test(s) || re.test(u) : re.test(s) && !SEARCH.test(s)));
+      const u = bareCmd(s);
+      return HARD_STOPS.filter(([re], i) => re.test(u) && (i === 0 || !SEARCH.test(u)));
     })[0];
     if (hard) return `${hard[1]} is a hard stop`;
     // code an interpreter runs inline: the strings inside it are checked as commands (os.system('git push -f'))
     const bare = part.replace(WRAPPERS, '');
     if (INLINE.test(bare)) for (const q of quotedDeep(bare)) { const r = check(q, cwd, root); if (r) return r; }
     // a program that only receives an env file (docker compose --env-file local.env) is fine; reading it is not
-    if (part.split('|').some((s) => READER.test(s) && isSecret(s))) return 'secret files (.env and similar) are never opened by the agent';
+    // a glob counts when it can match a secret file name (cat *.env, .env.*, .en*)
+    if (part.split('|').some((s) => { const u = bareCmd(s); return READER.test(u) && (isSecret(u) || tokens(u).some((t) => /[*?[]/.test(t) && globMatchesSecret(t))); })) return 'secret files (.env and similar) are never opened by the agent';
     if (tokens(part).some((t) => /personal/i.test(t) && isPersonal(t.replace(/^[\w-]+[=:](?![\\/])/, ''), cwd, root))) return 'the personal/ folder is private';
     if (WRITE_TOOL.test(part) && !SEARCH.test(part)) return 'this tool writes to a database';
     if (!CLIENT.test(part)) continue;
@@ -169,12 +181,12 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
     // only the query text, so server names, paths and flags do not count
     const query = cmd.replace(/\s-(o|OutputFile)\s+("[^"]*"|'[^']*')/gi, ''); // output paths are not SQL
     const quoted = [...query.matchAll(/"([^"]*)"|'([^']*)'/g)].map((m) => m[1] ?? m[2]).join('\n');
-    if (WRITE.test(quoted)) return 'the command contains writing SQL';
+    if (writesSql(quoted)) return 'the command contains writing SQL';
     for (const [, flagged, redirected] of cmd.matchAll(FILES)) {
       const raw = flagged ?? redirected;
       const file = resolve(cwd, raw.replace(/^["']|["']$/g, ''));
       if (!existsSync(file)) return `cannot read the SQL script ${raw} to check it`;
-      if (WRITE.test(readFileSync(file, 'utf8'))) return `the SQL script ${raw} contains writing SQL`;
+      if (writesSql(readFileSync(file, 'utf8'))) return `the SQL script ${raw} contains writing SQL`;
     }
   }
   const vault = vaultOf(root);
@@ -254,7 +266,20 @@ export function checkToolHardStop(toolName = '') {
 }
 
 // also `env [-i] [-u NAME]` and `NAME=value` prefixes, so `env git push -f` and `GIT_TRACE=1 git push` are seen
-const WRAPPERS = /^\s*(?:&\s*|[({]\s*|(?:cmd(?:\.exe)?\s+\/[ck]|(?:bash|sh|zsh)(?:\.exe)?\s+-l?c|(?:powershell|pwsh)(?:\.exe)?\s+(?:-\w+\s+)*-c(?:o(?:m(?:m(?:a(?:n(?:d)?)?)?)?)?)?|wsl(?:\.exe)?(?:\s+-d\s+\S+)?|sudo|exec|env(?:\s+(?:-u\s+\S+|-\w+))*|[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|[^\s"']*))\s+["']?)*/i;
+// also the prefixes that run the next word as a command (command, nohup, time, timeout 5, xargs -0, eval, iex, Start-Process)
+// and the shell keywords before one (if, then, do, ...)
+const WRAPPERS = /^\s*(?:&\s*|[({]\s*|(?:cmd(?:\.exe)?\s+\/[ck]|(?:bash|sh|zsh)(?:\.exe)?\s+-l?c|(?:powershell|pwsh)(?:\.exe)?\s+(?:-\w+\s+)*-c(?:o(?:m(?:m(?:a(?:n(?:d)?)?)?)?)?)?|wsl(?:\.exe)?(?:\s+-d\s+\S+)?|sudo|exec|env(?:\s+(?:-u\s+\S+|-\w+))*|command|builtin|nohup|time|nice(?:\s+-n\s+\S+)?|timeout(?:\s+-\S+)*\s+\S+|xargs(?:\s+-\w+)*|eval|iex|Invoke-Expression|Start-Process(?:\s+-FilePath)?|if|then|else|elif|do|while|until|!|[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|[^\s"']*))\s+["']?)*/i;
+// the command word as the shell runs it: wrappers off, a leading \ (it skips aliases) off, quotes and a folder path around
+// the program off, so `\git`, `/usr/bin/ssh` and `& 'C:\...\ssh.exe'` read as git and ssh
+function bareCmd(s) {
+  let u = s, prev;
+  do {
+    prev = u;
+    u = u.replace(WRAPPERS, '').replace(/^\\(?=\w)/, '').replace(/^(["'])([^"']*)\1/, (_, q, p) => p.split(/[\\/]/).pop())
+      .replace(/^(?:[A-Za-z]:)?[^\s"'|]*[\\/](?=[\w.-]+["']?(\s|$))/, '');
+  } while (u !== prev);
+  return u;
+}
 const PRINT = /^\s*(grep|egrep|rg|findstr|Select-String|sls|echo|Write-Host|Write-Output)\b/i;
 // interpreters running code given inline (python -c, node -e, perl -e, ...)
 const INLINE = /^\s*(python[\d.]*|py|node|deno|bun|perl|ruby|php)(\.exe)?\b[^|]*?\s(-c|-e|--eval|-r|-p)(\s|$)/i;

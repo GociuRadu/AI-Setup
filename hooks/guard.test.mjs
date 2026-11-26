@@ -54,6 +54,27 @@ test('shell commands: writing SQL, hard stops, secrets and personal/ are denied;
   for (const c of ['& git push -f', 'powershell -Command "git push --force"', 'bash -c "git push --force"']) assert.equal(check(c, dir, dir), 'force-push is a hard stop', c);
 });
 
+test('bypasses found by review: prefixes, paths, subshells, globs, flag clusters and SQL verbs are still denied', () => {
+  const blocked = [
+    'command ssh host', 'nohup ssh host', 'time ssh host', 'timeout 5 ssh host', '/usr/bin/ssh host', 'echo $(ssh host rm)', 'x=$(ssh host rm)',
+    '(ssh host)', 'if true; then ssh host; fi', 'for h in a; do ssh $h; done', 'Start-Process ssh', "& 'C:\\Windows\\System32\\OpenSSH\\ssh.exe' host",
+    'command git push -f', '\\git push -f', 'nohup git push -f', 'xargs git push -f', 'eval "git push -f"', 'iex "git push -f"',
+    'bash -c "cat .env"', 'source .env', '. ./.env', 'tar czf x.tgz .env', 'git add .env', 'cat *.env', 'cat .env.*', 'cat .en*',
+    'docker compose down -fv', 'docker compose down -vf', 'echo $(docker compose down -v)',
+    'psql -c "CALL purge()"', "psql -c \"COPY t FROM 'f'\"", 'psql -c "VACUUM"', 'mysql -e "SET GLOBAL x=1"', 'mysql -e "LOCK TABLES t WRITE"',
+    'mysql -e "RENAME TABLE a TO b"', 'sqlcmd -Q "KILL 55"', 'sqlcmd -Q "SHUTDOWN"', 'sqlcmd -Q "ENABLE TRIGGER t ON x"', 'sqlite3 db "PRAGMA writable_schema=1"',
+  ];
+  const allowed = [
+    'if [ -f x ]; then echo ok; fi', 'timeout 5 node x.js', 'time npm test', 'nohup npm run dev', 'command -v node', '. venv/bin/activate', 'git add .',
+    'git add .env.example', 'Get-Content *.md', 'tar czf out.tgz src', 'echo $(node --version)', 'docker compose down --remove-orphans', '/usr/bin/env node x.js',
+    'sqlcmd -Q "SET NOCOUNT ON; SELECT 1"', 'sqlite3 db "PRAGMA table_info(t)"', "psql -c \"SELECT replace(name, 'a', 'b') FROM t\"",
+    "sqlcmd -Q \"SELECT name FROM sys.tables WHERE name LIKE '%copy%'\"", 'playwright-cli -s=gh open https://github.com/login --persistent --headed',
+  ];
+  for (const c of blocked) assert.notEqual(check(c, dir, dir), null, `should block: ${c}`);
+  for (const c of allowed) assert.equal(check(c, dir, dir), null, `should allow: ${c}`);
+  assert.equal(checkAsk('command git push origin x', {}, dir, dir), 'git push requires approval');
+});
+
 test('file tools: secret files and personal/ are denied, by path or by glob', () => {
   const ok = [{ pattern: '**/*.py' }, { pattern: '**/*' }, { file_path: 'src/app.py' }, { path: '.env.example' }, { filePath: 'docs/ai/project.md' }, { includePattern: '**/.env.example' }, { glob: '**/*.py' }, { path: 'personal-site/index.html' }];
   const bad = [{ file_path: 'C:/proj/.env' }, { path: 'code/local.env' }, { filePath: 'x/.test.env' }, { paths: ['a.md', '.env.prod'] }, { path: 'personal/diary.md' }, { path: join(dir, 'personal') }, { operations: [{ mode: 'Line', path: 'Shop/code/.env' }] }, { pattern: 'personal/**' }, { includePattern: '**/*.env' }, { includePattern: '**/.env*' }, { includePattern: '**/*.env.*' }, { includePattern: '**/.e?v' }, { includePattern: '**/.e*' }, { includePattern: '**/.*' }, { glob: '**/*.env' }, { pattern: '{.env,a.txt}' }];
