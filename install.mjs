@@ -81,7 +81,7 @@ export function loadSetup(repo = REPO) {
   for (const [n, a] of Object.entries(s.agents)) {
     if (!isObj(a) || typeof a.on !== 'boolean' || !TIERS.includes(a.tier)) throw new Error(`setup.json: agents.${n} needs on (true/false) and tier (${TIERS.join(', ')})`);
   }
-  if (s.main && !TIERS.includes(s.main.tier)) throw new Error(`setup.json: main.tier must be one of ${TIERS.join(', ')}`);
+  for (const k of ['main', 'builtins']) if (s[k] && !TIERS.includes(s[k].tier)) throw new Error(`setup.json: ${k}.tier must be one of ${TIERS.join(', ')}`);
   for (const group of ['tools', 'rules', 'skills', 'hooks', 'mcp']) for (const [n, v] of Object.entries(s[group])) if (typeof v !== 'boolean') throw new Error(`setup.json: ${group}.${n} must be true or false`);
   return s;
 }
@@ -196,7 +196,7 @@ export function mergeClaudeSettings(cur, { setup, work, enabled, managed, repo =
   if (pre.length) s.hooks = { ...s.hooks, PreToolUse: pre };
   else if (s.hooks) { delete s.hooks.PreToolUse; if (!Object.keys(s.hooks).length) delete s.hooks; }
   const keys = [];
-  let model;
+  let model, subagentModel;
   if (enabled) {
     if (setup.off['claude-auto-memory']) { s.autoMemoryEnabled = false; keys.push('autoMemoryEnabled'); }
     if (setup.off['claude-output-style'] && s.outputStyle === 'Concise') delete s.outputStyle;
@@ -206,9 +206,22 @@ export function mergeClaudeSettings(cur, { setup, work, enabled, managed, repo =
       const ours = managed.claudeModel ?? (managed.claudeKeys?.includes('model') ? want : undefined);
       if (s.model === undefined || s.model === ours) { s.model = want; model = want; }
     }
+    // the model of a built-in or other agent that names none (Explore, general-purpose), so it does not inherit the
+    // main model; our helpers keep their own tier, since only CLAUDE_CODE_SUBAGENT_MODEL_FORCE would override them
+    if (setup.builtins) {
+      const want = setup.models[setup.builtins.tier].claude;
+      const cur = isObj(s.env) ? s.env.CLAUDE_CODE_SUBAGENT_MODEL : undefined;
+      if (cur === undefined || cur === managed.claudeSubagentModel) { s.env = { ...(isObj(s.env) ? s.env : {}), CLAUDE_CODE_SUBAGENT_MODEL: want }; subagentModel = want; }
+    }
     keys.push('defaultMode');
-  } else if (managed.claudeKeys?.includes('autoMemoryEnabled')) delete s.autoMemoryEnabled;
-  return { settings: s, deny, keys, model };
+  } else {
+    if (managed.claudeKeys?.includes('autoMemoryEnabled')) delete s.autoMemoryEnabled;
+    if (isObj(s.env) && managed.claudeSubagentModel && s.env.CLAUDE_CODE_SUBAGENT_MODEL === managed.claudeSubagentModel) {
+      delete s.env.CLAUDE_CODE_SUBAGENT_MODEL;
+      if (!Object.keys(s.env).length) delete s.env;
+    }
+  }
+  return { settings: s, deny, keys, model, subagentModel };
 }
 
 // VS Code User settings.json: hooks on, Claude's files and hooks off for Copilot, Copilot memory off, never-auto-approve rules
@@ -525,11 +538,12 @@ export function install(opts = {}) {
     const cur = readJson(claudeFile);
     if (cur === null) warnings.push(`${claudeFile} is not plain JSON: set permissions.defaultMode "auto", autoMemoryEnabled false and the guard hook by hand`);
     else {
-      const { settings, deny, keys, model } = mergeClaudeSettings(cur, { setup, work, enabled: tools.includes('claude'), managed, repo });
+      const { settings, deny, keys, model, subagentModel } = mergeClaudeSettings(cur, { setup, work, enabled: tools.includes('claude'), managed, repo });
       writeUser(claudeFile, json(settings, textOf(claudeFile)));
       if (deny.length) next.claudeDeny = deny;
       if (keys.length) next.claudeKeys = keys;
       if (model) next.claudeModel = model;
+      if (subagentModel) next.claudeSubagentModel = subagentModel;
     }
   }
   const vsFile = join(vscodeUser, 'settings.json');

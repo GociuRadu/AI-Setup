@@ -175,12 +175,17 @@ test('the main model is set when none is, and a later /model choice is kept', ()
   const file = join(m.home, '.claude', 'settings.json');
   m.run();
   assert.equal(readJson(file).model, 'opus');
+  // built-in agents that name no model run on the balanced tier, not on the main model
+  assert.equal(readJson(file).env.CLAUDE_CODE_SUBAGENT_MODEL, 'sonnet');
   put(file, JSON.stringify({ ...readJson(file), model: 'sonnet' }, null, 2) + '\n');
   m.run();
   assert.equal(readJson(file).model, 'sonnet');
   m.setSetup((s) => { s.models.deep.claude = 'opus[1m]'; });
   m.run();
   assert.equal(readJson(file).model, 'sonnet', 'a model upgrade does not override the user');
+  m.setSetup((s) => { s.tools.claude = false; });
+  m.run();
+  assert.ok(!('env' in readJson(file)), 'Claude turned off removes the built-in agent model');
 });
 
 test('VS Code settings with comments are merged in place: comments stay, a second run changes nothing, off removes our keys', () => {
