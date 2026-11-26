@@ -320,7 +320,7 @@ Section 5 lists the points already resolved and the facts still to verify; chall
 
 - **The ask list:**
 
-  - `git push` (and hard-stop force-push / pushing `main`);
+  - `git push`, `main` included (force-push is a hard stop); in Kiro the guard blocks these instead (memory.md, 2026-11-26);
 
   - Git that discards work or rewrites history;
 

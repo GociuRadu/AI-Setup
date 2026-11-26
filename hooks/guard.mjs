@@ -26,13 +26,14 @@ const FILES = /(?:\s-[if]\s*|\s-InputFile\s+|\s--file[=\s]+)("[^"]+\.sql"|'[^']+
 // commands that only mention text (a commit message, a search pattern) are not checked for SQL or hard stops
 const SEARCH = /^\s*(git|grep|rg|findstr|Select-String|echo|Write-Host|Write-Output|code)\b/i;
 const HARD_STOPS = [
-  [/^\s*git\b[^|;&]*\spush\b.*(\s--force(-with-lease)?\b|\s-f\b|\s\+\S)/i, 'force-push'],
+  // -f alone or in a short-flag cluster (-uf); --force-with-lease and +branch
+  [/^\s*git\b[^|;&]*\spush\b.*(\s--force(-with-lease)?\b|\s-[a-z]*f[a-z]*\b|\s\+\S)/i, 'force-push'],
   [/\bdown\b.*(\s-v\b|\s--volumes\b)/i, 'deleting Docker volumes (down -v)'],
   [/\bdocker\s+(volume\s+(rm|prune)|system\s+prune)\b/i, 'deleting Docker volumes'],
   [/\bcompose\b.*\b(prod|production|staging|hostinger|monitoring)\b/i, 'a production or staging compose file'],
   [/\b(release|rollback)\.sh\b/i, 'a release or rollback script'],
   // ssh as the command word: first, after &, wsl [-d X], sudo, exec, or inside -c/-lc/-Command/cmd /c
-  [/(^\s*&?\s*|\b(wsl(\s+-d\s+\S+)?|sudo|exec)\s+|(-l?c|-Command|\/c)\s+["']?)(ssh|scp|sftp)(\.exe)?\s/i, 'SSH to a server'],
+  [/(^\s*&?\s*([A-Za-z_]\w*=\S*\s+)*|\b(wsl(\s+-d\s+\S+)?|sudo|exec|env)\s+|(-l?c|-Command|\/c)\s+["']?)(ssh|scp|sftp)(\.exe)?\s/i, 'SSH to a server'],
 ];
 // the workspace root (this file is <workspace>/.ai/hooks/guard.mjs), so personal/ is found from any working folder
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -248,10 +249,11 @@ export function checkToolHardStop(toolName = '') {
     ? 'this MCP tool is a hard stop' : null;
 }
 
-const WRAPPERS = /^\s*(?:&\s*|[({]\s*|(?:cmd(?:\.exe)?\s+\/[ck]|(?:bash|sh|zsh)(?:\.exe)?\s+-l?c|powershell(?:\.exe)?\s+(?:-\w+\s+)*-Command|pwsh(?:\.exe)?\s+(?:-\w+\s+)*-Command|wsl(?:\.exe)?(?:\s+-d\s+\S+)?|sudo|exec)\s+["']?)*/i;
+// also `env [-i] [-u NAME]` and `NAME=value` prefixes, so `env git push -f` and `GIT_TRACE=1 git push` are seen
+const WRAPPERS = /^\s*(?:&\s*|[({]\s*|(?:cmd(?:\.exe)?\s+\/[ck]|(?:bash|sh|zsh)(?:\.exe)?\s+-l?c|powershell(?:\.exe)?\s+(?:-\w+\s+)*-Command|pwsh(?:\.exe)?\s+(?:-\w+\s+)*-Command|wsl(?:\.exe)?(?:\s+-d\s+\S+)?|sudo|exec|env(?:\s+(?:-u\s+\S+|-\w+))*|[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|[^\s"']*))\s+["']?)*/i;
 const PRINT = /^\s*(grep|egrep|rg|findstr|Select-String|sls|echo|Write-Host|Write-Output)\b/i;
-// git, its global options, the subcommand and the rest
-const GIT = /^\s*git(?:\.exe)?((?:\s+(?:-C\s+(?:"[^"]+"|'[^']+'|\S+)|-c\s+\S+|--no-pager|--git-dir[=\s]\S+|--work-tree[=\s]\S+))*)\s+([\w-]+)(.*)$/i;
+// git, its global options (those with a value first, then any --flag[=x] or -X such as -P), the subcommand and the rest
+const GIT = /^\s*git(?:\.exe)?((?:\s+(?:-C\s+(?:"[^"]+"|'[^']+'|\S+)|-c\s+\S+|--(?:git-dir|work-tree|namespace|exec-path|config-env|super-prefix)[=\s]\S+|--[\w-]+(?:=\S+)?|-[A-Za-z]))*)\s+([\w-]+)(.*)$/i;
 // local Git that discards work or rewrites history; everything else local (add, commit, switch, stash, fetch, pull, merge) runs
 const GIT_DISCARD = {
   reset: (r) => /\s--(hard|merge|keep)\b/.test(r),
@@ -408,7 +410,9 @@ export function decide(input, root = ROOT) {
   return ask ? { decision: 'ask', reason: `Confirm: ${ask}.` } : { decision: null, reason: '' };
 }
 
-// stdin of a hook as JSON, or null when there is none (no tool call: nothing to check)
+// stdin of a hook as JSON, or null when it is empty (no tool call: nothing to check). A failed read or text that is not
+// JSON throws, so the loader blocks the call instead of letting it through; a leading BOM is dropped.
 export function readInput() {
-  try { return JSON.parse(readFileSync(0, 'utf8')); } catch { return null; }
+  const text = readFileSync(0, 'utf8').replace(/^﻿/, '');
+  return text.trim() ? JSON.parse(text) : null;
 }

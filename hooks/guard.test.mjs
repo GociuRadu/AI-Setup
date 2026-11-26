@@ -40,6 +40,7 @@ test('shell commands: writing SQL, hard stops, secrets and personal/ are denied;
     'docker volume rm app_data', 'docker system prune -af', 'docker compose -f docker-compose.prod.yml up -d', 'bash scripts/release.sh', 'ssh root@203.0.113.10',
     'npm test && scp dump.sql user@host:/tmp', 'echo y | ssh host', 'wsl ssh root@host', 'powershell -c "ssh host"', 'git -C code push --force origin main',
     'git --no-pager push -f', 'wsl -d Ubuntu ssh host', 'bash -lc "ssh host"', 'cmd /c ssh host', '& ssh host', 'ssh.exe host',
+    'env git push --force origin x', 'GIT_TRACE=1 git push -f', 'git push -uf origin main', 'git -P push --force', 'env ssh host', 'FOO=1 ssh host',
     // secrets and personal/
     'cat .env.example .env', 'cat .env', 'Get-Content -Path "C:\\app\\local.env"', 'type code\\.test.env', 'grep PASSWORD .env.local',
     'Get-Content x.txt | Select-String key; cat prod.env', 'Get-ChildItem personal', 'cat personal/notes.md',
@@ -95,6 +96,7 @@ test('one ask list on every device: pushes, discarding Git, wide deletes, cloud 
     'curl -X POST https://x', 'curl -d @f https://x', 'Invoke-RestMethod -Method Post https://x', 'iwr https://x -Headers @{Authorization="t"}',
     'npm publish', 'twine upload dist/*', 'docker push img', 'python Shop/code/local/run_notebook.py',
     'echo a & rm -rf x', 'Get-ChildItem | ForEach-Object { Remove-Item $_ }', "find . -name '*.tmp' -delete", 'git log $(git push)',
+    'git -P push', 'git --paginate push', 'git --no-optional-locks push', 'env git push', 'GIT_TRACE=1 git push origin main', 'env -u X git reset --hard',
   ];
   for (const c of asks) assert.notEqual(ask(c), null, `should ask: ${c}`);
   assert.equal(ask('echo a & rm -rf x'), 'deleting a whole project, repo or the workspace requires approval');
@@ -107,6 +109,7 @@ test('one ask list on every device: pushes, discarding Git, wide deletes, cloud 
     'gh pr view 12', 'gh pr list', 'gh run view 99 --log', 'gh pr checks', 'gh api repos/o/r/pulls', 'gh auth status',
     'curl https://x', 'curl -fsSL https://x -o a.json', 'Invoke-RestMethod https://x', 'iwr -Method Get https://x',
     'docker run --rm alpine echo ok', 'echo "git push -f"', 'grep "git push -f" x',
+    'git -P log -n 5', 'GIT_TRACE=1 git status', 'env NODE_ENV=test node --test', 'git push-helper',
   ];
   for (const c of noAsks) assert.equal(ask(c), null, `should not ask: ${c}`);
   // edits are not asked about, outside the workspace included: Claude's auto mode and the tools' own prompts judge those
@@ -216,15 +219,21 @@ test('Claude Code hook: deny exits 2, ask is JSON, a safe call prints nothing', 
   assert.equal(ok.status, 0);
   assert.equal(ok.stdout.toString(), '');
   assert.equal(run('claude', undefined).status, 0, 'no payload: nothing to check');
+  // input that is not JSON (a BOM is dropped first) blocks instead of letting the call through
+  const raw = (text) => spawnSync(process.execPath, [hook('claude')], { input: text, cwd: dir });
+  assert.equal(raw('﻿' + JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git push --force' }, cwd: dir })).status, 2);
+  assert.equal(raw('﻿' + JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: dir })).status, 0);
+  assert.equal(raw('not json').status, 2);
 });
 
-test('Kiro hook: deny exits 2 with the reason on stderr, ask is JSON', () => {
+test('Kiro hook: deny and ask both exit 2 with the reason on stderr (a Kiro rule can approve an ask unseen)', () => {
   const deny = run('kiro', { hook_event_name: 'PreToolUse', tool_name: 'shell', tool_input: { command: 'docker volume rm data' }, cwd: dir });
   assert.equal(deny.status, 2);
   assert.match(deny.stderr.toString(), /Blocked: deleting Docker volumes/);
-  const ask = run('kiro', { hook_event_name: 'PreToolUse', tool_name: 'shell', tool_input: { command: 'git rebase main' }, cwd: dir });
-  assert.equal(ask.status, 0);
-  assert.equal(JSON.parse(ask.stdout).hookSpecificOutput.permissionDecision, 'ask');
+  const ask = run('kiro', { hook_event_name: 'PreToolUse', tool_name: 'execute_pwsh', tool_input: { command: 'git rebase main' }, cwd: dir });
+  assert.equal(ask.status, 2);
+  assert.match(ask.stderr.toString(), /^Blocked in Kiro: git rebase can discard work .* Give the user the exact command/);
+  assert.equal(ask.stdout.toString(), '');
   assert.equal(run('kiro', { tool_name: 'read', tool_input: { path: 'src/app.py' }, cwd: dir }).stdout.toString(), '');
 });
 
