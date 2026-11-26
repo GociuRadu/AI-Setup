@@ -240,10 +240,17 @@ test('Kiro hook: deny and ask both exit 2 with the reason on stderr (a Kiro rule
   assert.equal(run('kiro', { tool_name: 'read', tool_input: { path: 'src/app.py' }, cwd: dir }).stdout.toString(), '');
 });
 
-test('Copilot hook: a top-level permissionDecision, {} to let the call through', () => {
+test('Copilot hook: the decision top-level (Copilot CLI) and in hookSpecificOutput (VS Code), {} to let the call through', () => {
   const out = (payload) => { const r = run('copilot', payload); assert.equal(r.status, 0); return JSON.parse(r.stdout); };
-  assert.equal(out({ toolName: 'powershell', toolArgs: JSON.stringify({ command: 'git push -f' }), cwd: dir }).permissionDecision, 'deny');
-  assert.equal(out({ toolName: 'bash', toolArgs: JSON.stringify({ command: 'git push origin x' }), cwd: dir }).permissionDecision, 'ask');
+  const deny = out({ toolName: 'powershell', toolArgs: JSON.stringify({ command: 'git push -f' }), cwd: dir });
+  assert.equal(deny.permissionDecision, 'deny');
+  assert.equal(deny.hookSpecificOutput.permissionDecision, 'deny');
+  assert.equal(deny.hookSpecificOutput.hookEventName, 'PreToolUse');
+  // VS Code agent mode sends Claude's field names
+  const ask = out({ hook_event_name: 'PreToolUse', tool_name: 'run_in_terminal', tool_input: { command: 'git push origin x' }, cwd: dir });
+  assert.equal(ask.permissionDecision, 'ask');
+  assert.equal(ask.hookSpecificOutput.permissionDecision, 'ask');
+  assert.match(ask.hookSpecificOutput.permissionDecisionReason, /git push requires approval/);
   assert.deepEqual(out({ toolName: 'view', toolArgs: JSON.stringify({ path: 'src/app.py' }), cwd: dir }), {});
 });
 
