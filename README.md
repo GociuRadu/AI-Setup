@@ -52,11 +52,8 @@ Type `/<name>`, or describe the task and the matching skill starts.
 | `/data` | Design or review data models, DDL, migrations, loads and Spark notebooks |
 | `/obsidian` | Write or edit vault notes, bases and canvases; researched study notes in `Learn` |
 | `/confluence-project` | Read or update a project's Confluence page |
-| `/ui-ux-pro-max` | UI and UX guidance: styles, colours, fonts, accessibility (needs Python 3) |
-| `/playwright` | Test your own web app from the shell (needs `playwright-cli`) |
 | `/handoff` | Update `context.md` and print a short brief for a new chat |
 | `/improve` | Turn repeated failures into the smallest change to this setup |
-| `/skill-creator` | Write and test a new skill |
 
 ### Helpers
 
@@ -100,7 +97,7 @@ Everything is in [setup.json](setup.json). After a change, rerun `node install.m
 {
   "skills": { "debate": false },
   "agents": { "reviewer": { "on": true, "tier": "balanced", "effort": "high" } },
-  "models": { "balanced": { "claude": "sonnet", "copilot": "claude-sonnet-5.5", "kiro": "claude-sonnet-5.5" } }
+  "models": { "balanced": { "claude": "sonnet", "copilot": "Claude Sonnet 5.5 (copilot)", "kiro": "claude-sonnet-5.5" } }
 }
 ```
 
@@ -147,7 +144,4 @@ CI runs `node --test` on Windows on every push ([.github/workflows/test.yml](.gi
 
 - Code rules follow [Ponytail](https://github.com/DietrichGebert/ponytail) 5.3.3 (MIT).
 - `skills/obsidian/bases*.md` and `canvas*.md`: [kepano/obsidian-skills](https://github.com/kepano/obsidian-skills) `9c9560a` (MIT, Copyright (c) 2026 Steph Ango).
-- `skills/playwright/`: [microsoft/playwright-cli](https://github.com/microsoft/playwright-cli) `dc5f4d5` (Apache-2.0, see its LICENSE).
-- `skills/skill-creator/`: [anthropics/skills](https://github.com/anthropics/skills) `e4bb5d9` (see its LICENSE.txt).
-- `skills/ui-ux-pro-max/`: [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) `2de1134` (MIT, Copyright (c) 2024 Next Level Builder).
 - The decision Review column in `memory.md` is adapted from [chief-of-staff](https://github.com/alirezarezvani/claude-skills/tree/main/c-level-advisor/skills/chief-of-staff) (MIT).

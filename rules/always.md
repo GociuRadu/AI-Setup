@@ -32,7 +32,7 @@ Every session in Claude Code, GitHub Copilot and Kiro. A project's own rules can
 
 ## Helpers
 - You are the only writer. The read-only helpers `tester`, `researcher`, `reviewer` and `challenger` take noisy side work in their own context, several in parallel; each brief names the goal, the paths and the return format with a line cap.
-- Pick the cheapest helper that can do the job, because a built-in or forked agent runs on your own, most expensive model: commands, Git history included, go to `tester`; searching files, logs or the web to `researcher`. Use a built-in agent only when no helper fits, and then set its model to the cheapest that can do the job.
+- Pick the cheapest helper that can do the job, because a built-in or forked agent runs on your own, most expensive model: commands with long output (suites, builds, logs, Git history) go to `tester`, a short one you run yourself; searching files, logs or the web to `researcher`. Use a built-in agent only when no helper fits, and then set its model to the cheapest that can do the job.
 - Filter what helpers return and give the user one summary after all of them finish, not a helper's raw output.
 
 ## Safety

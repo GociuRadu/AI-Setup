@@ -17,4 +17,4 @@ Fix the setup where it actually failed. A model-written rule that nobody needed 
    - a workflow or know-how: the skill that uses it; a helper's behaviour: `agents/<name>.md`; something that must never happen: the guard (`hooks/guard.mjs`) with a test, because a check beats an instruction.
    - Ponytail code rules: compare `rules/always.md` with the latest https://github.com/DietrichGebert/ponytail `AGENTS.md`; the version last compared is in `docs/ai/memory.md`.
 3. **Propose:** a flat list: target file, the exact 1-3 line diff (prefer tightening or deleting over adding), and the failure it prevents, quoted from the session. Wait for approval.
-4. **Apply** the approved items in the AI-Setup repo; a new or changed skill goes through `skill-creator`. Run `node --test` and `node install.mjs` from the repo root; report both results. Leave the commit to the user.
+4. **Apply** the approved items in the AI-Setup repo. Run `node --test` and `node install.mjs` from the repo root; report both results. Leave the commit to the user.

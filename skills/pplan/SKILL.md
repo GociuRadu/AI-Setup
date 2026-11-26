@@ -44,7 +44,7 @@ A plan is cheap to fix; code built on a wrong plan is not. Keep it to one screen
    | Question | Recommended answer |
    |---|---|
    ```
-5. **Risky plans** (data, schema, auth, shared interfaces): run `reviewer` on the plan file with its Done when; fix Must fix items first. Re-review once at most; still open: move it to Open questions.
+5. **Risky plans** (data, schema, auth, shared interfaces): run `reviewer` on the plan file to check the steps against its Done when (judging the Choice is step 6); fix Must fix items first. Re-review once at most; still open: move it to Open questions.
 6. **Costly choice** (data model, public interface, migration, architecture, deleting features): run `challenger` once on the plan path; for a major decision or when the user asks, use the `debate` skill instead. Answer each objection once in the Challenge table: `accepted` (change the plan) or `rejected` (one line of evidence). Still disputed: Open questions.
 7. **Gate:** present one decision at a time, as to a solution architect: the options, trade-offs and one recommendation. Reply with a 1-2 line summary, numbered steps and the plan link, and stop for approval. Once the user says go, link the plan in `context.md` and run the steps.
 

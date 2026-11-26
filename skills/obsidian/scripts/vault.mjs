@@ -113,7 +113,7 @@ function checkTopic(path, vi, banned, warn) {
   if (tag) warn(`${tag.slice(0, 40)}: HTML or a placeholder left over; use callouts, tables and embeds`);
   if (/^# /m.test(plain)) warn('no # heading: the file name is the title');
   for (const h of plain.matchAll(/^#{2,4} (.+)$/gm)) if (GENERIC.test(h[1].trim())) warn(`heading "${h[1]}" says nothing: state the point`);
-  if (/\[\^[^\]]+\]/.test(plain)) warn('footnotes: no sources section; put a year inline where a fact can age');
+  if (/\[\^[^\]]+\]/.test(plain)) warn('footnotes are not used: put a year inline where a fact can age');
   const textLinks = new Set(links(plain).map((l) => l.target));
   for (const l of links(Object.values(meta).flat().join('\n'))) if (!textLinks.has(l.target)) warn(`property link ${l.raw} also needs a link in the text: properties are hidden while reading`);
   for (const d of mermaids(body)) {

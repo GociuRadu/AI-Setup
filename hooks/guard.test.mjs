@@ -92,7 +92,7 @@ test('one ask list on every device: pushes, discarding Git, wide deletes, cloud 
     'rm -rf build', 'rm -rf Shop/code', 'Remove-Item -Recurse -Force .\\Shop', 'rm -rf .git/refs', 'rm *', 'rm -r src/*', 'Remove-Item $dir -Recurse', 'Remove-Item',
     'rm C:/Users/x/notes.txt', 'rm "C:/Users/x/my notes.txt"', 'Remove-Item -Recurse "Shop"', 'cmd /c del ..\\..\\a.txt', 'node -e "fs.rmSync(\'x\')"',
     'git push', 'git push origin feature/x', 'git -C Shop/code push', 'git push origin main', 'git branch -D x', 'git reset --hard HEAD~1', 'git clean -fd', 'git rebase main',
-    'git restore src/a.py', 'git checkout -- a.py', 'git checkout .', 'git stash drop', 'git config --global user.name x', 'git tag -d v1',
+    'git restore src/a.py', 'git checkout -- a.py', 'git checkout .', 'git checkout -f main', 'git reset --keep HEAD~1', 'powershell -c "git push"', 'pwsh -NoProfile -Comm "git push"','git stash drop', 'git config --global user.name x', 'git tag -d v1',
     'az group list', 'kubectl get pods', 'helm list', 'terraform plan', 'gh pr create', 'gh api -X POST repos/o/r/issues', 'gh api repos/o/r/labels -f name=x',
     'curl -X POST https://x', 'curl -d @f https://x', 'Invoke-RestMethod -Method Post https://x', 'iwr https://x -Headers @{Authorization="t"}',
     'npm publish', 'twine upload dist/*', 'docker push img', 'python Shop/code/local/run_notebook.py',

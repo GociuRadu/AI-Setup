@@ -8,12 +8,9 @@
     "pplan": true,
     "review": true,
     "confluence-project": true,
-    "ui-ux-pro-max": true,
     "debate": true,
-    "playwright": true,
     "handoff": true,
-    "improve": true,
-    "skill-creator": true
+    "improve": true
   },
   "agents": {
     "tester": { "on": true, "tier": "fast", "effort": "medium" },

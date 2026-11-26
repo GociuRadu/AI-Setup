@@ -26,7 +26,7 @@ function machine() {
 
 test('setup.json names exactly the components the repo has', () => {
   const s = loadSetup(REPO);
-  assert.equal(Object.keys(s.skills).length, 11);
+  assert.equal(Object.keys(s.skills).length, 8);
   assert.deepEqual(Object.keys(s.agents).sort(), ['challenger', 'researcher', 'reviewer', 'tester']);
   const m = machine();
   mkdirSync(join(m.repo, 'skills', 'extra'));

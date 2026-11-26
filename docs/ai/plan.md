@@ -298,7 +298,7 @@ Section 5 lists the points already resolved and the facts still to verify; chall
 
 - **Browser:**
 
-  - Own apps are tested with the Playwright CLI plus Microsoft's skill (where installed; fallback to Copilot browser tools on the work laptop).
+  - Own apps are tested with Playwright's test runner (`@playwright/test`, installed in the project) or the tool's browser; the Playwright CLI skill was dropped on 2026-11-26 (see memory.md).
 
   - Signed-in sites use each tool's built-in browser (Claude in Chrome, Copilot browser tools, Kiro's Chrome mode).
 
@@ -418,7 +418,7 @@ Section 5 lists the points already resolved and the facts still to verify; chall
 
   
 
-### 3.8 Skills (11)
+### 3.8 Skills (8)
 
   
 
@@ -436,23 +436,17 @@ Section 5 lists the points already resolved and the facts still to verify; chall
 
 | `confluence-project` | today | work |
 
-| `ui-ux-pro-max` | today (third party) | Anthropic's `frontend-design` stays out (same job) |
-
 | `debate` | new | replaces 6-call `council`; 2 parallel `challenger` agents, see 3.4 |
-
-| `playwright` | Microsoft's Playwright CLI skill | own apps (uses built-in browser tools when CLI is absent) |
 
 | `handoff` | today | made lean, see 3.7 |
 
 | `improve` | new, replaces `retro` | see 3.9 |
 
-| `skill-creator` | Anthropic, official | writes and tests skills; used by `improve` |
-
   
 
 - **Not added:** a TDD skill (test-first is already in the rules and in `review` bug mode), a Git/PR skill (Claude's `/ship` and Copilot's GitHub tools cover it), a separate debugging skill (`review` bug mode covers it).
 
-- **Dropped / folded:** `clean` (unused), `retro` (replaced by `improve`), `obsidian-bases` & `json-canvas` (folded into `obsidian`), `reports` (merged into `review`), `project-state` & `helpers` (inlined into `rules/always.md`), `council` (replaced by `debate`).
+- **Dropped / folded:** `clean` (unused), `retro` (replaced by `improve`), `obsidian-bases` & `json-canvas` (folded into `obsidian`), `reports` (merged into `review`), `project-state` & `helpers` (inlined into `rules/always.md`), `council` (replaced by `debate`); after the 2026-11-26 evaluation (same result without them, see memory.md): `ui-ux-pro-max`, `playwright`, `skill-creator`.
 
 - **Skill format:** `SKILL.md` under 500 lines. The description says what it does and when to use it (third person, max 1,024 characters), because only the name and description load up front.
 
@@ -563,7 +557,7 @@ Each step: what it creates or deletes, then its check. The user approves the pla
 
 **5. Skills.** Write or port the 11 skills from 3.8, with the build notes from 3.3, 3.4, 3.6 and 3.7. Scripts move into their skills: `vault.mjs` → `skills/obsidian/scripts/`, `report.mjs` → `skills/review/scripts/`. Templates move to `templates/`.
 
-- Check: each `SKILL.md` is under 500 lines with a what-plus-when description; `skill-creator`'s checks pass. In Claude Code, `/review` runs our skill, not the built-in `/code-review` alias (if it does not, rename the skill).
+- Check: each `SKILL.md` is under 500 lines with a what-plus-when description (`install.test.mjs` checks the format). In Claude Code, `/review` runs our skill, not the built-in `/code-review` alias (if it does not, rename the skill).
 
   
 

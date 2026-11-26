@@ -254,7 +254,7 @@ export function checkToolHardStop(toolName = '') {
 }
 
 // also `env [-i] [-u NAME]` and `NAME=value` prefixes, so `env git push -f` and `GIT_TRACE=1 git push` are seen
-const WRAPPERS = /^\s*(?:&\s*|[({]\s*|(?:cmd(?:\.exe)?\s+\/[ck]|(?:bash|sh|zsh)(?:\.exe)?\s+-l?c|powershell(?:\.exe)?\s+(?:-\w+\s+)*-Command|pwsh(?:\.exe)?\s+(?:-\w+\s+)*-Command|wsl(?:\.exe)?(?:\s+-d\s+\S+)?|sudo|exec|env(?:\s+(?:-u\s+\S+|-\w+))*|[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|[^\s"']*))\s+["']?)*/i;
+const WRAPPERS = /^\s*(?:&\s*|[({]\s*|(?:cmd(?:\.exe)?\s+\/[ck]|(?:bash|sh|zsh)(?:\.exe)?\s+-l?c|(?:powershell|pwsh)(?:\.exe)?\s+(?:-\w+\s+)*-c(?:o(?:m(?:m(?:a(?:n(?:d)?)?)?)?)?)?|wsl(?:\.exe)?(?:\s+-d\s+\S+)?|sudo|exec|env(?:\s+(?:-u\s+\S+|-\w+))*|[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|[^\s"']*))\s+["']?)*/i;
 const PRINT = /^\s*(grep|egrep|rg|findstr|Select-String|sls|echo|Write-Host|Write-Output)\b/i;
 // interpreters running code given inline (python -c, node -e, perl -e, ...)
 const INLINE = /^\s*(python[\d.]*|py|node|deno|bun|perl|ruby|php)(\.exe)?\b[^|]*?\s(-c|-e|--eval|-r|-p)(\s|$)/i;

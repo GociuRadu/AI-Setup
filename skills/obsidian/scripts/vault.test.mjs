@@ -67,7 +67,7 @@ test('each broken study-note rule gives its own warning', () => {
   const cases = [
     [swap('[[C3]]', '[[Gone]]'), /\[\[Gone\]\] does not exist/],
     [swap('[[C2\\|second]]', '[[C2|second]]'), /needs \\\|/],
-    [swap('one (2026)', 'one[^1]\n\n[^1]: [Source](https://example.com)'), /footnotes: no sources section/],
+    [swap('one (2026)', 'one[^1]\n\n[^1]: [Source](https://example.com)'), /footnotes are not used/],
     [swap('2. Second.', '2. Second.\n\n> [!question]- Why?\n> Because.'), /no question callouts/],
     [swap('## 2. Five terms carry it', '## Overview'), /heading "Overview" says nothing/],
     [swap('class a,b internal-link', 'class a,b internal-link\n  c[Ghost]\n  class c internal-link'), /"Ghost" is an internal-link to no note/],

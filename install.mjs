@@ -452,7 +452,7 @@ export function install(opts = {}) {
     kiro: existsSync(join(home, '.kiro')) || detect('kiro'),
   };
   const tools = TOOLS.filter((t) => setup.tools[t] && found[t]);
-  const clis = Object.fromEntries([['claude', 'claude'], ['gh', 'gh'], ['gitleaks', 'gitleaks'], ['playwright', 'playwright-cli']].map(([k, c]) => [k, detect(c)]));
+  const clis = Object.fromEntries([['claude', 'claude'], ['gh', 'gh'], ['gitleaks', 'gitleaks']].map(([k, c]) => [k, detect(c)]));
   const projects = readdirSync(work, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.') && existsSync(join(work, e.name, 'code'))).map((e) => e.name).sort();
   setup.deviceModels = isObj(device.models) ? device.models : {};
 
@@ -510,7 +510,7 @@ export function install(opts = {}) {
     if (existsSync(file) && !before.has(rel) && !same(readFileSync(file), data)) backup(file, rel);
     write(file, data);
   }
-  const ignoreLines = ['/AI-Setup/', '.*/skills/ui-ux-pro-max/data/'];
+  const ignoreLines = ['/AI-Setup/'];
   write(join(work, '.ignore'), mergeIgnore(existsSync(join(work, '.ignore')) ? readFileSync(join(work, '.ignore'), 'utf8') : '', ignoreLines, managed.ignore ?? []));
 
   // 2. MCP: workspace files only (~/.claude.json is never touched)
