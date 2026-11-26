@@ -12,7 +12,8 @@ const put = (file, text) => { mkdirSync(join(file, '..'), { recursive: true }); 
 
 // a copy of this repo (so setup.json can change) and a fake machine: home, VS Code user folder, vault, work folder
 function machine() {
-  const root = mkdtempSync(join(tmpdir(), 'ai-setup-'));
+  // the real spelling: install.mjs reports paths as they are on disk, and a temp folder can be an 8.3 short name (RUNNER~1)
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'ai-setup-')));
   const repo = join(root, 'repo');
   cpSync(REPO, repo, { recursive: true, filter: (src) => !/[\\/](\.git|node_modules)([\\/]|$)/.test(src) });
   const home = join(root, 'home'), vscodeUser = join(root, 'Code', 'User'), vault = join(root, 'vault'), work = join(root, 'work');

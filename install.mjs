@@ -14,6 +14,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // one spelling per path, the one on disk: a shell started in c:\users\x and one in C:\Users\x must write the same files
 const drive = (p) => { try { return realpathSync.native(p); } catch { return p.replace(/^[a-z]:/, (d) => d.toUpperCase()); } };
+// the same for a path that may not exist (a broken link's target): the real spelling of its nearest existing folder, plus
+// the rest, so an 8.3 short name (C:\Users\RUNNER~1) and the long one compare equal
+const realOf = (p) => { try { return realpathSync.native(p); } catch { const up = dirname(p); return up === p ? drive(p) : join(realOf(up), basename(p)); } };
 export const REPO = drive(dirname(fileURLToPath(import.meta.url)));
 export const TOOLS = ['claude', 'copilot', 'kiro'];
 const TIERS = ['fast', 'balanced', 'deep'];
@@ -571,7 +574,7 @@ export function install(opts = {}) {
   const kiroSkills = join(home, '.kiro', 'skills');
   for (const e of existsSync(kiroSkills) ? readdirSync(kiroSkills, { withFileTypes: true }).filter((d) => d.isSymbolicLink()) : []) {
     const link = join(kiroSkills, e.name);
-    const r = relative(work, resolve(kiroSkills, readlinkSync(link).replace(/^\\\\\?\\/, '')));
+    const r = relative(work, realOf(resolve(kiroSkills, readlinkSync(link).replace(/^\\\\\?\\/, ''))));
     if (existsSync(link) || !r || r.startsWith('..') || isAbsolute(r)) continue;
     changes.push(`remove ${link}`);
     if (!dry) unlinkSync(link); // only the link; its target is already gone
