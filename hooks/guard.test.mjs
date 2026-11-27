@@ -142,7 +142,7 @@ const cases = [
       .flatMap((p) => [[P, 'Read', { file_path: p }], [P, 'view', { path: p }], [P, 'Bash', { command: `cat "${p}"` }]]),
     // a bare Personal/ path is also read from the workspace root, as its personal/ folder: denied, stricter than the ask
     ...sh(D, `cd ${fwd} && cat Personal/a.md`, `cd "${vault}"; gc Personal\\a.md`), ...win(sh(D, `Set-Location -Path ${fwd}; type .\\Personal\\a.md`)),
-    ...sh(P, `ls ${bash}/Personal`, `(cd ${bash} && ls Personal)`, `cd ${fwd}/Learn && cat ../Personal/a.md`,`pwsh -Command "gc ${vault}\\Personal\\a.md"`, `bash -c "cat ${fwd}/Personal/a.md"`,
+    ...sh(P, `ls ${bash}/Personal`, `(cd ${bash} && ls Personal)`, `cd ${fwd}/Learn && cat ../Personal/a.md`, `bash -c "cat ${fwd}/Personal/a.md"`,
       `echo x >${fwd}/Personal/b.md`, `cat<${fwd}/Personal/a.md`, `cat ${fwd}/Learn/*/../../Personal/x.md`),
     ...win(sh(P, `Get-Content ${vault}\\Learn\\a.md,${vault}\\Personal\\b.md`, `pwsh -Command "gc ${vault}\\Personal\\a.md"`, `cat "\\\\?\\${vault}\\Personal\\a.md"`)),
     ...on(P, 'Write', { file_path: join(link, 'Personal', 'new.md'), content: 'x' }), ...on(P, 'Glob', { pattern: '{a,../Personal}/**', path: `${fwd}/Learn` }),
