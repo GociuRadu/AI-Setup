@@ -6,7 +6,7 @@ Current state and open work, under 40 lines. Decisions: [memory.md](memory.md).
 
 - Updated: 2026-11-27.
 - Git: `main` = `c4dda90` (PR #15: secret scan, GitHub MCP off, guard redesign), CI green. Branch `ci-linux` (pushed): guard `[` crash fix, PATH-proof secret scan (winget folder found, never unset for a missing PATH), `install.mjs --check`, CI on Windows + Linux, all 3 CI jobs green on `dac4e26`; Claude settings saved in another key order no longer count as a change: open a PR to merge it.
-- `node --test`: 44/44 pass on Windows. `node install.mjs --check`: exit 0; secret scan on.
+- `node --test`: 45/45 pass on Windows and Linux. `node install.mjs --check`: exit 0; secret scan on.
 - CI results without `gh`: `https://api.github.com/repos/GociuRadu/AI-Setup/commits/<sha>/check-runs` (public repo); failing tests appear as annotations.
 - Home laptop: Claude Code and Kiro only (`.ai-device.json` `tools: { copilot: false }`).
 - Reports: [setup review](reports/2026-11-26-review-ai-setup.html), [skill and helper evaluation](reports/2026-11-26-analyze-skill-eval.html).
