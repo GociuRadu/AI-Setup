@@ -19,4 +19,4 @@ Smoke test of the AI setup, answer in at most 8 lines:
 | Guard | the push is blocked with "force-push is a hard stop" and never runs |
 | Browser | quotes "Example Domain" from the tool's own browser (Claude in Chrome, Copilot browser tools); Kiro: "no browser tool" is expected (checked 2026-11-26); its browser is the `playwright` skill, checked once with "open https://example.com with playwright and quote the title" |
 
-Also once per tool, after the Atlassian sign-in: ask it to list your Jira projects (names only); it must answer through the Atlassian MCP server. And ask it to run `git push` in a scratch repo with no remote. Claude Code and Copilot must ask you first (the guard's ask; answer no); Kiro must block it with "Blocked in Kiro: git push requires approval".
+Also once per tool, after the Atlassian sign-in: ask it to list your Jira projects (names only); it must answer through the Atlassian MCP server. And ask it to run `git reset --hard` in a scratch repo with an uncommitted change. Claude Code and Copilot must ask you first (the guard's ask; answer no); Kiro must block it with "Blocked in Kiro: git reset can discard uncommitted work".

@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, cpSync, readdirSync, symlinkSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, cpSync, readdirSync, symlinkSync, rmSync, realpathSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, delimiter } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { install, loadSetup, frontmatter, parseKiroRules, mergeKiroPermissions, kiroRules, blankJsonc, editJsonc, REPO } from './install.mjs';
 
@@ -124,6 +125,10 @@ test('a first install writes every tool format, merges user settings and keeps w
 
   // hooks: one guard, a loader per tool
   for (const f of ['.ai/hooks/guard.mjs', '.ai/hooks/claude/hook.mjs', '.ai/hooks/copilot/hook.mjs', '.ai/hooks/kiro/hook.mjs', '.ai/templates/common/docs/ai/context.md']) assert.ok(existsSync(join(m.work, f)), f);
+  // the Git hooks are LF even from a CRLF checkout: a \r would refuse every commit
+  writeFileSync(join(m.repo, 'hooks', 'git', 'hook.sh'), read(m.repo, 'hooks', 'git', 'hook.sh').replace(/\n/g, '\r\n'));
+  m.run({ vault: undefined });
+  assert.ok(!read(m.work, '.ai', 'hooks', 'git', 'pre-commit').includes('\r'));
   // Copilot's guard is user-level, with the loader's full path, so it also runs in a subfolder
   const copilotHook = readJson(m.home, '.copilot', 'hooks', 'guard.json').hooks.preToolUse[0];
   assert.equal(copilotHook.timeoutSec, 10);
@@ -152,6 +157,7 @@ test('a first install writes every tool format, merges user settings and keeps w
   assert.equal(vs['chat.tools.terminal.autoApprove']['/^npm test$/'], true);
   assert.equal(vs['chat.tools.edits.autoApprove']['**/*.mdenc'], false);
   assert.equal(vs['workbench.colorTheme'], 'Dark+');
+  assert.equal(vs['github.copilot.chat.githubMcpServer.enabled'], false);
 
   // Kiro: the old block and its vault rules are gone, the user's rule stays, ours are added once
   const kiro = read(m.home, '.kiro', 'settings', 'permissions.yaml');
@@ -222,8 +228,51 @@ test('VS Code settings with comments are merged in place: comments stay, a secon
   m.run();
   const off = read(file);
   assert.match(off, /\/\/ my theme/);
-  assert.deepEqual(Object.keys(JSON.parse(blankJsonc(off))).sort(), ['editor.fontSize', 'workbench.colorTheme']);
+  // VS Code still hosts Claude Code, so its GitHub MCP server stays off while GitHub is retired
+  assert.deepEqual(Object.keys(JSON.parse(blankJsonc(off))).sort(), ['editor.fontSize', 'github.copilot.chat.githubMcpServer.enabled', 'workbench.colorTheme']);
   assert.equal(editJsonc('{}', {}, { a: 1 }), '{\n  "a": 1\n}');
+});
+
+test('the secret scan: the global core.hooksPath is set with gitleaks found, kept off a user\'s own, and refuses a commit holding a secret', () => {
+  const m = machine();
+  const gitconfig = join(m.home, '.gitconfig');
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: gitconfig };
+  const git = (cwd, ...a) => spawnSync('git', a, { cwd, env, encoding: 'utf8' });
+  const hooksPath = () => git(m.root, 'config', '--global', '--get', 'core.hooksPath').stdout.trim();
+  const withGitleaks = { which: (c) => c === 'gitleaks' };
+  const hooksDir = join(m.work, '.ai', 'hooks', 'git').replace(/\\/g, '/');
+
+  // without gitleaks: nothing set, the install says how to get it
+  assert.ok(m.run().warnings.some((w) => /gitleaks not found \(Windows: winget install/.test(w)));
+  assert.equal(hooksPath(), '');
+  m.run(withGitleaks);
+  assert.equal(hooksPath(), hooksDir);
+  assert.deepEqual(m.run(withGitleaks).changes, []);
+
+  // a commit runs the scan, then the repo's own hook; a fake gitleaks stands in for the real one
+  const bin = join(m.root, 'bin'), repo = join(m.root, 'r');
+  put(join(bin, 'gitleaks'), '#!/bin/sh\nexit $FAKE_LEAK\n');
+  mkdirSync(repo);
+  git(repo, 'init', '-q');
+  put(join(repo, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\necho own > own-hook-ran\n');
+  if (process.platform !== 'win32') { chmodSync(join(bin, 'gitleaks'), 0o755); chmodSync(join(repo, '.git', 'hooks', 'pre-commit'), 0o755); }
+  put(join(repo, 'a.txt'), 'x');
+  git(repo, 'add', 'a.txt');
+  const commit = (leak) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x'],
+    { cwd: repo, encoding: 'utf8', env: { ...env, FAKE_LEAK: leak, PATH: `${bin}${delimiter}${process.env.PATH}` } });
+  const refused = commit('1');
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stderr, /Commit refused: the staged changes hold a secret/);
+  assert.ok(!existsSync(join(repo, 'own-hook-ran')));
+  assert.equal(commit('0').status, 0);
+  assert.ok(existsSync(join(repo, 'own-hook-ran')), 'the repo\'s own pre-commit still runs');
+
+  // gitleaks gone: ours is unset; a hooksPath of the user's is never replaced
+  m.run();
+  assert.equal(hooksPath(), '');
+  git(m.root, 'config', '--global', 'core.hooksPath', '/mine');
+  assert.ok(m.run(withGitleaks).warnings.some((w) => /core\.hooksPath is already \/mine/.test(w)));
+  assert.equal(hooksPath(), '/mine');
 });
 
 test('an existing Atlassian entry, and so its sign-in, is left as it is', () => {

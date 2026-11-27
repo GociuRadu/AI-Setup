@@ -2,10 +2,11 @@
 //   node install.mjs [--work <folder>] [--vault <folder>] [--dry-run]
 // Writes each tool's own format inside <work> (.claude/, .github/, .kiro/, .ai/, AGENTS.md, CLAUDE.md), merges managed keys
 // into the few user-level files a tool requires (~/.claude/settings.json, VS Code User settings.json, ~/.copilot/hooks/guard.json,
-// ~/.kiro/settings/permissions.yaml and mcp.json; a copy of each goes to <work>/.ai/backup/ before it changes), and records what it wrote in <work>/.ai-device.json. It deletes only files it wrote
+// ~/.kiro/settings/permissions.yaml and mcp.json; a copy of each goes to <work>/.ai/backup/ before it changes), sets the global
+// Git core.hooksPath to its secret scan (git config, only while unset or ours), and records what it wrote in <work>/.ai-device.json. It deletes only files it wrote
 // itself; a file of someone else's at a path it needs is moved to <work>/.ai/backup/ first. A second run changes nothing.
 // No npm packages: Node 22+ only.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, renameSync, cpSync, realpathSync, readlinkSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, renameSync, cpSync, realpathSync, readlinkSync, unlinkSync, chmodSync } from 'node:fs';
 import { join, dirname, resolve, relative, isAbsolute, sep, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { homedir, tmpdir } from 'node:os';
@@ -34,6 +35,14 @@ const OLD_LOCAL_ALLOW = ['Edit', 'Write', 'NotebookEdit', 'Bash', 'PowerShell', 
 // the old vault .claude/ folder, removed on every device (Obsidian Sync does not carry dot folders)
 const OLD_VAULT_CLAUDE = ['CLAUDE.md', 'settings.json', 'hooks/block-private.mjs', 'hooks/block-private.test.mjs'];
 const EXAMPLES = ['**/*.example', '**/*.sample', '**/*.template', '**/*.dist'];
+// the secret scan's folder (the global core.hooksPath) and the client hooks it holds: pre-commit scans, every name runs the
+// repo's own hook, which a global hooksPath would otherwise skip
+// shortcut: reference-transaction and post-index-change are left out, since they run on every ref or index write; add them
+// when a repo of the user's has one
+const GIT_HOOKS_DIR = '.ai/hooks/git';
+const GIT_HOOKS = ['applypatch-msg', 'pre-applypatch', 'post-applypatch', 'pre-commit', 'pre-merge-commit', 'prepare-commit-msg', 'commit-msg',
+  'post-commit', 'pre-rebase', 'post-checkout', 'post-merge', 'pre-push', 'post-rewrite', 'pre-auto-gc', 'push-to-checkout', 'sendemail-validate'];
+const GITLEAKS_HOW = 'Windows: winget install --id Gitleaks.Gitleaks -e; macOS: brew install gitleaks';
 
 const posix = (p) => p.split(sep).join('/');
 const readText = (f) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
@@ -79,7 +88,7 @@ export function loadSetup(repo = REPO) {
   same('skills', Object.keys(s.skills), names('skills'));
   same('agents', Object.keys(s.agents), names('agents', '.md'));
   same('mcp', Object.keys(s.mcp), names('mcp', '.json'));
-  same('hooks', Object.keys(s.hooks), ['guard']);
+  same('hooks', Object.keys(s.hooks), ['guard', 'secret-scan']);
   for (const t of TIERS) for (const tool of TOOLS) if (typeof s.models[t]?.[tool] !== 'string' || !s.models[t][tool]) throw new Error(`setup.json: models.${t}.${tool} must be a model id`);
   for (const [n, a] of Object.entries(s.agents)) {
     if (!isObj(a) || !isSwitch(a.on) || !TIERS.includes(a.tier)) throw new Error(`setup.json: agents.${n} needs on (true, false or a list of tools) and tier (${TIERS.join(', ')})`);
@@ -152,6 +161,8 @@ export function workFiles({ repo, setup, tools, work, vault }) {
     for (const tool of tools) out[`.ai/hooks/${tool}/hook.mjs`] = readFileSync(join(repo, 'hooks', tool, 'hook.mjs'));
     if (on('kiro')) out['.kiro/hooks/guard.json'] = readFileSync(join(repo, 'hooks/kiro/guard.json'));
   }
+  // LF always: a \r in a shell hook would refuse every commit on the device
+  if (setup.hooks['secret-scan']) for (const name of GIT_HOOKS) out[`${GIT_HOOKS_DIR}/${name}`] = readText(join(repo, 'hooks/git/hook.sh'));
   for (const rel of walk(join(repo, 'templates'))) out[`.ai/templates/${rel}`] = readFileSync(join(repo, 'templates', rel));
   return out;
 }
@@ -239,9 +250,13 @@ export function mergeClaudeSettings(cur, { setup, work, enabled, managed, repo =
   return { settings: s, deny, keys, model, subagentModel };
 }
 
-// VS Code User settings.json: hooks on, Claude's files and hooks off for Copilot, Copilot memory off, never-auto-approve rules
-export function vscodeKeys(setup) {
-  const keys = { 'chat.useHooks': true, 'chat.useAgentsMdFile': true };
+// VS Code User settings.json, on every device with VS Code: its own GitHub MCP server off while GitHub is retired (on by
+// default in the Agents window, where Claude sessions run too). With Copilot also: hooks on, Claude's files and hooks off
+// for Copilot, Copilot memory off, never-auto-approve rules
+export function vscodeKeys(setup, copilot = true) {
+  const keys = (setup.off['retired-mcp'] ?? []).includes('github') ? { 'github.copilot.chat.githubMcpServer.enabled': false } : {};
+  if (!copilot) return keys;
+  Object.assign(keys, { 'chat.useHooks': true, 'chat.useAgentsMdFile': true });
   if (setup.off['copilot-claude-files']) Object.assign(keys, {
     'chat.useClaudeHooks': false, 'chat.useClaudeMdFile': false,
     'chat.agentFilesLocations': { '.claude/agents': false },
@@ -328,7 +343,7 @@ export function editJsonc(text, cur, next) {
   return out;
 }
 
-export function mergeVscode(cur, { setup, enabled, managed }) {
+export function mergeVscode(cur, { setup, enabled, copilot = enabled, managed }) {
   const s = structuredClone(cur);
   // previous managed entries: [key] or [key, subkey]
   for (const [k, sub] of managed.vscode ?? []) {
@@ -336,7 +351,7 @@ export function mergeVscode(cur, { setup, enabled, managed }) {
     else if (isObj(s[k])) { delete s[k][sub]; if (!Object.keys(s[k]).length) delete s[k]; }
   }
   const entries = [];
-  if (enabled) for (const [k, v] of Object.entries(vscodeKeys(setup))) {
+  if (enabled) for (const [k, v] of Object.entries(vscodeKeys(setup, copilot))) {
     if (isObj(v)) { s[k] = { ...(isObj(s[k]) ? s[k] : {}), ...v }; for (const sub of Object.keys(v)) entries.push([k, sub]); }
     else { s[k] = v; entries.push([k]); }
   }
@@ -525,6 +540,8 @@ export function install(opts = {}) {
     const file = join(work, rel);
     if (existsSync(file) && !before.has(rel) && !same(readFileSync(file), data)) backup(file, rel);
     write(file, data);
+    // Git runs a hook only when it is executable (Windows does not check)
+    if (!dry && rel.startsWith(`${GIT_HOOKS_DIR}/`) && process.platform !== 'win32') chmodSync(file, 0o755);
   }
   const ignoreLines = ['/AI-Setup/', '/.playwright-cli/'];
   write(join(work, '.ignore'), mergeIgnore(existsSync(join(work, '.ignore')) ? readFileSync(join(work, '.ignore'), 'utf8') : '', ignoreLines, managed.ignore ?? []));
@@ -581,15 +598,16 @@ export function install(opts = {}) {
     }
   }
   const vsFile = join(vscodeUser, 'settings.json');
-  if (tools.includes('copilot') || managed.vscode) {
+  // found.copilot is VS Code itself, which also hosts Claude Code; the Copilot keys follow the copilot tool
+  if (found.copilot || managed.vscode) {
     // VS Code allows comments and trailing commas; with any, only the changed keys are edited in place
     const text = textOf(vsFile).replace(/^﻿/, '');
     const blank = blankJsonc(text);
     let cur = null;
     try { cur = JSON.parse(blank.trim() || '{}'); } catch { /* not JSON even without comments */ }
-    if (!isObj(cur)) warnings.push(`${vsFile} is not valid JSON: add these keys by hand: ${JSON.stringify(vscodeKeys(setup))}`);
+    if (!isObj(cur)) warnings.push(`${vsFile} is not valid JSON: add these keys by hand: ${JSON.stringify(vscodeKeys(setup, tools.includes('copilot')))}`);
     else {
-      const { settings, entries } = mergeVscode(cur, { setup, enabled: tools.includes('copilot'), managed });
+      const { settings, entries } = mergeVscode(cur, { setup, enabled: found.copilot, copilot: tools.includes('copilot'), managed });
       writeUser(vsFile, blank === text || !text.trim() ? json(settings, text) : editJsonc(text, cur, settings));
       if (entries.length) next.vscode = entries;
     }
@@ -610,6 +628,27 @@ export function install(opts = {}) {
   // Kiro's own rules for the work folder (the old setup kept its block there); the path is Kiro's hash of the folder
   const kiroWs = join(home, '.kiro', 'workspace-roots', createHash('sha256').update(process.platform === 'win32' ? posix(work).toLowerCase() : posix(work)).digest('hex').slice(0, 16), 'permissions.yaml');
   if (existsSync(kiroWs)) writeUser(kiroWs, mergeKiroPermissions(readFileSync(kiroWs, 'utf8'), { rules: [], managed: {}, vault }));
+  // the secret scan: the global core.hooksPath, so every repo on the device runs it, cloned before or after the install;
+  // set only with gitleaks found (without it the hook refuses every commit), and never over a hooksPath of the user's
+  const hooksDir = posix(join(work, GIT_HOOKS_DIR));
+  const git = (...a) => spawnSync('git', a, { encoding: 'utf8', ...(opts.home && { env: { ...process.env, GIT_CONFIG_GLOBAL: join(home, '.gitconfig') } }) });
+  const hooksPath = git('config', '--global', '--get', 'core.hooksPath');
+  if (hooksPath.error) warnings.push('git not found: secret scan not installed');
+  else {
+    const cur = hooksPath.stdout.trim();
+    const ours = cur !== '' && (cur === hooksDir || cur === managed.gitHooksPath);
+    const scan = setup.hooks['secret-scan'];
+    if (scan && !clis.gitleaks) warnings.push(`secret scan off: gitleaks not found (${GITLEAKS_HOW}); open a new terminal, then run the install again`);
+    if (scan && clis.gitleaks && cur && !ours) warnings.push(`secret scan off: the global core.hooksPath is already ${cur}; unset it or call ${hooksDir}/pre-commit from its pre-commit, then run the install again`);
+    else if (scan && clis.gitleaks) {
+      const set = cur === hooksDir || dry || git('config', '--global', 'core.hooksPath', hooksDir).status === 0;
+      if (cur !== hooksDir) changes.push(`git config --global core.hooksPath ${hooksDir}`);
+      if (set) next.gitHooksPath = hooksDir; else warnings.push('secret scan off: git config --global core.hooksPath failed (is ~/.gitconfig writable?)');
+    } else if (ours) {
+      changes.push('git config --global --unset core.hooksPath');
+      if (!dry && git('config', '--global', '--unset', 'core.hooksPath').status !== 0) warnings.push(`could not unset the global core.hooksPath ${cur}: unset it by hand`);
+    }
+  }
 
   // 4. what the old setup left that now gets in the way
   const local = join(work, '.claude', 'settings.local.json');
@@ -651,7 +690,8 @@ export function install(opts = {}) {
   if (!vault) delete nextDevice.vault;
   write(deviceFile, json(nextDevice));
 
-  const missing = Object.entries(clis).filter(([, v]) => !v).map(([k]) => k);
+  // gitleaks is required while the secret scan is on (its warning says so)
+  const missing = Object.entries(clis).filter(([k, v]) => !v && !(k === 'gitleaks' && setup.hooks['secret-scan'])).map(([k]) => k);
   log(`${dry ? 'dry run: ' : ''}${changes.length ? `${changes.length} changes` : 'nothing to change'}; tools: ${tools.join(', ') || 'none'}; vault: ${vault ?? 'none'}`);
   for (const c of changes) log(`  ${c}`);
   for (const w of warnings) log(`warning: ${w}`);

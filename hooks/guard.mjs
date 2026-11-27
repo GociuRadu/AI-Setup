@@ -3,15 +3,18 @@
 // Deny (only the user runs it):
 // - shell commands that send writing SQL (DML, DDL, EXEC, ...) through a database client, inline, piped or from a script,
 //   and tools that only write databases;
-// - hard stops: force-push, deleting Docker volumes, production compose files, release scripts, SSH, Hostinger execute,
-//   Atlassian executeDestructive;
+// - hard stops: force-push, deleting Docker volumes, production compose files, release scripts, SSH, Hostinger anything
+//   but reads, Atlassian executeDestructive;
+// - run by the user only: data loaders, publishing, cloud CLIs, gh merges, repo deletes and releases;
+// - Git that skips the hooks and so the secret scan (--no-verify, commit -n, core.hooksPath);
 // - secret files (.env, local.env, ...) and the workspace's personal/ folder, by shell (redirects included) or file tools;
 // - encrypted .mdenc notes, by name, anywhere.
-// Ask (one list on every device): git push, Git that discards uncommitted work, deletes outside the workspace (the vault
-// included) or of a whole project, the vault's Personal folder, publishing, data loaders, cloud CLIs, gh merges, deletes
-// and releases, HTTP calls that send data to a host other than localhost, and MCP tools that delete, trash or send.
-// shortcut: matches command text and path arguments only (strings in inline -c/-e code included); code that opens its own
-// connection or builds a command at run time (pytest, a loader, a script file) is not seen; upgrade if an agent does that.
+// Ask, only what is rare and cannot be undone: Git that discards uncommitted work, deletes outside the workspace (the vault
+// included), of a whole project or of targets not known here, the vault's Personal folder, and MCP tools that delete,
+// trash or send. Everything else runs (git push, HTTP calls): an ask nobody reads protects nothing.
+// This guard catches accidents, it is not a sandbox. shortcut: matches command text and path arguments only (strings in
+// inline -c/-e code included); code that opens its own connection or builds a command at run time is not seen. A bypass
+// is fixed when an agent was seen using one (/improve), not for every one a review can think of.
 // Speed: every check is a regex on the call; the file system is touched only for paths a regex already picked out.
 import { readFileSync, existsSync, realpathSync, statSync } from 'node:fs';
 import { resolve, relative, isAbsolute, join, dirname, basename } from 'node:path';
@@ -159,6 +162,10 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
       return HARD_STOPS.filter(([re], i) => re.test(u) && (i === 0 || !SEARCH.test(u)));
     })[0];
     if (hard) return `${hard[1]} is a hard stop`;
+    // a stage that only prints or searches text (echo "npm publish", grep run_notebook.py) is not a run
+    const userOnly = part.split('|').map(bareCmd).filter((u) => !SEARCH.test(u) && !PRINT.test(u)).flatMap((u) => USER_ONLY.filter(([re]) => re.test(u)))[0];
+    if (userOnly) return `${userOnly[1]} is run by the user only`;
+    if (part.split('|').some((s) => skipsHooks(bareCmd(s), part))) return 'skipping Git hooks (--no-verify, commit -n, core.hooksPath) turns off the secret scan';
     // code an interpreter runs inline: the strings inside it are checked as commands (os.system('git push -f'))
     const bare = part.replace(WRAPPERS, '');
     if (INLINE.test(bare)) for (const q of quotedDeep(bare)) { const r = check(q, cwd, root); if (r) return r; }
@@ -265,8 +272,9 @@ export function checkPaths(args, cwd = process.cwd(), root = ROOT, toolName = ''
 // MCP tools that are hard stops by name
 export function checkToolHardStop(toolName = '') {
   const t = String(toolName);
-  return /(^|__|_)hostinger[-_\w]*?(execute|multi[-_]execute|execute_site_tool)$/i.test(t) || /executeDestructive$/i.test(t)
-    ? 'this MCP tool is a hard stop' : null;
+  if (/(^|__|_)hostinger[-_\w]*?(execute|multi[-_]execute|execute_site_tool)$/i.test(t) || /executeDestructive$/i.test(t)) return 'this MCP tool is a hard stop';
+  // Hostinger hosts production: anything but a read
+  return /^mcp_.*hostinger/i.test(t) && !/(get|list|show|search|describe|check)/i.test(t) ? 'a Hostinger change reaches production, a hard stop' : null;
 }
 
 // also `env [-i] [-u NAME]` and `NAME=value` prefixes, so `env git push -f` and `GIT_TRACE=1 git push` are seen
@@ -303,13 +311,29 @@ const GIT_DISCARD = {
   stash: (r) => /^\s+(drop|clear)\b/.test(r),
   worktree: (r) => /^\s+remove\b.*\s(-f|--force)\b/.test(r),
 };
+// Git that skips the hooks, and so the secret scan: --no-verify (or a prefix Git accepts), commit -n, core.hooksPath for
+// one command (-c) or written to a config, an alias that skips them, Git config swapped by environment variables; quoted
+// text (a commit message) does not count, a read of core.hooksPath runs
+const NO_VERIFY = /\s--no-veri(f|fy)?(?=[\s="']|$)/;
+const SKIP_ALIAS = /\balias\.[\w.-]+[=\s]*["']?[^"']*?(--no-veri|[\s"'=]commit\b[^"']*\s-[a-zA-Z]*n[a-zA-Z]*(?=\s|$|["']))/i;
+function skipsHooks(stage, part = stage) {
+  if (/\bgit\b/i.test(part) && /(^|\s)GIT_CONFIG_(GLOBAL|SYSTEM|NOSYSTEM|COUNT|PARAMETERS)=/.test(part)) return true;
+  if (!/^\s*git(\.exe)?\s/i.test(stage)) return false;
+  if (/\s-c\s*["']?core\.hooksPath\b/i.test(stage) || SKIP_ALIAS.test(stage)) return true;
+  const m = GIT.exec(stage.replace(/"[^"]*"|'[^']*'/g, '""'));
+  if (!m) return false;
+  const sub = m[2].toLowerCase(), rest = m[3];
+  if (NO_VERIFY.test(rest)) return true;
+  if (sub === 'commit' && /\s-[a-zA-Z]*n[a-zA-Z]*(?=\s|$)/.test(rest)) return true;
+  return sub === 'config' && /\bcore\.hooksPath\b/i.test(rest) && !/\s--(get|get-all|get-regexp|list|show-origin)\b/.test(rest)
+    && !/^(\s+--(global|local|system))?\s+core\.hooksPath\s*$/i.test(rest);
+}
 function gitAsk(stage) {
   const m = GIT.exec(stage);
   if (!m) return null;
   const sub = m[2].toLowerCase(), rest = m[3];
   // `git -c alias.p=push p -f`: an alias set on the command line can stand for any command
   if (/(^|\s)-c\s+["']?alias\./i.test(m[1])) return 'a git alias set on the command line can run anything and requires approval';
-  if (sub === 'push') return 'git push requires approval';
   return GIT_DISCARD[sub]?.(rest) ? `git ${sub} can discard uncommitted work and requires approval` : null;
 }
 
@@ -356,21 +380,15 @@ function deleteAsk(stage, cwd, root) {
   return deleteTargetsAsk(targets, recursive(stage), cwd, root);
 }
 
-const LOADER = /\b(run_notebook\.py|seed_lake\.py|copy-from-dev\.ps1)\b|\bdev\.ps1\b.*\b(Notebook|Lake)\b/i;
-const PUBLISH = /^\s*((npm|pnpm|yarn|twine|poetry|uv)\s+publish|twine\s+upload|docker\s+push)\b/i;
-// cloud CLIs can reach any environment, so even their reads ask (unknown environment = PRODUCTION)
-const CLOUD = /^\s*(az|kubectl|helm|terraform)(\.exe)?(\s|$)/i;
-// gh that cannot be undone from a PR page: merges, repo deletes, releases, API deletes; PRs, issues and comments run
-const GH_RISKY = /^\s*gh(\.exe)?\s+(pr\s+merge|repo\s+(delete|archive|rename)|release\s+(create|delete|edit|upload)|api\s.*(-X|--method)[\s=]*["']?DELETE)\b/i;
-// a call whose every URL is this machine (a local dev server)
-const LOCAL_ONLY = (stage) => {
-  const urls = tokens(stage).filter((t) => /^(https?:\/\/|localhost\b|127\.0\.0\.1\b)/i.test(t));
-  return urls.length > 0 && urls.every((u) => /^(https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(u));
-};
-const HTTP = /^\s*(curl|wget|Invoke-RestMethod|Invoke-WebRequest|irm|iwr)(\.exe)?(\s|$)/i;
-// curl flags are case-sensitive (-f fails quietly, -F posts a form); PowerShell parameters are not
-const HTTP_WRITE = /\s(-X|--request|--method)[\s=]*["']?(?!GET\b|HEAD\b)\w|\s(-d|--data[\w-]*|-F|--form|-T|--upload-file|--post-data|--post-file|--json)(?=[\s=]|$)/;
-const PS_HTTP_WRITE = /\s-Method\s+["']?(?!GET\b|HEAD\b)\w|\s-(Body|InFile)\b|Authorization/i;
+// run by the user only (denied): rare for an agent, and each can reach shared or production systems
+const USER_ONLY = [
+  [/\b(run_notebook\.py|seed_lake\.py|copy-from-dev\.ps1)\b|\bdev\.ps1\b.*\b(Notebook|Lake)\b/i, 'running data loaders or notebooks'],
+  [/^\s*((npm|pnpm|yarn|twine|poetry|uv)\s+publish|twine\s+upload|docker\s+push)\b/i, 'publishing'],
+  // cloud CLIs can reach any environment, so even their reads count (unknown environment = PRODUCTION)
+  [/^\s*(az|kubectl|helm|terraform)(\.exe)?(\s|$)/i, 'a cloud CLI'],
+  // gh that cannot be undone from a PR page; PRs, issues and comments run
+  [/^\s*gh(\.exe)?\s+(pr\s+merge|repo\s+(delete|archive|rename)|release\s+(create|delete|edit|upload)|api\s.*(-X|--method)[\s=]*["']?DELETE)\b/i, 'a gh merge, repo delete or release'],
+];
 
 // one shell command; `$( ... )` inside it is checked as its own command
 function shellAsk(command, cwd, root) {
@@ -388,11 +406,6 @@ function shellAsk(command, cwd, root) {
       if (DELETE_CMD.test(stage)) { const d = deleteAsk(stage, cwd, root); if (d) return d; }
       else if (DELETE_ANY.test(stage)) return 'deleting files through a pipe or block requires approval';
       if (DELETE_INLINE.test(part)) return 'deleting files from inline code requires approval';
-      if (LOADER.test(stage)) return 'running data loaders or notebooks requires approval';
-      if (PUBLISH.test(stage)) return 'publishing requires approval';
-      if (CLOUD.test(stage)) return 'cloud CLIs require approval';
-      if (GH_RISKY.test(stage)) return 'a gh merge, delete or release requires approval';
-      if (HTTP.test(stage) && (HTTP_WRITE.test(stage) || PS_HTTP_WRITE.test(stage)) && !LOCAL_ONLY(stage)) return 'an HTTP call that sends data requires approval';
     }
   }
   return null;
@@ -425,8 +438,6 @@ export function checkAsk(command, args = {}, cwd = process.cwd(), root = ROOT, t
   if (v === 'whole') return WHOLE;
   if (/^mcp_/i.test(name) && DESTRUCTIVE_MCP.test(name)) return 'a deleting MCP tool requires approval';
   if (/^mcp_/i.test(name) && SEND_MCP.test(name)) return 'an MCP tool that sends mail or messages requires approval';
-  // Hostinger hosts production: anything but a read asks
-  if (/^mcp_.*hostinger/i.test(name) && !/(get|list|show|search|describe|check)/i.test(name)) return 'a Hostinger change reaches production and requires approval';
   return null;
 }
 
