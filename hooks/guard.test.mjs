@@ -25,6 +25,8 @@ const P = /vault's Personal folder\.$/, W = /whole Obsidian vault/, M = /encrypt
 const sh = (expected, ...commands) => commands.map((command) => [expected, 'Bash', { command }]);
 const on = (expected, tool, ...argsList) => argsList.map((args) => [expected, tool, args]);
 const inVault = (rows) => rows.map(([e, t, a]) => [e, t, a, vroot]);
+// rows with Windows paths (a drive letter, \ as separator): on Linux and macOS those are plain file names
+const win = (rows) => (process.platform === 'win32' ? rows : []);
 const patch = (body) => ({ input: `*** Begin Patch\n${body}\n*** End Patch` });
 
 const cases = [
@@ -78,6 +80,8 @@ const cases = [
   ...sh(D, 'echo x > .env', 'echo KEY=1 >> local.env', 'npm run x 2>".env"', 'echo x | tee .env', '"x" | Out-File .env', 'Set-Content .env x', 'bash -c "echo x > .env"',
     'cmd /c "echo x>.env"', 'pwsh -c "echo x > .env"', 'echo x >| .env', 'echo x >& .env', 'echo x > $(pwd)/.env', 'Set-Content -Path:.env x', 'dd if=a of=.env'),
   ...sh(N, 'echo x > out.txt', 'npm test 2>&1', 'echo x > .env.example', 'git commit -m "block > .env redirects"', 'bash -c "echo x > out.txt"', 'echo x >& out.log', '(echo x > a.txt)'),
+  // a lone [ in a search pattern is a plain character, not a broken glob class
+  ...sh(N, 'grep -c "\\[" a.txt', 'rg "a[" src', 'grep -c "x\\[" a.txt', 'cat x[1].txt', 'grep "{" a.txt'), ...sh(D, 'cat .en[v]', 'cat .e[n]v.local'),
   ...sh(N, 'cat .env.example', 'Get-Content config/settings.yaml', '. venv/bin/activate', 'git add .', 'git add .env.example', 'Get-Content *.md', 'tar czf out.tgz src',
     'git commit -m "deny .mdenc notes"'),
   ...on(D, 'Read', { file_path: 'C:/proj/.env' }, { path: 'code/local.env' }, { filePath: 'x/.test.env' }, { paths: ['a.md', '.env.prod'] }, { path: 'personal/diary.md' }, { path: join(dir, 'personal') },
@@ -105,8 +109,9 @@ const cases = [
 
   // asks, only what is rare and cannot be undone: Git that loses uncommitted work, wide or outside deletes, deleting and
   // sending MCP tools
-  ...sh(A, 'rm -rf build', 'rm -rf Shop/code', 'Remove-Item -Recurse -Force .\\Shop', 'rm -rf .git/refs', 'rm *', 'rm -r src/*', 'Remove-Item $dir -Recurse', 'Remove-Item',
-    'rm C:/Users/x/notes.txt', 'rm "C:/Users/x/my notes.txt"', 'Remove-Item -Recurse "Shop"', 'cmd /c del ..\\..\\a.txt', 'node -e "fs.rmSync(\'x\')"',
+  ...win(sh(A, 'Remove-Item -Recurse -Force .\\Shop', 'rm C:/Users/x/notes.txt', 'rm "C:/Users/x/my notes.txt"', 'cmd /c del ..\\..\\a.txt')),
+  ...sh(A, 'rm -rf build', 'rm -rf Shop/code', 'rm -rf .git/refs', 'rm *', 'rm -r src/*', 'Remove-Item $dir -Recurse', 'Remove-Item',
+    'Remove-Item -Recurse "Shop"', 'node -e "fs.rmSync(\'x\')"',
     'Get-ChildItem | ForEach-Object { Remove-Item $_ }', "find . -name '*.tmp' -delete",
     'git reset --hard HEAD~1', 'git clean -fd', 'git restore src/a.py', 'git checkout -- a.py', 'git checkout .', 'git checkout -f main', 'git reset --keep HEAD~1', 'git stash drop',
     'powershell -c "git reset --hard"', 'pwsh -NoProfile -Comm "git clean -fd"', 'git log $(git reset --hard)', 'env -u X git reset --hard', 'git -c alias.p=push p -f',
@@ -133,12 +138,13 @@ const cases = [
   // the Obsidian vault: Personal and whole-vault reads ask, the rest is open; no vault set, nothing is special
   ...inVault([
     ...on(M, 'Read', { file_path: `${fwd}/Inbox/keys.mdenc` }, { file_path: `${vault}\\Inbox\\keys.mdenc` }), ...sh(M, `cat "${fwd}/Personal/a.mdenc"`, `cp ${fwd}/Inbox/keys.mdenc .`),
-    ...[`${fwd}/Personal/a.md`, `${fwd}/personal/a.md`, `${vault}\\Personal\\a.md`, `${fwd}/Learn/../Personal/a.md`, `${fwd}/Personal./a.md`, `${fwd}/Personal /a.md`, `${fwd}/Personal`]
+    ...[`${fwd}/Personal/a.md`, `${fwd}/personal/a.md`, ...win([`${vault}\\Personal\\a.md`]),`${fwd}/Learn/../Personal/a.md`, `${fwd}/Personal./a.md`, `${fwd}/Personal /a.md`, `${fwd}/Personal`]
       .flatMap((p) => [[P, 'Read', { file_path: p }], [P, 'view', { path: p }], [P, 'Bash', { command: `cat "${p}"` }]]),
     // a bare Personal/ path is also read from the workspace root, as its personal/ folder: denied, stricter than the ask
-    ...sh(D, `cd ${fwd} && cat Personal/a.md`, `cd "${vault}"; gc Personal\\a.md`, `Set-Location -Path ${fwd}; type .\\Personal\\a.md`),
-    ...sh(P, `ls ${bash}/Personal`, `(cd ${bash} && ls Personal)`, `cd ${fwd}/Learn && cat ../Personal/a.md`, `Get-Content ${vault}\\Learn\\a.md,${vault}\\Personal\\b.md`, `pwsh -Command "gc ${vault}\\Personal\\a.md"`, `bash -c "cat ${fwd}/Personal/a.md"`,
-      `echo x >${fwd}/Personal/b.md`, `cat<${fwd}/Personal/a.md`, `cat ${fwd}/Learn/*/../../Personal/x.md`, `cat "\\\\?\\${vault}\\Personal\\a.md"`),
+    ...sh(D, `cd ${fwd} && cat Personal/a.md`, `cd "${vault}"; gc Personal\\a.md`), ...win(sh(D, `Set-Location -Path ${fwd}; type .\\Personal\\a.md`)),
+    ...sh(P, `ls ${bash}/Personal`, `(cd ${bash} && ls Personal)`, `cd ${fwd}/Learn && cat ../Personal/a.md`, `bash -c "cat ${fwd}/Personal/a.md"`,
+      `echo x >${fwd}/Personal/b.md`, `cat<${fwd}/Personal/a.md`, `cat ${fwd}/Learn/*/../../Personal/x.md`),
+    ...win(sh(P, `Get-Content ${vault}\\Learn\\a.md,${vault}\\Personal\\b.md`, `pwsh -Command "gc ${vault}\\Personal\\a.md"`, `cat "\\\\?\\${vault}\\Personal\\a.md"`)),
     ...on(P, 'Write', { file_path: join(link, 'Personal', 'new.md'), content: 'x' }), ...on(P, 'Glob', { pattern: '{a,../Personal}/**', path: `${fwd}/Learn` }),
     ...[vault, `${fwd}/`, join(vault, '..')].flatMap((path) => [[W, 'Grep', { pattern: 'x', path }], [W, 'Glob', { pattern: '**/*.md', path }]]),
     ...on(W, 'Glob', { pattern: `${fwd}/**/*.md` }),

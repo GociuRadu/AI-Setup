@@ -193,6 +193,17 @@ test('a first install writes every tool format, merges user settings and keeps w
   assert.deepEqual(m.run({ work: lower(m.work), home: lower(m.home), vault: lower(m.vault), repo: lower(m.repo) }).changes, []);
 });
 
+test('Claude settings that Claude Code saved with its own key order are no change', () => {
+  const m = machine();
+  m.run();
+  const file = join(m.home, '.claude', 'settings.json');
+  const s = readJson(file);
+  const hook = s.hooks.PreToolUse[0].hooks[0];
+  s.hooks.PreToolUse[0].hooks[0] = Object.fromEntries(Object.entries(hook).reverse());
+  put(file, JSON.stringify(Object.fromEntries(Object.entries(s).reverse())));
+  assert.deepEqual(m.run().changes, []);
+});
+
 test('the main model is set when none is, and a later /model choice is kept', () => {
   const m = machine();
   const file = join(m.home, '.claude', 'settings.json');
@@ -267,9 +278,15 @@ test('the secret scan: the global core.hooksPath is set with gitleaks found, kep
   assert.equal(commit('0').status, 0);
   assert.ok(existsSync(join(repo, 'own-hook-ran')), 'the repo\'s own pre-commit still runs');
 
-  // gitleaks gone: ours is unset; a hooksPath of the user's is never replaced
+  // a run that misses gitleaks (a shell started before the install) keeps the scan on; only setup.json turns it off
+  assert.ok(m.run().warnings.some((w) => /the secret scan stays on/.test(w)));
+  assert.equal(hooksPath(), hooksDir);
+  m.setSetup((s) => { s.hooks['secret-scan'] = false; });
   m.run();
   assert.equal(hooksPath(), '');
+  assert.ok(!existsSync(join(m.work, '.ai', 'hooks', 'git')));
+  // a hooksPath of the user's is never replaced
+  m.setSetup((s) => { s.hooks['secret-scan'] = true; });
   git(m.root, 'config', '--global', 'core.hooksPath', '/mine');
   assert.ok(m.run(withGitleaks).warnings.some((w) => /core\.hooksPath is already \/mine/.test(w)));
   assert.equal(hooksPath(), '/mine');

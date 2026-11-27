@@ -1,4 +1,4 @@
-# Runs every test on push and pull request, on Windows like the devices this setup runs on, and scans the whole Git
+# Runs every test on push and pull request, on Windows like the devices this setup runs on and on Linux, and scans the whole Git
 # history for secrets (gitleaks; no license needed for a personal account's repos).
 name: test
 on: [push, pull_request]
@@ -6,13 +6,21 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 24
       - run: node --test
+      # the failing lines as annotations, readable on the run page and through the API
+      - if: failure()
+        shell: bash
+        run: node --test 2>&1 | grep -E "expected |AssertionError|^not ok|Error:" | head -40 | sed 's/^/::error::/'
   secrets:
     runs-on: ubuntu-latest
     steps:

@@ -5,10 +5,9 @@ Current state and open work, under 40 lines. Decisions: [memory.md](memory.md).
 ## Current state
 
 - Updated: 2026-11-27.
-- Git: `review-fixes` = `2c922d3`+, pushed, 3 commits ahead of `origin/main` as of the last fetch: open a PR to merge it.
-- `7bdc3be`: secret scan, VS Code GitHub MCP off on every device, guard redesign (asks cut to rare irreversible ones).
-- `node --test`: 44/44 pass. `node install.mjs` twice: nothing to change; secret scan on.
-- CI green on `24bca62`; later pushes not checked (`gh` not installed: see the repo's Actions tab).
+- Git: `main` = `c4dda90` (PR #15: secret scan, GitHub MCP off, guard redesign), CI green. Branch `ci-linux` (pushed): guard `[` crash fix, PATH-proof secret scan (winget folder found, never unset for a missing PATH), `install.mjs --check`, CI on Windows + Linux, all 3 CI jobs green on `dac4e26`; Claude settings saved in another key order no longer count as a change: open a PR to merge it.
+- `node --test`: 45/45 pass on Windows and Linux. `node install.mjs --check`: exit 0; secret scan on.
+- CI results without `gh`: `https://api.github.com/repos/GociuRadu/AI-Setup/commits/<sha>/check-runs` (public repo); failing tests appear as annotations.
 - Home laptop: Claude Code and Kiro only (`.ai-device.json` `tools: { copilot: false }`).
 - Reports: [setup review](reports/2026-11-26-review-ai-setup.html), [skill and helper evaluation](reports/2026-11-26-analyze-skill-eval.html).
 
@@ -16,7 +15,7 @@ Current state and open work, under 40 lines. Decisions: [memory.md](memory.md).
 
 | Item | Status | Next action |
 |---|---|---|
-| Merge `review-fixes` | pushed, not merged | PR `review-fixes` → `main` on GitHub |
+| Merge `ci-linux` | pushed, not merged | PR `ci-linux` → `main` on GitHub; local `main` is behind: `git switch main && git pull --ff-only` |
 | Secret scan | home laptop on (gitleaks 8.30.1, fake token refused, clean commit passed, 2026-11-27); work laptop off | work laptop: `winget install --id Gitleaks.Gitleaks -e`, restart VS Code, `node AI-Setup/install.mjs` |
 | Guard redesign | built 2026-11-27, pushed | set GitHub branch protection on `main` (ruleset: block force pushes, restrict deletions) |
 | Smoke prompts | Claude Code 4/4, Kiro passes, Copilot partial | Claude Code: run step 5 (browser); Copilot: on the work laptop ([smoke.md](smoke.md)) |

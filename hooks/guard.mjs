@@ -211,7 +211,10 @@ function expandBraces(s) {
 function globMatchesSecret(glob) {
   const tail = glob.replace(/\\/g, '/').split('/').pop() ?? '';
   if (!tail || /^(\*+|\*\*)$/.test(tail) || EXAMPLE.test(tail)) return false;
-  const rx = new RegExp('^' + tail.replace(/[.+^$()|\\]/g, '\\$&').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]') + '$', 'i');
+  // [ab] is a glob class; a lone [ (grep "\[", rg "a[") is a plain character, as the shell reads it
+  const build = (special) => new RegExp('^' + tail.replace(special, '\\$&').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]') + '$', 'i');
+  let rx;
+  try { rx = build(/[.+^$()|\\{}]/g); } catch { rx = build(/[.+^$()|\\{}[\]]/g); }
   return ['.env', 'local.env', 'prod.env', '.test.env', '.env.local'].some((name) => rx.test(name));
 }
 // the files a patch touches (Copilot apply_patch): *** Add/Update/Delete File: and *** Move to:
