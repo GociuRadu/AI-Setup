@@ -78,6 +78,8 @@ const cases = [
   ...sh(D, 'echo x > .env', 'echo KEY=1 >> local.env', 'npm run x 2>".env"', 'echo x | tee .env', '"x" | Out-File .env', 'Set-Content .env x', 'bash -c "echo x > .env"',
     'cmd /c "echo x>.env"', 'pwsh -c "echo x > .env"', 'echo x >| .env', 'echo x >& .env', 'echo x > $(pwd)/.env', 'Set-Content -Path:.env x', 'dd if=a of=.env'),
   ...sh(N, 'echo x > out.txt', 'npm test 2>&1', 'echo x > .env.example', 'git commit -m "block > .env redirects"', 'bash -c "echo x > out.txt"', 'echo x >& out.log', '(echo x > a.txt)'),
+  // a lone [ in a search pattern is a plain character, not a broken glob class
+  ...sh(N, 'grep -c "\\[" a.txt', 'rg "a[" src', 'grep -c "x\\[" a.txt', 'cat x[1].txt', 'grep "{" a.txt'), ...sh(D, 'cat .en[v]', 'cat .e[n]v.local'),
   ...sh(N, 'cat .env.example', 'Get-Content config/settings.yaml', '. venv/bin/activate', 'git add .', 'git add .env.example', 'Get-Content *.md', 'tar czf out.tgz src',
     'git commit -m "deny .mdenc notes"'),
   ...on(D, 'Read', { file_path: 'C:/proj/.env' }, { path: 'code/local.env' }, { filePath: 'x/.test.env' }, { paths: ['a.md', '.env.prod'] }, { path: 'personal/diary.md' }, { path: join(dir, 'personal') },

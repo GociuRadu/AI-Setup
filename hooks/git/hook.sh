@@ -8,6 +8,10 @@ name=$(basename "$0")
 if [ "$name" = pre-commit ]; then
   # a Git client started from the macOS Dock may lack Homebrew's folders on PATH
   PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+  # winget adds gitleaks to the user PATH, which programs started before the install (VS Code) do not have yet
+  if [ -n "$LOCALAPPDATA" ] && command -v cygpath >/dev/null 2>&1; then
+    for d in "$(cygpath -u "$LOCALAPPDATA")"/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_*; do PATH="$PATH:$d"; done
+  fi
   if ! command -v gitleaks >/dev/null 2>&1; then
     echo "Commit refused: gitleaks is not installed, so the secret scan cannot run. Windows: winget install --id Gitleaks.Gitleaks -e; macOS: brew install gitleaks. Then open a new terminal and commit again." >&2
     exit 1

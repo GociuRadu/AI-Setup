@@ -34,6 +34,7 @@ Then open the `work` folder (not a project inside it) and start a new chat in ea
 | Flag | Does |
 |---|---|
 | `--dry-run` | Lists every change without making it |
+| `--check` | The same, and exits with code 1 when anything installed differs from the repo (a stale copy or a hand edit) |
 | `--vault <folder>` | The Obsidian vault the `obsidian` skill writes to (an existing vault with its `.obsidian` folder, outside the work folder; else it is left out with a warning); saved for later runs |
 | `--work <folder>` | Installs into another folder than the repo's parent |
 

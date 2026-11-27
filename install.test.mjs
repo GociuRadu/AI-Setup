@@ -267,9 +267,15 @@ test('the secret scan: the global core.hooksPath is set with gitleaks found, kep
   assert.equal(commit('0').status, 0);
   assert.ok(existsSync(join(repo, 'own-hook-ran')), 'the repo\'s own pre-commit still runs');
 
-  // gitleaks gone: ours is unset; a hooksPath of the user's is never replaced
+  // a run that misses gitleaks (a shell started before the install) keeps the scan on; only setup.json turns it off
+  assert.ok(m.run().warnings.some((w) => /the secret scan stays on/.test(w)));
+  assert.equal(hooksPath(), hooksDir);
+  m.setSetup((s) => { s.hooks['secret-scan'] = false; });
   m.run();
   assert.equal(hooksPath(), '');
+  assert.ok(!existsSync(join(m.work, '.ai', 'hooks', 'git')));
+  // a hooksPath of the user's is never replaced
+  m.setSetup((s) => { s.hooks['secret-scan'] = true; });
   git(m.root, 'config', '--global', 'core.hooksPath', '/mine');
   assert.ok(m.run(withGitleaks).warnings.some((w) => /core\.hooksPath is already \/mine/.test(w)));
   assert.equal(hooksPath(), '/mine');

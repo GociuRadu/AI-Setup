@@ -1,5 +1,5 @@
 // Installs this repo's AI setup into the work folder for Claude Code, GitHub Copilot (VS Code) and Kiro, from setup.json.
-//   node install.mjs [--work <folder>] [--vault <folder>] [--dry-run]
+//   node install.mjs [--work <folder>] [--vault <folder>] [--dry-run | --check]
 // Writes each tool's own format inside <work> (.claude/, .github/, .kiro/, .ai/, AGENTS.md, CLAUDE.md), merges managed keys
 // into the few user-level files a tool requires (~/.claude/settings.json, VS Code User settings.json, ~/.copilot/hooks/guard.json,
 // ~/.kiro/settings/permissions.yaml and mcp.json; a copy of each goes to <work>/.ai/backup/ before it changes), sets the global
@@ -99,7 +99,15 @@ export function loadSetup(repo = REPO) {
   return s;
 }
 
-const which = (cmd) => spawnSync(process.platform === 'win32' ? 'where' : 'which', [cmd], { stdio: 'ignore' }).status === 0;
+// winget puts a portable CLI in its Packages folder and adds that to the user PATH, which shells and editors started before
+// the install do not see yet
+const wingetHas = (cmd) => {
+  const root = process.platform === 'win32' && process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Microsoft', 'WinGet');
+  if (!root) return false;
+  if (existsSync(join(root, 'Links', `${cmd}.exe`))) return true;
+  try { return readdirSync(join(root, 'Packages')).some((d) => existsSync(join(root, 'Packages', d, `${cmd}.exe`))); } catch { return false; }
+};
+const which = (cmd) => spawnSync(process.platform === 'win32' ? 'where' : 'which', [cmd], { stdio: 'ignore' }).status === 0 || wingetHas(cmd);
 export function vscodeUserDir(home = homedir()) {
   if (process.platform === 'win32') return join(process.env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'Code', 'User');
   if (process.platform === 'darwin') return join(home, 'Library', 'Application Support', 'Code', 'User');
@@ -629,7 +637,8 @@ export function install(opts = {}) {
   const kiroWs = join(home, '.kiro', 'workspace-roots', createHash('sha256').update(process.platform === 'win32' ? posix(work).toLowerCase() : posix(work)).digest('hex').slice(0, 16), 'permissions.yaml');
   if (existsSync(kiroWs)) writeUser(kiroWs, mergeKiroPermissions(readFileSync(kiroWs, 'utf8'), { rules: [], managed: {}, vault }));
   // the secret scan: the global core.hooksPath, so every repo on the device runs it, cloned before or after the install;
-  // set only with gitleaks found (without it the hook refuses every commit), and never over a hooksPath of the user's
+  // first set only with gitleaks found (without it the hook refuses every commit), never over a hooksPath of the user's, and
+  // removed only when setup.json turns the scan off: a run from a shell that misses gitleaks keeps it on
   const hooksDir = posix(join(work, GIT_HOOKS_DIR));
   const git = (...a) => spawnSync('git', a, { encoding: 'utf8', ...(opts.home && { env: { ...process.env, GIT_CONFIG_GLOBAL: join(home, '.gitconfig') } }) });
   const hooksPath = git('config', '--global', '--get', 'core.hooksPath');
@@ -638,9 +647,11 @@ export function install(opts = {}) {
     const cur = hooksPath.stdout.trim();
     const ours = cur !== '' && (cur === hooksDir || cur === managed.gitHooksPath);
     const scan = setup.hooks['secret-scan'];
-    if (scan && !clis.gitleaks) warnings.push(`secret scan off: gitleaks not found (${GITLEAKS_HOW}); open a new terminal, then run the install again`);
-    if (scan && clis.gitleaks && cur && !ours) warnings.push(`secret scan off: the global core.hooksPath is already ${cur}; unset it or call ${hooksDir}/pre-commit from its pre-commit, then run the install again`);
-    else if (scan && clis.gitleaks) {
+    if (scan && cur && !ours) warnings.push(`secret scan off: the global core.hooksPath is already ${cur}; unset it or call ${hooksDir}/pre-commit from its pre-commit, then run the install again`);
+    else if (scan && !clis.gitleaks) {
+      if (ours) { next.gitHooksPath = cur; warnings.push(`gitleaks not found (${GITLEAKS_HOW}): the secret scan stays on and refuses commits until gitleaks is installed`); }
+      else warnings.push(`secret scan off: gitleaks not found (${GITLEAKS_HOW}); open a new terminal, then run the install again`);
+    } else if (scan) {
       const set = cur === hooksDir || dry || git('config', '--global', 'core.hooksPath', hooksDir).status === 0;
       if (cur !== hooksDir) changes.push(`git config --global core.hooksPath ${hooksDir}`);
       if (set) next.gitHooksPath = hooksDir; else warnings.push('secret scan off: git config --global core.hooksPath failed (is ~/.gitconfig writable?)');
@@ -704,9 +715,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const args = process.argv.slice(2), opts = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dry-run') opts.dryRun = true;
+    // a dry run that fails when anything installed differs from this repo (a stale copy, a hand edit)
+    else if (args[i] === '--check') opts.dryRun = opts.check = true;
     else if (args[i] === '--work' && args[i + 1]) opts.work = args[++i];
     else if (args[i] === '--vault' && args[i + 1]) opts.vault = resolve(args[++i]);
-    else { console.error('usage: node install.mjs [--work <folder>] [--vault <folder>] [--dry-run]'); process.exit(1); }
+    else { console.error('usage: node install.mjs [--work <folder>] [--vault <folder>] [--dry-run | --check]'); process.exit(1); }
   }
-  try { install(opts); } catch (e) { console.error(e.message); process.exitCode = 1; }
+  try { if (install(opts).changes.length && opts.check) process.exitCode = 1; } catch (e) { console.error(e.message); process.exitCode = 1; }
 }
