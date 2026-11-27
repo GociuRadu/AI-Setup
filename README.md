@@ -20,9 +20,10 @@ flowchart LR
 
 ## Quick start
 
-Needs Git, Node.js 22 or newer, and each tool opened once on the device: the install skips a tool it cannot find, so check the `tools:` line it prints. The install itself uses no npm packages; Kiro's `/playwright` skill needs `npm install -g @playwright/cli`.
+Needs Git, Node.js 22 or newer, [gitleaks](https://github.com/gitleaks/gitleaks) (the secret scan; without it the install leaves the scan off and says so), and each tool opened once on the device: the install skips a tool it cannot find, so check the `tools:` line it prints. The install itself uses no npm packages; Kiro's `/playwright` skill needs `npm install -g @playwright/cli`.
 
 ```powershell
+winget install --id Gitleaks.Gitleaks -e              # macOS: brew install gitleaks; then open a new terminal
 cd C:\Users\<you>\Desktop\work                       # the folder you open in VS Code and Kiro
 git clone https://github.com/GociuRadu/AI-Setup.git
 node AI-Setup/install.mjs --vault "C:\path\to\vault"  # first run; later runs need no flags
@@ -83,13 +84,15 @@ Each helper's model tier and effort are in [setup.json](setup.json).
 | Helpers | `agents/<name>.md` | `.claude/agents/` | `.github/agents/` | `.kiro/agents/` |
 | Guard | `hooks/` | `~/.claude/settings.json` | `~/.copilot/hooks/guard.json` | `.kiro/hooks/guard.json` |
 | MCP | `mcp/atlassian.json` | `.mcp.json` | `.mcp.json` | `.kiro/settings/mcp.json` |
+| Secret scan | `hooks/git/hook.sh` | Git itself: global `core.hooksPath` → `work/.ai/hooks/git/` | same | same |
 
-All paths except `~/` are inside the work folder; the guard and the project templates are copied to `work/.ai/`, and `work/.ignore` keeps `AI-Setup/` and `.playwright-cli/` out of file searches. Outside it, the install changes only its own keys in 3 files the tools require:
+All paths except `~/` are inside the work folder; the guard and the project templates are copied to `work/.ai/`, and `work/.ignore` keeps `AI-Setup/` and `.playwright-cli/` out of file searches. Outside it, the install changes only its own keys in 4 files:
 
 | File | Keys |
 |---|---|
 | `~/.claude/settings.json` | auto mode, the guard hook, deny rules, auto memory off, no Concise output style; the main model (`main` in `setup.json`) and the model of built-in agents (`CLAUDE_CODE_SUBAGENT_MODEL`, `builtins`), each only while you have not set your own |
-| VS Code User `settings.json` | hooks on, Copilot ignores `.claude/` files and hooks, local memory off, never-auto-approve rules |
+| VS Code User `settings.json` | every device with VS Code: its built-in GitHub MCP server off (on by default in the Agents window). With Copilot: hooks on, Copilot ignores `.claude/` files and hooks, local memory off, never-auto-approve rules |
+| `~/.gitconfig` | `core.hooksPath`, only while it is unset or ours and gitleaks is found |
 | `~/.kiro/settings/permissions.yaml` | deny rules for secrets, `personal/`, encrypted notes and hard stops |
 
 ## Configure
@@ -112,7 +115,9 @@ Everything is in [setup.json](setup.json). After a change, rerun `node install.m
 
 | Layer | What it does |
 |---|---|
-| Guard ([hooks/guard.mjs](hooks/guard.mjs)), all 3 tools | **Blocks** writing SQL, anything on PRODUCTION or staging, force-push, `docker compose down -v`, SSH, Hostinger `execute`, Atlassian `executeDestructive`, `.env` files, the `personal/` folder and encrypted `.mdenc` notes. **Asks** before `git push`, Git that loses uncommitted work, deletes outside the workspace (the vault included) or of a whole project, the vault's `Personal/`, publishing, data loaders, `az`, `kubectl`, `helm`, `terraform`, `gh` merges, deletes and releases, HTTP calls that send data to a host other than localhost, deleting MCP tools and Hostinger changes; in Kiro these are blocked instead, and you run them, because a Kiro allow rule can approve the ask without showing it. If it fails, or its input is not JSON, it blocks. |
+| Guard ([hooks/guard.mjs](hooks/guard.mjs)), all 3 tools | **Blocks** what an agent never needs: writing SQL, anything on PRODUCTION or staging, force-push, `docker compose down -v`, SSH, Hostinger changes, Atlassian `executeDestructive`, `.env` files, the `personal/` folder, encrypted `.mdenc` notes, skipping Git hooks; and what you run yourself: publishing, data loaders, `az`, `kubectl`, `helm`, `terraform`, `gh` merges, repo deletes and releases. **Asks** only before what is rare and cannot be undone: Git that loses uncommitted work, deletes outside the workspace (the vault included) or of a whole project, the vault's `Personal/`, MCP tools that delete or send; in Kiro these are blocked instead, and you run them, because a Kiro allow rule can approve the ask without showing it. `git push` and HTTP calls run. If it fails, or its input is not JSON, it blocks. It catches accidents, it is not a sandbox: a bypass is fixed when an agent was seen using one. |
+| GitHub | Branch protection on `main` (a ruleset: block force pushes and deletion), set once per repo on github.com, so a push cannot rewrite or remove it whatever the guard misses |
+| Secret scan ([hooks/git/hook.sh](hooks/git/hook.sh)), every repo on the device | Refuses a commit whose staged changes hold a secret (gitleaks), then runs the repo's own hook; the guard blocks agents from skipping it (`--no-verify`, `commit -n`, `core.hooksPath`). A repo with its own `core.hooksPath` (husky, lefthook) runs only its own hooks, and `pre-commit install` (pre-commit.com) refuses while the global one is set. CI scans the whole history again |
 | Tool settings | Claude Code auto mode and deny rules; Copilot never-auto-approve rules (Copilot runs a call when a hook times out); Kiro deny rules |
 | Rules | The safety section of [rules/always.md](rules/always.md): databases are read-only, every write is a draft with a rollback |
 

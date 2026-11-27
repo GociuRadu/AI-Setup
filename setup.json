@@ -26,7 +26,7 @@
     "balanced": { "claude": "sonnet", "copilot": "Claude Sonnet 5.5 (copilot)", "kiro": "claude-sonnet-5.5" },
     "deep": { "claude": "opus", "copilot": "Claude Opus 5.5 (copilot)", "kiro": "claude-opus-5.5" }
   },
-  "hooks": { "guard": true },
+  "hooks": { "guard": true, "secret-scan": true },
   "mcp": { "atlassian": true },
   "off": {
     "claude-auto-memory": true,
