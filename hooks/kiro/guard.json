@@ -3,7 +3,7 @@
   "hooks": [
     {
       "name": "Guard tool calls",
-      "description": "Blocks hard stops, writing SQL, secret files, personal/ and encrypted vault notes; in Kiro also blocks what other tools ask about (the user runs it): pushes, Git that loses uncommitted work, wide or outside deletes, Personal/, publishing, loaders, cloud CLIs, gh merges and deletes, HTTP writes off localhost, MCP deletes and Hostinger changes (.ai/hooks/guard.mjs).",
+      "description": "Blocks hard stops, writing SQL, secret files, personal/ and encrypted vault notes; in Kiro also blocks what other tools ask about (the user runs it): pushes, Git that loses uncommitted work, wide or outside deletes, Personal/, publishing, loaders, cloud CLIs, gh merges and deletes, HTTP writes off localhost, MCP tools that delete, trash or send, and Hostinger changes (.ai/hooks/guard.mjs).",
       "trigger": "PreToolUse",
       "action": { "type": "command", "command": "node .ai/hooks/kiro/hook.mjs" },
       "timeout": 10

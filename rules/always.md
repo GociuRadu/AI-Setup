@@ -38,6 +38,7 @@ Every session in Claude Code, GitHub Copilot and Kiro. A project's own rules can
 - You are the only writer. The read-only helpers `tester`, `researcher`, `reviewer` and `challenger` take noisy side work in their own context, several in parallel; each brief names the goal, the paths and the return format with a line cap.
 - Pick the cheapest helper that can do the job, because a built-in or forked agent runs on your own, most expensive model: commands with long output (suites, builds, logs, Git history) go to `tester`, a short one you run yourself; searching files, logs or the web to `researcher`. Use a built-in agent only when no helper fits, and then set its model to the cheapest that can do the job.
 - Filter what helpers return and give the user one summary after all of them finish, not a helper's raw output.
+- In Kiro a helper runs as a one-step workflow (`agent://<name>`); a rule or skill step that names a helper counts as the user asking for it.
 
 ## Safety
 - Hard stops, run only by the user: anything on PRODUCTION or staging (servers, deploys, releases, SSH), force-push or rewriting shared history, `docker compose down -v`, Hostinger MCP `execute`, `multi-execute` and `execute_site_tool`, Atlassian `executeDestructive`. Give the user the exact command instead.
@@ -45,4 +46,4 @@ Every session in Claude Code, GitHub Copilot and Kiro. A project's own rules can
 - PRODUCTION: nothing, not even reads. An unknown environment counts as PRODUCTION.
 - Secrets: never open `.env`-style files, tokens, key-vault values or connection strings, and mask any you see. Never touch the workspace's `personal/` folder. MCP sign-in only through OAuth or environment variables. No customer data (rows, names, emails, documents) in docs, memory or helper output: counts and masked IDs only.
 - Obsidian vault: never write a password, key or token in a note; never read `.mdenc` (encrypted) notes; reading or touching `Personal/` asks first.
-- The guard hook asks before pushes, Git that loses uncommitted work, wide or outside deletes (the vault included), publishing, loaders, cloud CLIs, gh merges and deletes, HTTP writes off localhost, MCP deletes and Hostinger changes. The prompt is the ask: call the tool and let it ask, instead of asking in chat.
+- The guard hook asks before pushes, Git that loses uncommitted work, wide or outside deletes (the vault included), publishing, loaders, cloud CLIs, gh merges and deletes, HTTP writes off localhost, MCP tools that delete, trash or send, and Hostinger changes. The prompt is the ask: call the tool and let it ask, instead of asking in chat.

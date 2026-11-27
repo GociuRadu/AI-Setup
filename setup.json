@@ -1,5 +1,5 @@
 {
-  "$comment": "Every component of the setup, the same on every device. false removes it on the next `node install.mjs`; a tool the device lacks is skipped. A skill, an agent's on or an MCP server can also list the tools that get it, as in [\"kiro\"]; Claude Code and Copilot share .mcp.json, so an MCP server on for one is seen by both. Agents name a model tier; the tiers map to each tool's model IDs. A per-device model for one agent goes in <work>/.ai-device.json: \"models\": { \"reviewer\": { \"copilot\": \"<model id>\" } }.",
+  "$comment": "Every component of the setup, the same on every device. false removes it on the next `node install.mjs`; a tool the device lacks is skipped. A skill, an agent's on or an MCP server can also list the tools that get it, as in [\"kiro\"]; Claude Code and Copilot share .mcp.json, so an MCP server on for one is seen by both. Agents name a model tier; the tiers map to each tool's model IDs. A per-device model for one agent goes in <work>/.ai-device.json: \"models\": { \"reviewer\": { \"copilot\": \"<model id>\" } }; a tool off on one device: \"tools\": { \"copilot\": false }.",
   "tools": { "claude": true, "copilot": true, "kiro": true },
   "rules": { "always": true, "sql": true, "python": true },
   "skills": {
@@ -33,6 +33,17 @@
     "claude-output-style": true,
     "copilot-memory": true,
     "copilot-claude-files": true,
-    "retired-mcp": ["github", "playwright"]
+    "retired-mcp": ["github", "playwright"],
+    "claude-agents": ["Explore", "Plan", "statusline-setup"],
+    "claude-settings": {
+      "syncClaudeAiPlugins": false,
+      "disableClaudeAiConnectors": true,
+      "skillOverrides": {
+        "simplify": "off", "code-review": "off", "security-review": "off", "init": "off", "loop": "off", "schedule": "off",
+        "keybindings-help": "off", "fewer-permission-prompts": "off", "workflow-authoring": "off", "plugin-authoring": "off",
+        "deep-research": "off", "skill-creator": "off", "docs": "off", "google-workspace": "off", "morning": "off",
+        "import-memory": "off", "computer-use": "off"
+      }
+    }
   }
 }
