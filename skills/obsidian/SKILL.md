@@ -1,6 +1,6 @@
 ---
 name: obsidian
-description: "Writes and edits anything in the user's Obsidian vault: Markdown notes (.md), Bases (.base), Canvas files (.canvas) and Obsidian settings, above all study notes in Learn. Use when the user says learn, teach me or explain this stage or topic, finishes a project stage and wants to study it, or asks to create, edit, rename, link or organise vault notes, bases or canvases. For study notes it researches what industry uses, what is standard and what interviews ask, then writes one ordered, illustrated note per topic."
+description: "Writes and edits the user's Obsidian vault: notes (.md), Bases (.base), Canvas (.canvas) and settings, above all researched, illustrated study notes in Learn. Use for learn, teach me, study this topic or stage, or any vault note change."
 argument-hint: "<topic, stage, note or change> [project]"
 ---
 # Obsidian

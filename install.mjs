@@ -1,8 +1,8 @@
 // Installs this repo's AI setup into the work folder for Claude Code, GitHub Copilot (VS Code) and Kiro, from setup.json.
 //   node install.mjs [--work <folder>] [--vault <folder>] [--dry-run]
 // Writes each tool's own format inside <work> (.claude/, .github/, .kiro/, .ai/, AGENTS.md, CLAUDE.md), merges managed keys
-// into the few user-level files a tool requires (~/.claude/settings.json, VS Code User settings.json,
-// ~/.kiro/settings/permissions.yaml; a copy of each goes to <work>/.ai/backup/ before it changes), and records what it wrote in <work>/.ai-device.json. It deletes only files it wrote
+// into the few user-level files a tool requires (~/.claude/settings.json, VS Code User settings.json, ~/.copilot/hooks/guard.json,
+// ~/.kiro/settings/permissions.yaml and mcp.json; a copy of each goes to <work>/.ai/backup/ before it changes), and records what it wrote in <work>/.ai-device.json. It deletes only files it wrote
 // itself; a file of someone else's at a path it needs is moved to <work>/.ai/backup/ first. A second run changes nothing.
 // No npm packages: Node 22+ only.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, renameSync, cpSync, realpathSync, readlinkSync, unlinkSync } from 'node:fs';
@@ -150,7 +150,6 @@ export function workFiles({ repo, setup, tools, work, vault }) {
   if (setup.hooks.guard) {
     out['.ai/hooks/guard.mjs'] = readFileSync(join(repo, 'hooks/guard.mjs'));
     for (const tool of tools) out[`.ai/hooks/${tool}/hook.mjs`] = readFileSync(join(repo, 'hooks', tool, 'hook.mjs'));
-    if (on('copilot')) out['.github/hooks/guard.json'] = readFileSync(join(repo, 'hooks/copilot/guard.json'));
     if (on('kiro')) out['.kiro/hooks/guard.json'] = readFileSync(join(repo, 'hooks/kiro/guard.json'));
   }
   for (const rel of walk(join(repo, 'templates'))) out[`.ai/templates/${rel}`] = readFileSync(join(repo, 'templates', rel));
@@ -187,7 +186,8 @@ export function mergeClaudeSettings(cur, { setup, work, enabled, managed, repo =
   const ours = (h) => JSON.stringify(h).replace(/\\\\/g, '/').includes(CLAUDE_HOOK);
   s.permissions = isObj(s.permissions) ? s.permissions : {};
   const prevDeny = new Set(managed.claudeDeny ?? []);
-  const deny = enabled ? claudeDeny(work) : [];
+  // built-in agents that duplicate ours are denied by name
+  const deny = enabled ? [...claudeDeny(work), ...(setup.off['claude-agents'] ?? []).map((a) => `Agent(${a})`)] : [];
   s.permissions.deny = [...new Set([...(s.permissions.deny ?? []).filter((r) => !prevDeny.has(r) && !deny.includes(r)), ...deny])];
   if (!s.permissions.deny.length) delete s.permissions.deny;
   if (enabled) s.permissions.defaultMode = 'auto';
@@ -202,9 +202,19 @@ export function mergeClaudeSettings(cur, { setup, work, enabled, managed, repo =
   else if (s.hooks) { delete s.hooks.PreToolUse; if (!Object.keys(s.hooks).length) delete s.hooks; }
   const keys = [];
   let model, subagentModel;
+  // a key the last run set and the list no longer has goes back to the user's default, unless the user changed it since
+  const offNow = enabled ? setup.off['claude-settings'] ?? {} : {};
+  for (const [k, v] of Object.entries(managed.claudeOff ?? {})) {
+    if (!isObj(v)) { if (!(k in offNow) && s[k] === v) delete s[k]; continue; }
+    if (!isObj(s[k])) continue;
+    for (const [sub, x] of Object.entries(v)) if (!(isObj(offNow[k]) && sub in offNow[k]) && s[k][sub] === x) delete s[k][sub];
+    if (!Object.keys(s[k]).length) delete s[k];
+  }
   if (enabled) {
     if (setup.off['claude-auto-memory']) { s.autoMemoryEnabled = false; keys.push('autoMemoryEnabled'); }
     if (setup.off['claude-output-style'] && s.outputStyle === 'Concise') delete s.outputStyle;
+    // built-ins that duplicate ours: top-level keys are set, object keys (env, skillOverrides) are merged key by key
+    for (const [k, v] of Object.entries(setup.off['claude-settings'] ?? {})) s[k] = isObj(v) ? { ...(isObj(s[k]) ? s[k] : {}), ...v } : v;
     // the main model, unless the user picked another one (with /model or by hand) after the install last set it
     if (setup.main) {
       const want = setup.models[setup.main.tier].claude;
@@ -456,7 +466,8 @@ export function install(opts = {}) {
     copilot: existsSync(vscodeUser) || detect('code'),
     kiro: existsSync(join(home, '.kiro')) || detect('kiro'),
   };
-  const tools = TOOLS.filter((t) => setup.tools[t] && found[t]);
+  // a device can turn a tool off in .ai-device.json: "tools": { "copilot": false } (the old setup's array form is ignored)
+  const tools = TOOLS.filter((t) => setup.tools[t] && found[t] && !(isObj(device.tools) && device.tools[t] === false));
   const clis = Object.fromEntries([['claude', 'claude'], ['gh', 'gh'], ['gitleaks', 'gitleaks'], ['playwright', 'playwright-cli']].map(([k, c]) => [k, detect(c)]));
   const projects = readdirSync(work, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.') && existsSync(join(work, e.name, 'code'))).map((e) => e.name).sort();
   setup.deviceModels = isObj(device.models) ? device.models : {};
@@ -518,25 +529,39 @@ export function install(opts = {}) {
   const ignoreLines = ['/AI-Setup/', '/.playwright-cli/'];
   write(join(work, '.ignore'), mergeIgnore(existsSync(join(work, '.ignore')) ? readFileSync(join(work, '.ignore'), 'utf8') : '', ignoreLines, managed.ignore ?? []));
 
-  // 2. MCP: workspace files only (~/.claude.json is never touched)
+  // 2. MCP: workspace files, plus our servers taken out of Kiro's user-level file (~/.claude.json is never touched)
   const servers = Object.fromEntries(Object.keys(setup.mcp).filter((n) => setup.mcp[n]).map((n) => [n, JSON.parse(readText(join(repo, 'mcp', `${n}.json`)))]));
   const dropMcp = [...new Set([...(setup.off['retired-mcp'] ?? []), ...(device.mcpSynced ?? []).filter((n) => !(n in servers))])];
   // fileTools: the tools that read the file; a server goes in when it is on for one of them
-  const mcpFile = (file, key, fileTools, entry) => {
+  // fit: applied to an entry of ours that is already there (its sign-in stays), to drop a field this device must not have
+  const mcpFile = (file, key, fileTools, entry, fit = (e) => e) => {
     const cur = readJson(file);
     if (cur === null) { warnings.push(`${file} is not plain JSON: MCP servers not merged`); return; }
     const mine = Object.fromEntries(Object.entries(servers).filter(([n]) => fileTools.some((t) => tools.includes(t) && forTool(setup.mcp[n], t))));
     if (!existsSync(file) && !Object.keys(mine).length) return;
     const next = mergeMcp(cur, { key, servers: mine, remove: [...dropMcp, ...Object.keys(servers).filter((n) => !(n in mine))], entry });
+    for (const n of Object.keys(mine)) if (isObj(next[key]?.[n])) next[key][n] = fit(next[key][n]);
     if (existsSync(file) || Object.keys(next[key] ?? {}).length) write(file, json(next, textOf(file)));
   };
   const plainEntry = ({ type, url, command, args, env, headers }) => ({ type, ...(url && { url }), ...(command && { command }), ...(args && { args }), ...(env && { env }), ...(headers && { headers }) });
   // Claude Code and Copilot share .mcp.json, so a server on for either one is seen by both
-  mcpFile(join(work, '.mcp.json'), 'mcpServers', ['claude', 'copilot'], (d) => ({ ...plainEntry(d), tools: ['*'] }));
+  // shortcut: Claude Code skips a server whose tools field is ["*"] (Copilot's format), so it is written only on a device with
+  // Copilot, where Claude Code then misses the server; upgrade when Copilot reads .mcp.json without it or the 2 files split
+  mcpFile(join(work, '.mcp.json'), 'mcpServers', ['claude', 'copilot'], (d) => ({ ...plainEntry(d), ...(tools.includes('copilot') && { tools: ['*'] }) }),
+    (e) => { if (tools.includes('copilot')) return e; const { tools: _, ...rest } = e; return rest; });
   mcpFile(join(work, '.kiro/settings/mcp.json'), 'mcpServers', ['kiro'], (d) => { const { type, ...rest } = plainEntry(d); return rest; });
+  // our servers live only in the files above: Copilot also reads .vscode/mcp.json and Kiro merges its user-level file in,
+  // so a copy there would load twice and stay on when setup.json turns the server off; only on a device with that tool
+  const notOurs = [...dropMcp, ...Object.keys(setup.mcp)];
   if (existsSync(join(work, '.vscode/mcp.json'))) {
     const cur = readJson(join(work, '.vscode/mcp.json'));
-    if (cur) write(join(work, '.vscode/mcp.json'), json(mergeMcp(cur, { key: 'servers', servers: {}, remove: dropMcp, entry: (d) => d })));
+    if (cur) write(join(work, '.vscode/mcp.json'), json(mergeMcp(cur, { key: 'servers', servers: {}, remove: tools.includes('copilot') ? notOurs : dropMcp, entry: (d) => d })));
+  }
+  const kiroMcp = join(home, '.kiro', 'settings', 'mcp.json');
+  const kiroMcpCur = tools.includes('kiro') && existsSync(kiroMcp) ? readJson(kiroMcp) : null;
+  if (kiroMcpCur) {
+    const s = mergeMcp(kiroMcpCur, { key: 'mcpServers', servers: {}, remove: notOurs, entry: (d) => d });
+    if (JSON.stringify(s) !== JSON.stringify(kiroMcpCur)) writeUser(kiroMcp, json(s, textOf(kiroMcp)));
   }
 
   // 3. user-level settings the tools require
@@ -552,6 +577,7 @@ export function install(opts = {}) {
       if (keys.length) next.claudeKeys = keys;
       if (model) next.claudeModel = model;
       if (subagentModel) next.claudeSubagentModel = subagentModel;
+      if (tools.includes('claude') && setup.off['claude-settings']) next.claudeOff = setup.off['claude-settings'];
     }
   }
   const vsFile = join(vscodeUser, 'settings.json');
@@ -568,6 +594,13 @@ export function install(opts = {}) {
       if (entries.length) next.vscode = entries;
     }
   }
+  // the Copilot guard is a user-level hook (VS Code 1.148 reads ~/.copilot/hooks), so it also runs when a subfolder such as
+  // <project>/code is opened, where <work>/.github/hooks is not seen; the command names the loader by full path
+  const copilotHook = join(home, '.copilot', 'hooks', 'guard.json');
+  if (tools.includes('copilot') && setup.hooks.guard) {
+    writeUser(copilotHook, readText(join(repo, 'hooks/copilot/guard.json')).replaceAll('{{HOOK}}', () => posix(join(work, '.ai/hooks/copilot/hook.mjs'))));
+    next.copilotHook = true;
+  } else if (managed.copilotHook && textOf(copilotHook).includes('.ai/hooks/copilot/hook.mjs')) remove(copilotHook); // only while it is still ours
   const kiroFile = join(home, '.kiro', 'settings', 'permissions.yaml');
   if (existsSync(join(home, '.kiro')) && (tools.includes('kiro') || managed.kiroRules)) {
     const rules = tools.includes('kiro') ? kiroRules({ work, vault, home }) : [];

@@ -4,9 +4,8 @@
     "preToolUse": [
       {
         "type": "command",
-        "bash": "node .ai/hooks/copilot/hook.mjs",
-        "powershell": "node .ai/hooks/copilot/hook.mjs",
-        "cwd": ".",
+        "bash": "node \"{{HOOK}}\"",
+        "powershell": "node \"{{HOOK}}\"",
         "timeoutSec": 10
       }
     ]

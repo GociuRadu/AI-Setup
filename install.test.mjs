@@ -64,7 +64,8 @@ test('a first install writes every tool format, merges user settings and keeps w
     '  - capability: shell', '    effect: allow', '    match:', '      - "*"', '',
   ].join('\n'));
   put(join(m.work, '.mcp.json'), JSON.stringify({ mcpServers: { github: { type: 'http', url: 'https://x' }, playwright: { type: 'stdio', command: 'npx' }, mlflow: { type: 'stdio', command: 'mlflow' } } }));
-  put(join(m.work, '.vscode', 'mcp.json'), JSON.stringify({ servers: { github: { type: 'http', url: 'https://x' }, mine: { type: 'stdio', command: 'x' } } }));
+  put(join(m.work, '.vscode', 'mcp.json'), JSON.stringify({ servers: { github: { type: 'http', url: 'https://x' }, atlassian: { type: 'http', url: 'https://x' }, mine: { type: 'stdio', command: 'x' } } }));
+  put(join(m.home, '.kiro', 'settings', 'mcp.json'), JSON.stringify({ mcpServers: { atlassian: { url: 'https://x' }, playwright: { command: 'npx' }, mine: { command: 'x' } } }));
   put(join(m.work, '.claude', 'settings.local.json'), JSON.stringify({ permissions: { allow: ['Edit', 'Bash'], defaultMode: 'bypassPermissions' } }));
   put(join(m.work, 'AGENTS.md'), '# my own rules\n');
   put(join(m.work, '.ai-device.json'), JSON.stringify({ profile: 'home', tools: ['claude', 'kiro'], obsidian: { vault: m.vault }, mcpSynced: ['atlassian', 'github', 'playwright'] }));
@@ -123,7 +124,11 @@ test('a first install writes every tool format, merges user settings and keeps w
 
   // hooks: one guard, a loader per tool
   for (const f of ['.ai/hooks/guard.mjs', '.ai/hooks/claude/hook.mjs', '.ai/hooks/copilot/hook.mjs', '.ai/hooks/kiro/hook.mjs', '.ai/templates/common/docs/ai/context.md']) assert.ok(existsSync(join(m.work, f)), f);
-  assert.equal(readJson(m.work, '.github/hooks/guard.json').hooks.preToolUse[0].timeoutSec, 10);
+  // Copilot's guard is user-level, with the loader's full path, so it also runs in a subfolder
+  const copilotHook = readJson(m.home, '.copilot', 'hooks', 'guard.json').hooks.preToolUse[0];
+  assert.equal(copilotHook.timeoutSec, 10);
+  assert.equal(copilotHook.powershell, `node "${m.work.replace(/\\/g, '/')}/.ai/hooks/copilot/hook.mjs"`);
+  assert.ok(!existsSync(join(m.work, '.github/hooks/guard.json')));
   assert.equal(readJson(m.work, '.kiro/hooks/guard.json').hooks[0].trigger, 'PreToolUse');
 
   // ~/.claude/settings.json: auto mode, the hook, built-ins off; the user's keys and indent stay
@@ -160,6 +165,7 @@ test('a first install writes every tool format, merges user settings and keeps w
   assert.deepEqual(mcp.atlassian.tools, ['*']);
   assert.ok(!('type' in readJson(m.work, '.kiro/settings/mcp.json').mcpServers.atlassian));
   assert.deepEqual(Object.keys(readJson(m.work, '.vscode/mcp.json').servers), ['mine']);
+  assert.deepEqual(Object.keys(readJson(m.home, '.kiro', 'settings', 'mcp.json').mcpServers), ['mine']);
 
   // the old setup's leftovers that would undo auto mode or double-fire hooks
   assert.ok(!existsSync(join(m.work, '.claude', 'settings.local.json')));
@@ -243,6 +249,48 @@ test('false in setup.json removes only that component; a tool turned off loses i
   m.run();
   assert.ok(!existsSync(join(m.work, '.kiro', 'skills')) && !existsSync(join(m.work, '.kiro', 'hooks', 'guard.json')));
   assert.doesNotMatch(read(m.home, '.kiro', 'settings', 'permissions.yaml'), /mdenc/);
+});
+
+test('a tool turned off in .ai-device.json is removed on that device only, and stays off on later runs', () => {
+  const m = machine();
+  m.run();
+  const f = join(m.work, '.ai-device.json');
+  writeFileSync(f, JSON.stringify({ ...readJson(f), tools: { copilot: false } }));
+  m.run();
+  assert.ok(!existsSync(join(m.work, '.github', 'skills')) && !existsSync(join(m.home, '.copilot', 'hooks', 'guard.json')));
+  assert.ok(existsSync(join(m.work, '.claude', 'skills', 'pplan', 'SKILL.md')) && existsSync(join(m.work, '.kiro', 'skills', 'pplan', 'SKILL.md')));
+  // Copilot's tools field would make Claude Code skip the server, so it goes from the entry that was already there
+  assert.ok(!('tools' in readJson(m.work, '.mcp.json').mcpServers.atlassian));
+  assert.equal(m.run().changes.length, 0);
+});
+
+test('turning the guard off removes the Copilot hook file only while it is still ours', () => {
+  const m = machine();
+  m.run();
+  const f = join(m.home, '.copilot', 'hooks', 'guard.json');
+  writeFileSync(f, '{"version":1,"hooks":{}}');
+  m.setSetup((s) => { s.hooks.guard = false; });
+  m.run();
+  assert.equal(read(f), '{"version":1,"hooks":{}}');
+});
+
+test('Claude built-ins listed in off are turned off, the user\'s own keys stay, and a built-in taken off the list comes back', () => {
+  const m = machine();
+  put(join(m.home, '.claude', 'settings.json'), JSON.stringify({ env: { MINE: '1' }, skillOverrides: { pdf: 'name-only' } }));
+  m.run();
+  let s = readJson(m.home, '.claude', 'settings.json');
+  assert.equal(s.skillOverrides.simplify, 'off');
+  assert.equal(s.skillOverrides.pdf, 'name-only');
+  assert.equal(s.disableClaudeAiConnectors, true);
+  assert.equal(s.env.MINE, '1');
+  assert.ok(s.permissions.deny.includes('Agent(Plan)'));
+
+  m.setSetup((x) => { delete x.off['claude-settings'].skillOverrides.simplify; delete x.off['claude-settings'].disableClaudeAiConnectors; x.off['claude-agents'] = []; });
+  m.run();
+  s = readJson(m.home, '.claude', 'settings.json');
+  assert.ok(!('simplify' in s.skillOverrides) && s.skillOverrides.loop === 'off' && s.skillOverrides.pdf === 'name-only');
+  assert.ok(!('disableClaudeAiConnectors' in s) && !s.permissions.deny.includes('Agent(Plan)'));
+  assert.equal(m.run().changes.length, 0);
 });
 
 test('a list of tools in setup.json installs a skill, an agent or an MCP server only for those tools', () => {

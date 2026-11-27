@@ -81,7 +81,7 @@ Each helper's model tier and effort are in [setup.json](setup.json).
 | SQL, Python rules | `rules/sql.md`, `python.md` | `.claude/rules/` | `.github/instructions/` | `.kiro/steering/` |
 | Skills | `skills/<name>/` | `.claude/skills/` | `.github/skills/` | `.kiro/skills/` |
 | Helpers | `agents/<name>.md` | `.claude/agents/` | `.github/agents/` | `.kiro/agents/` |
-| Guard | `hooks/` | `~/.claude/settings.json` | `.github/hooks/guard.json` | `.kiro/hooks/guard.json` |
+| Guard | `hooks/` | `~/.claude/settings.json` | `~/.copilot/hooks/guard.json` | `.kiro/hooks/guard.json` |
 | MCP | `mcp/atlassian.json` | `.mcp.json` | `.mcp.json` | `.kiro/settings/mcp.json` |
 
 All paths except `~/` are inside the work folder; the guard and the project templates are copied to `work/.ai/`, and `work/.ignore` keeps `AI-Setup/` and `.playwright-cli/` out of file searches. Outside it, the install changes only its own keys in 3 files the tools require:
@@ -105,7 +105,8 @@ Everything is in [setup.json](setup.json). After a change, rerun `node install.m
 `false` removes a part, `true` installs it for all 3 tools, and a list such as `["kiro"]` installs it only there; this works for skills, helpers (`on`) and MCP servers. Claude Code and Copilot share `.mcp.json`, so an MCP server on for one is seen by both; a server of ours that is off for a file is removed from it on every run, even if you add it there by hand.
 
 - **Models:** each helper names a tier; `models` maps the tier to a model ID per tool. A per-device model for one helper: see the `$comment` in `setup.json`.
-- **Built-ins turned off** (`off`), because this setup replaces them: Claude auto memory, Claude's Concise output style, Copilot local memory, Copilot reading `.claude/` files, and the retired GitHub and Playwright MCP servers. Kiro's memory is off by default; Copilot's cloud memory is a GitHub account setting. Review the list after vendor updates.
+- **One device without a tool:** add `"tools": { "copilot": false }` to `work/.ai-device.json`; the next run removes that tool's files there only.
+- **Built-ins turned off** (`off`), because this setup replaces them: Claude auto memory, Claude's Concise output style, Claude's built-in agents and skills that duplicate ours (`claude-agents`, `claude-settings`: Explore, Plan, simplify, code-review…), claude.ai connectors and synced plugins, Copilot local memory, Copilot reading `.claude/` files, and the retired GitHub and Playwright MCP servers. Kiro's memory is off by default; Copilot's cloud memory is a GitHub account setting. Review the list after vendor updates.
 
 ## Safety
 

@@ -5,11 +5,11 @@
 //   and tools that only write databases;
 // - hard stops: force-push, deleting Docker volumes, production compose files, release scripts, SSH, Hostinger execute,
 //   Atlassian executeDestructive;
-// - secret files (.env, local.env, ...) and the workspace's personal/ folder, by shell or file tools;
+// - secret files (.env, local.env, ...) and the workspace's personal/ folder, by shell (redirects included) or file tools;
 // - encrypted .mdenc notes, by name, anywhere.
 // Ask (one list on every device): git push, Git that discards uncommitted work, deletes outside the workspace (the vault
 // included) or of a whole project, the vault's Personal folder, publishing, data loaders, cloud CLIs, gh merges, deletes
-// and releases, HTTP calls that send data to a host other than localhost, and deleting MCP tools.
+// and releases, HTTP calls that send data to a host other than localhost, and MCP tools that delete, trash or send.
 // shortcut: matches command text and path arguments only (strings in inline -c/-e code included); code that opens its own
 // connection or builds a command at run time (pytest, a loader, a script file) is not seen; upgrade if an agent does that.
 // Speed: every check is a regex on the call; the file system is touched only for paths a regex already picked out.
@@ -44,10 +44,12 @@ const HARD_STOPS = [
 // the workspace root (this file is <workspace>/.ai/hooks/guard.mjs), so personal/ is found from any working folder
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // .env, .env.local, local.env, prod.env, .test.env; examples and templates are fine
-const SECRET = /(^|[\\/\s"'=])(\.?[\w-]*\.env(\.[\w-]+)*)(?=$|[\s"';|&)])/i;
+const SECRET = /(^|[\\/\s"'=:])(\.?[\w-]*\.env(\.[\w-]+)*)(?=$|[\s"';|&)])/i;
 const EXAMPLE = /\.(example|sample|template|dist)\b/i;
-// commands that read, copy, pack, load or stage a file they name (`. ./.env` and `source .env` load it into the shell)
-const READER = /^\s*(?:(cat|type|gc|Get-Content|Select-String|sls|grep|egrep|rg|findstr|less|more|head|tail|awk|sed|cp|copy|Copy-Item|mv|move|Move-Item|notepad|code|strings|xxd|Format-Hex|base64|source|tar|zip|7z|Compress-Archive|scp)\b|\.(?=\s)|git\s+add\b)/i;
+// commands that read, write, copy, pack, load or stage a file they name (`. ./.env` and `source .env` load it into the shell)
+const READER = /^\s*(?:(cat|type|gc|Get-Content|Select-String|sls|grep|egrep|rg|findstr|less|more|head|tail|awk|sed|cp|copy|Copy-Item|mv|move|Move-Item|notepad|code|strings|xxd|Format-Hex|base64|source|tar|zip|7z|Compress-Archive|scp|tee|Set-Content|Add-Content|Out-File|dd)\b|\.(?=\s)|git\s+add\b)/i;
+// the file a redirect writes (>, >>, >|, >&, 2>); quoted text is matched first and skipped, so a commit message may name one
+const REDIRECT = /"[^"]*"|'[^']*'|\d?>[>|&]?\s*("[^"]*"|'[^']*'|[^\s;|&<>]+)/g;
 
 const SECRETS = new RegExp(SECRET.source, 'gi');
 const isSecret = (text) => [...String(text).matchAll(SECRETS)].some((m) => !EXAMPLE.test(m[2]));
@@ -163,6 +165,8 @@ export function check(command, cwd = process.cwd(), root = ROOT) {
     // a program that only receives an env file (docker compose --env-file local.env) is fine; reading it is not
     // a glob counts when it can match a secret file name (cat *.env, .env.*, .en*)
     if (part.split('|').some((s) => { const u = bareCmd(s); return READER.test(u) && (isSecret(u) || tokens(u).some((t) => /[*?[]/.test(t) && globMatchesSecret(t))); })) return 'secret files (.env and similar) are never opened by the agent';
+    // also after a wrapper, whose quotes would hide the redirect: bash -c "echo x > .env"
+    if ([part, part.replace(WRAPPERS, '')].some((p) => [...p.matchAll(REDIRECT)].some((m) => m[1] && isSecret(m[1])))) return 'secret files (.env and similar) are never opened by the agent';
     if (tokens(part).some((t) => /personal/i.test(t) && isPersonal(t.replace(/^[\w-]+[=:](?![\\/])/, ''), cwd, root))) return 'the personal/ folder is private';
     // a stage that only prints or commits text (echo, git commit -m) may name an .mdenc note; reading one may not
     if (part.split('|').some((s) => { const u = bareCmd(s); return (READER.test(u) || !SEARCH.test(u)) && isMdenc(u); })) return MDENC;
@@ -396,7 +400,9 @@ function shellAsk(command, cwd, root) {
 
 // MCP tools that delete; other writes (Confluence, Jira) run: the skills show a draft first and page history undoes them.
 // Case-sensitive so camelCase boundaries ([a-z] -> [A-Z]) work: deletePage, delete_run
-const DESTRUCTIVE_MCP = /(?:^|_|-|[a-z])(delete|Delete|remove|Remove|drop|Drop|destroy|Destroy|purge|Purge)(?:$|_|-|[A-Z])/;
+const DESTRUCTIVE_MCP = /(?:^|_|-|[a-z])(delete|Delete|remove|Remove|drop|Drop|destroy|Destroy|purge|Purge|trash|Trash)(?:$|_|-|[A-Z])/;
+// MCP tools that send mail or messages to other people (Gmail send and forward, chat messages); drafts and labels run
+const SEND_MCP = /(?:^|_|-|[a-z])(send|Send|forward|Forward)(?:$|_|-|[A-Z])/;
 // file tools that delete what they name
 const DELETE_TOOL = /(^|_)(delete|delete_file|deleteFile|remove_file|fs_delete)$/i;
 
@@ -418,6 +424,7 @@ export function checkAsk(command, args = {}, cwd = process.cwd(), root = ROOT, t
   if (v === 'personal') return PERSONAL;
   if (v === 'whole') return WHOLE;
   if (/^mcp_/i.test(name) && DESTRUCTIVE_MCP.test(name)) return 'a deleting MCP tool requires approval';
+  if (/^mcp_/i.test(name) && SEND_MCP.test(name)) return 'an MCP tool that sends mail or messages requires approval';
   // Hostinger hosts production: anything but a read asks
   if (/^mcp_.*hostinger/i.test(name) && !/(get|list|show|search|describe|check)/i.test(name)) return 'a Hostinger change reaches production and requires approval';
   return null;

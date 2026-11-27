@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Looks at what exists, in one of 4 modes: review (review this, code review, PR, audit a folder, security check, find bloat), bug (wrong number or result, exception, failing test or load, duplicates, NULL keys, a bug report), analyze (explain, analyze or document a file, flow, folder or technical question) or debt (list the shortcuts). Answers in chat first; writes a short HTML report when asked."
+description: "Looks at existing code in 4 modes: review (code review, PR, audit, security, bloat), bug (wrong result, duplicates, exception, failing test or load, bug report), analyze (explain or document code, a flow or folder), debt (list shortcuts). Chat first; HTML report when asked."
 argument-hint: "[review | bug | analyze | debt] <files, folder, symptom or question>"
 ---
 # Review
