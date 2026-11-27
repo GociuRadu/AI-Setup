@@ -193,6 +193,17 @@ test('a first install writes every tool format, merges user settings and keeps w
   assert.deepEqual(m.run({ work: lower(m.work), home: lower(m.home), vault: lower(m.vault), repo: lower(m.repo) }).changes, []);
 });
 
+test('Claude settings that Claude Code saved with its own key order are no change', () => {
+  const m = machine();
+  m.run();
+  const file = join(m.home, '.claude', 'settings.json');
+  const s = readJson(file);
+  const hook = s.hooks.PreToolUse[0].hooks[0];
+  s.hooks.PreToolUse[0].hooks[0] = Object.fromEntries(Object.entries(hook).reverse());
+  put(file, JSON.stringify(Object.fromEntries(Object.entries(s).reverse())));
+  assert.deepEqual(m.run().changes, []);
+});
+
 test('the main model is set when none is, and a later /model choice is kept', () => {
   const m = machine();
   const file = join(m.home, '.claude', 'settings.json');

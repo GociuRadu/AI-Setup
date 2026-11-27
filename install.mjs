@@ -176,6 +176,9 @@ export function workFiles({ repo, setup, tools, work, vault }) {
 }
 
 const same = (a, b) => Buffer.from(a).equals(Buffer.from(b));
+// the same JSON value whatever the order of object keys (array order counts)
+const sorted = (v) => Array.isArray(v) ? v.map(sorted) : isObj(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;
+const sameJson = (a, b) => JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
 
 // ---- user-level and shared files: only managed keys change ----
 
@@ -597,7 +600,8 @@ export function install(opts = {}) {
     if (cur === null) warnings.push(`${claudeFile} is not plain JSON: set permissions.defaultMode "auto", autoMemoryEnabled false and the guard hook by hand`);
     else {
       const { settings, deny, keys, model, subagentModel } = mergeClaudeSettings(cur, { setup, work, enabled: tools.includes('claude'), managed, repo });
-      writeUser(claudeFile, json(settings, textOf(claudeFile)));
+      // Claude Code rewrites the file with its own key order: the same settings in another order are no change
+      if (!sameJson(cur, settings)) writeUser(claudeFile, json(settings, textOf(claudeFile)));
       if (deny.length) next.claudeDeny = deny;
       if (keys.length) next.claudeKeys = keys;
       if (model) next.claudeModel = model;
